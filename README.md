@@ -66,7 +66,7 @@ npm start
 ```
 
 5. **Visit the Local Server**: Open your browser and navigate to the local server URL.
-   ![alt text](image.png)
+   ![alt text](sc2.png)
 
 ---
 
