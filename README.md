@@ -107,7 +107,7 @@ Your feedback is valuable and helps make this project better for everyone. Thank
 
 - 💼 Portfolio Website: [Your Portfolio URL]
 - 📧 Email: [shrunali.salian@gmail.com](mailto:shrunali.salian@gmail.com)
-- 🔗 [LinkedIn]([https://www.linkedin.com/in/shrunali-salian/](https://www.linkedin.com/in/shrunali-salian/))
+- 🔗 [LinkedIn][https://www.linkedin.com/in/shrunali-salian/](https://www.linkedin.com/in/shrunali-salian/)
 
 ---
 
