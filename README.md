@@ -106,8 +106,8 @@ Your feedback is valuable and helps make this project better for everyone. Thank
 ## 📧 Contact Me
 
 - 💼 Portfolio Website: [Your Portfolio URL]
-- 📧 Email: [your.email@example.com](mailto:your.email@example.com)
-- 🔗 [LinkedIn](https://linkedin.com/in/your-profile)
+- 📧 Email: [shrunali.salian@gmail.com](mailto:shrunali.salian@gmail.com)
+- 🔗 [LinkedIn]([https://linkedin.com/in/your-profile](https://www.linkedin.com/in/shrunali-salian/))
 
 ---
 
