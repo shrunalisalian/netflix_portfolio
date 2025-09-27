@@ -98,7 +98,7 @@ Your feedback is valuable and helps make this project better for everyone. Thank
 ## 🌟 Acknowledgments
 
 - Thanks to [DatoCMS](https://www.datocms.com) for powering the dynamic content.
-- Inspired by countless developers in the open-source community. 💻
+- Inspired by countless developers in the open-source community and Sumanth Samala. 💻
 - Special shoutout to all contributors—you rock! 🤘
 
 ---
