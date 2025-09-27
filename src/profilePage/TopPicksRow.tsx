@@ -17,12 +17,10 @@ const topPicksConfig = {
     { title: "Publications", imgSrc: "https://picsum.photos/seed/publications/250/200", icon: <FaBookOpen />, route: "/publications" }
   ],
   developer: [
-    { title: "Skills", imgSrc: "https://picsum.photos/seed/coding/250/200", route: "/skills", icon: <FaCode /> },
-    { title: "Projects", imgSrc: "https://picsum.photos/seed/development/250/200", route: "/projects", icon: <FaProjectDiagram /> },
-    { title: "Publications", imgSrc: "https://picsum.photos/seed/research/250/200", route: "/publications", icon: <FaBookOpen /> },
     { title: "Experience", imgSrc: "https://picsum.photos/seed/work/250/200", route: "/work-experience", icon: <FaBriefcase /> },
-    { title: "Recommendations", imgSrc: "https://picsum.photos/seed/networking/250/200", route: "/recommendations", icon: <FaHandsHelping /> },
-    { title: "Contact Me", imgSrc: "https://picsum.photos/seed/connect/250/200", route: "/contact-me", icon: <FaEnvelope /> }
+    { title: "Projects", imgSrc: "https://picsum.photos/seed/development/250/200", route: "/projects", icon: <FaProjectDiagram /> },
+    { title: "Skills", imgSrc: "https://picsum.photos/seed/coding/250/200", route: "/skills", icon: <FaCode /> },
+    { title: "Publications", imgSrc: "https://picsum.photos/seed/research/250/200", route: "/publications", icon: <FaBookOpen /> }
   ],
   stalker: [
     { title: "Recommendations", imgSrc: "https://picsum.photos/seed/networking/250/200", route: "/recommendations", icon: <FaHandsHelping /> },
