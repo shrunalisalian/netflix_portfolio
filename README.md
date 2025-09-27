@@ -4,7 +4,7 @@ Welcome to my personal portfolio project! 🚀 This website showcases my work, s
 
 This portfolio is inspired by Netflix's UI/UX design and provides an interactive way to explore different aspects of my professional journey.
 
-![Screenshot from 2024-12-08 19-19-06](https://github.com/user-attachments/assets/f8220485-16ec-48cf-8cb2-7853540c5724)
+![main page](sc1.png)
 
 ---
 
