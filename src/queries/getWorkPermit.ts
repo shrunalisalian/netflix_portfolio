@@ -1,6 +1,7 @@
 // queries/getWorkPermit.ts
 import datoCMSClient from './datoCMSClient';
 import { WorkPermit } from '../types';
+import { staticWorkPermit } from '../data/staticData';
 
 const GET_WORK_PERMIT = `
   query {
@@ -14,6 +15,11 @@ const GET_WORK_PERMIT = `
 `;
 
 export async function getWorkPermit(): Promise<WorkPermit> {
-  const data = await datoCMSClient.request<{ workPermit: WorkPermit }>(GET_WORK_PERMIT);
-  return data.workPermit;
+  try {
+    const data = await datoCMSClient.request<{ workPermit: WorkPermit }>(GET_WORK_PERMIT);
+    return data.workPermit;
+  } catch (error) {
+    console.warn('DatoCMS not available, using static data:', error);
+    return staticWorkPermit;
+  }
 }

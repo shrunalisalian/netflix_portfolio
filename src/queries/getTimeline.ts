@@ -1,11 +1,12 @@
 // queries/getTimeline.ts
 import datoCMSClient from './datoCMSClient';
 import { TimelineItem } from '../types';
+import { staticTimeline } from '../data/staticData';
 
 const GET_TIMELINE = `
 {
   allTimelines {
-   	name
+    	name
     timelineType
     title
     techStack
@@ -16,6 +17,11 @@ const GET_TIMELINE = `
 `;
 
 export async function getTimeline(): Promise<TimelineItem[]> {
-  const data = await datoCMSClient.request<{ allTimelines: TimelineItem[] }>(GET_TIMELINE);
-  return data.allTimelines;
+  try {
+    const data = await datoCMSClient.request<{ allTimelines: TimelineItem[] }>(GET_TIMELINE);
+    return data.allTimelines;
+  } catch (error) {
+    console.warn('DatoCMS not available, using static data:', error);
+    return staticTimeline;
+  }
 }

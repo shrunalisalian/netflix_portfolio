@@ -8,6 +8,7 @@ export const getDatoCmsToken = (): string => {
     case 'sumanthsamala.com':
     case 'ror.localhost':
     case 'localhost':
+    case '127.0.0.1':
       return process.env.REACT_APP_DATOCMS_ROR_TOKEN ?? '';
 
     case 'java.sumanthsamala.com':
@@ -23,6 +24,8 @@ export const getDatoCmsToken = (): string => {
       return process.env.REACT_APP_DATOCMS_NODE_TOKEN ?? '';
 
     default:
-      throw new Error(`No DatoCMS token configured for hostname: ${hostname}`);
+      // For local development, return a default token or empty string
+      console.warn(`No DatoCMS token configured for hostname: ${hostname}. Using default.`);
+      return process.env.REACT_APP_DATOCMS_ROR_TOKEN ?? '';
   }
 };

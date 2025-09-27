@@ -1,6 +1,6 @@
-/* Certifications.css */
+/* Publications.css */
 
-.certifications-container {
+.publications-container {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -13,7 +13,7 @@
   animation: backgroundShift 10s ease-in-out infinite;
 }
 
-.certifications-title {
+.publications-title {
   font-size: 2.5rem;
   color: #e50914; /* Netflix red */
   font-weight: bold;
@@ -24,16 +24,16 @@
   text-transform: uppercase;
 }
 
-.certifications-grid {
+.publications-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
   gap: 1.5rem;
   width: 100%;
-  max-width: 1000px;
+  max-width: 1200px;
   justify-items: center;
 }
 
-.certification-card {
+.publication-card {
   background: rgba(255, 255, 255, 0.1);
   border-radius: 10px;
   padding: 1.5rem;
@@ -42,43 +42,68 @@
   color: inherit;
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
   transition: transform 0.3s ease, box-shadow 0.3s ease;
   cursor: pointer;
   opacity: 0;
   transform: translateY(50px) rotate(-2deg) scale(0.95); /* Subtle rotation and scale */
   animation: cardFadeIn 0.6s forwards ease-in-out;
   animation-delay: var(--delay); /* Staggered animation for grid layout */
+  min-height: 200px;
 }
 
-.certification-card:hover {
+.publication-card:hover {
   transform: scale(1.08) rotate(0deg); /* Zoom and straight hover */
   box-shadow: 0 10px 25px rgba(229, 9, 20, 0.4); /* Netflix red shadow */
 }
 
-.certification-content {
+.publication-content {
   text-align: left;
   display: flex;
   flex-direction: column;
+  flex: 1;
 }
 
-.certification-icon {
+.publication-icon {
   font-size: 2rem;
   color: #4a90e2;
   margin-bottom: 0.5rem;
 }
 
-.certification-link {
+.publication-content h3 {
+  font-size: 1.1rem;
+  margin-bottom: 0.5rem;
+  line-height: 1.3;
+  color: #fff;
+}
+
+.authors {
+  font-size: 0.9rem;
+  color: #ccc;
+  margin-bottom: 0.5rem;
+  font-style: italic;
+}
+
+.description {
+  font-size: 0.85rem;
+  color: #aaa;
+  margin-bottom: 0.5rem;
+  line-height: 1.4;
+}
+
+.publication-link {
   font-size: 1.5rem;
   color: #e50914; /* Netflix red */
   transition: transform 0.2s ease;
+  margin-left: 1rem;
+  flex-shrink: 0;
 }
 
-.certification-card:hover .certification-link {
+.publication-card:hover .publication-link {
   transform: scale(1.2);
 }
 
-.issued-date {
+.published-date {
   font-size: 0.85rem;
   color: #888;
   margin-top: 0.5rem;

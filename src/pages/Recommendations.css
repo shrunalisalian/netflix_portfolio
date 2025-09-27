@@ -35,6 +35,21 @@
   border: 2px solid #e50914; /* Netflix red border */
 }
 
+.profile-pic-placeholder {
+  width: 70px;
+  height: 70px;
+  border-radius: 50%;
+  margin-right: 15px;
+  border: 2px solid #e50914; /* Netflix red border */
+  background: linear-gradient(135deg, #e50914, #ff6b6b);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  font-size: 1.2rem;
+  color: white;
+}
+
 .recommendation-header h3 {
   font-size: 1.5rem;
   color: #e50914; /* Netflix red for name */

@@ -1,6 +1,7 @@
 // queries/getContactMe.ts
 import datoCMSClient from './datoCMSClient';
 import { ContactMe } from '../types';
+import { staticContactMe } from '../data/staticData';
 
 const GET_CONTACT_ME = `
   query {
@@ -20,6 +21,11 @@ const GET_CONTACT_ME = `
 `;
 
 export async function getContactMe(): Promise<ContactMe> {
-  const data = await datoCMSClient.request<{ contactMe: ContactMe }>(GET_CONTACT_ME);
-  return data.contactMe;
+  try {
+    const data = await datoCMSClient.request<{ contactMe: ContactMe }>(GET_CONTACT_ME);
+    return data.contactMe;
+  } catch (error) {
+    console.warn('DatoCMS not available, using static data:', error);
+    return staticContactMe;
+  }
 }

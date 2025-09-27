@@ -1,0 +1,10 @@
+.netflix-heading {
+    font-size: 4rem;
+    font-weight: 900;
+    color: #e50914; /* Netflix red */
+    text-align: center;
+    text-transform: uppercase;
+    letter-spacing: 3px;
+    margin-bottom: 2rem;
+  }
+  

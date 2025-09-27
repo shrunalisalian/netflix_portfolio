@@ -7,6 +7,7 @@
   overflow: hidden;
 }
 
+/*
 .netflix-logo {
   width: 500px;
   height: auto;
@@ -21,6 +22,29 @@
     transform: scale(1);
   }
 }
+*/
+
+.netflix-logo {
+  font-size: 5rem;
+  font-weight: 900;
+  color: #e50914; /* Netflix red */
+  letter-spacing: 3px;
+  text-align: center;
+  text-transform: uppercase;
+  animation: fadeInZoom 2s ease-in-out;
+}
+
+@keyframes fadeInZoom {
+  from {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
 
 .animate.netflix-logo {
   animation: zoomOut 3s forwards ease-in-out;

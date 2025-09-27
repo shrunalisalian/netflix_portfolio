@@ -1,6 +1,7 @@
 // queries/getProjects.ts
 import datoCMSClient from './datoCMSClient';
 import { Project } from '../types';
+import { staticProjects } from '../data/staticData';
 
 const GET_PROJECTS = `
   query {
@@ -16,6 +17,11 @@ const GET_PROJECTS = `
 `;
 
 export async function getProjects(): Promise<Project[]> {
-  const data = await datoCMSClient.request<{ allProjects: Project[] }>(GET_PROJECTS);
-  return data.allProjects;
+  try {
+    const data = await datoCMSClient.request<{ allProjects: Project[] }>(GET_PROJECTS);
+    return data.allProjects;
+  } catch (error) {
+    console.warn('DatoCMS not available, using static data:', error);
+    return staticProjects;
+  }
 }

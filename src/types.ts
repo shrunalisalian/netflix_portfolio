@@ -41,6 +41,15 @@ export interface Certification {
   iconName: string;
 }
 
+export interface Publication {
+  title: string;
+  authors: string;
+  publishedDate: string;
+  link: string;
+  iconName: string;
+  description?: string;
+}
+
 export interface ContactMe {
   profilePicture: { url: string };
   name: string;
