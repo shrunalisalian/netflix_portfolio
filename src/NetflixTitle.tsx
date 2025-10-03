@@ -6,6 +6,7 @@ import logoImage from '../src/images/title.png'; // Update with the path to your
 
 const NetflixTitle = () => {
   const [isClicked, setIsClicked] = useState(false);
+  const [showHint, setShowHint] = useState(false);
   const navigate = useNavigate();
 
   const handlePlaySound = () => {
@@ -23,6 +24,14 @@ const NetflixTitle = () => {
     }
   }, [isClicked, navigate]);
 
+  useEffect(() => {
+    // Show hint after 1.5 seconds
+    const timer = setTimeout(() => {
+      setShowHint(true);
+    }, 1500);
+    return () => clearTimeout(timer);
+  }, []);
+
   return (
     <div className="netflix-container" onClick={handlePlaySound}>
       {/*
@@ -31,9 +40,14 @@ const NetflixTitle = () => {
         alt="Shrunali Salian Logo" 
         className={`netflix-logo ${isClicked ? 'animate' : ''}`} 
       /> */}
-      <h1 className={`netflix-logo ${isClicked ? 'animate' : ''}`}>
-      SHRUNALI SALIAN
-      </h1>
+      <div className="name-container">
+        <h1 className={`netflix-logo ${isClicked ? 'animate' : ''}`}>
+        SHRUNALI SALIAN
+        </h1>
+        {showHint && !isClicked && (
+          <p className="simple-hint">click on the name</p>
+        )}
+      </div>
     </div>
   );
 };
