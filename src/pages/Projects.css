@@ -44,17 +44,54 @@
   padding: 20px;
 }
 
+.project-title-container {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .project-details h3 {
   font-size: 1.2rem;
-  color: #e74e56;
-  margin-bottom: 10px;
   color: #e50914;
+  margin: 0;
+}
+
+.coming-soon-badge {
+  background: linear-gradient(135deg, #ff6b35, #f7931e);
+  color: white;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 0.7rem;
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  box-shadow: 0 2px 4px rgba(255, 107, 53, 0.3);
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0% {
+    box-shadow: 0 2px 4px rgba(255, 107, 53, 0.3);
+  }
+  50% {
+    box-shadow: 0 2px 8px rgba(255, 107, 53, 0.6);
+  }
+  100% {
+    box-shadow: 0 2px 4px rgba(255, 107, 53, 0.3);
+  }
 }
 
 .project-details p {
   font-size: 0.8rem;
   margin-bottom: 15px;
-  line-height: 1.2rem;
+  line-height: 1.4rem;
+  color: #ffffff;
+  background: rgba(0, 0, 0, 0.4);
+  padding: 10px;
+  border-radius: 6px;
 }
 
 .tech-used {
@@ -86,4 +123,69 @@
 .tech-badge svg {
   margin-right: 5px;
   font-size: 1.2rem;
+}
+
+.project-links {
+  display: flex;
+  gap: 12px;
+  margin-top: 15px;
+  flex-wrap: wrap;
+}
+
+.github-link {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 10px;
+  border-radius: 12px;
+  background: #2c2c2c;
+  color: #fff;
+  font-size: 0.8rem;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  box-shadow: 0px 2px 5px rgba(0, 0, 0, 0.3);
+  text-decoration: none;
+}
+
+.github-link:hover {
+  transform: scale(1.1);
+  background-color: #e50914;
+  color: #fff;
+  box-shadow: 0 4px 10px rgba(229, 9, 20, 0.6); /* Netflix shadow */
+}
+
+.github-link.disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  background: #1a1a1a;
+  color: #666;
+}
+
+.github-link.disabled:hover {
+  transform: none;
+  background-color: #1a1a1a;
+  box-shadow: 0px 2px 5px rgba(0, 0, 0, 0.3);
+}
+
+.github-icon {
+  margin-right: 5px;
+  font-size: 1.2rem;
+}
+
+.live-link {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 10px;
+  border-radius: 12px;
+  background: #2c2c2c;
+  color: #fff;
+  font-size: 0.8rem;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  box-shadow: 0px 2px 5px rgba(0, 0, 0, 0.3);
+  text-decoration: none;
+}
+
+.live-link:hover {
+  transform: scale(1.1);
+  background-color: #0066cc;
+  color: #fff;
+  box-shadow: 0 4px 10px rgba(0, 102, 204, 0.6);
 }

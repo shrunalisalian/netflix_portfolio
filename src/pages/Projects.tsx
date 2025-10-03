@@ -85,7 +85,12 @@ const Projects: React.FC = () => {
           >
             <img src={project.image.url} alt={project.title} className="project-image" />
             <div className="project-details">
-              <h3>{project.title}</h3>
+              <div className="project-title-container">
+                <h3>{project.title}</h3>
+                {project.status === 'coming-soon' && (
+                  <span className="coming-soon-badge">Coming Soon</span>
+                )}
+              </div>
               <p>{project.description}</p>
               <div className="tech-used">
                 {project.techUsed.split(', ').map((tech, i) => (
@@ -93,6 +98,29 @@ const Projects: React.FC = () => {
                     {techIcons[tech] || "🔧"} {tech}
                   </span>
                 ))}
+              </div>
+              <div className="project-links">
+                {project.githubLink && (
+                  <a 
+                    href={project.status === 'coming-soon' ? undefined : project.githubLink} 
+                    target="_blank" 
+                    rel="noopener noreferrer" 
+                    className={`github-link ${project.status === 'coming-soon' ? 'disabled' : ''}`}
+                  >
+                    <FaGithub className="github-icon" />
+                    {project.status === 'coming-soon' ? 'Coming Soon' : 'View Code'}
+                  </a>
+                )}
+                {project.liveLink && (
+                  <a 
+                    href={project.liveLink} 
+                    target="_blank" 
+                    rel="noopener noreferrer" 
+                    className="live-link"
+                  >
+                    🌐 Live Demo
+                  </a>
+                )}
               </div>
             </div>
           </div>

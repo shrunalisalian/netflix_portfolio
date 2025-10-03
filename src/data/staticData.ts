@@ -10,15 +10,7 @@ export const staticProfileBanner: ProfileBanner = {
     headline: 'Shrunali Salian – Software Engineer AI/ML ',
     resumeLink: { url: '/Shrunali_Salian_SDE.pdf' },
     linkedinLink: 'https://www.linkedin.com/in/shrunali-salian/',
-    profileSummary: `I am a software engineer specializing in AI/ML systems, with a passion for building intelligent technology that bridges accessibility and real-world impact. 
-  
-  At Tatum Robotics, I designed and deployed American Sign Language recognition models to empower the DeafBlind community, improving prediction accuracy by 40%. I’ve optimized real-time inference pipelines at Auxi.ai, accelerated GPU-based motion analysis at Northeastern University’s Augmented Cognition Lab, and built scalable pipelines and dashboards at Media.net.
-  
-  My core strengths lie in designing deep learning pipelines, multimodal AI systems, and production-ready ML infrastructure. I thrive at the intersection of research and engineering — turning complex models into reliable, deployable solutions. 
-  
-  Beyond professional work, I actively contribute to open source, from building a TF–IDF search engine with learning-to-rank to implementing a custom persistent key–value database (DBDB). These projects reflect my curiosity for systems design and end-to-end problem solving.
-  
-  I aspire to continue creating AI systems that are accurate, scalable, and accessible, whether in robotics, computer vision, or multimodal applications — ultimately making technology inclusive and impactful.`
+    profileSummary: `Software Engineer specializing in AI/ML systems, with expertise in deep learning pipelines, computer vision, and production ML infrastructure. Led American Sign Language recognition at Tatum Robotics (40% accuracy improvement), optimized multimodal AI systems at Auxi.ai, and accelerated motion analysis at Northeastern University. Passionate about building accessible, impactful technology that bridges research and real-world applications.`
   };
   
 
@@ -30,7 +22,7 @@ export const staticContactMe: ContactMe = {
   companyUniversity: 'Northeastern University',
   linkedinLink: 'https://linkedin.com/in/shrunali-salian',
   email: 'shrunali.salian@gmail.com',
-  phoneNumber: '+1 (617) 935-8232'
+  phoneNumber: '+1 (510) 738-4769'
 };
 
 export const staticTimeline: TimelineItem[] = [
@@ -40,8 +32,8 @@ export const staticTimeline: TimelineItem[] = [
     title: 'Software Engineer – Machine Learning',
     techStack: 'PyTorch, TensorFlow, SQL, Tableau, Python',
     summaryPoints: [
-      'Developed ASL recognition models with 40% accuracy improvement',
-      'Built QA/monitoring loops for production ML deployments',
+      'Developed ASL recognition models with 40% accuracy improvement. ',
+      'Built QA/monitoring loops for production ML deployments.  ',
       'Partnered cross-functionally to design KPIs, alerting, and data pipelines'
     ],
     dateRange: 'May 2024 – Aug 2025'
@@ -50,11 +42,11 @@ export const staticTimeline: TimelineItem[] = [
     timelineType: 'work',
     name: 'Auxi.ai',
     title: 'Software Engineer – AI/ML',
-    techStack: 'PyTorch Lightning, TensorFlow Serving, Hugging Face, Stable Diffusion',
+    techStack: 'PyTorch Lightning, TensorFlow Serving, Hugging Face, Stable Diffusion ',
     summaryPoints: [
-      'Optimized real-time inference latency-throughput trade-offs',
-      'Built NLP classifiers with Hugging Face and experiment tracking',
-      'Developed safe image manipulation workflows with Stable Diffusion'
+      'Optimized real-time inference latency-throughput trade-offs. ',
+      'Built image segmentation classifiers with Hugging Face and experiment tracking. ',
+      'Developed safe image manipulation workflows with Stable Diffusion. '
     ],
     dateRange: 'May 2023 – Sep 2023'
   },
@@ -64,9 +56,9 @@ export const staticTimeline: TimelineItem[] = [
     title: 'Research Project Assistant',
     techStack: 'Random Forest, XGBoost, CUDA, PyTorch',
     summaryPoints: [
-      'Engineered motion analysis models improving accuracy from 30% → 72%',
-      'Reduced runtime by 65% using CUDA optimization and PyTorch data loaders',
-      'Led A/B validation with SciPy and Statsmodels for experimental results'
+      'Engineered motion analysis models improving accuracy from 30% → 72%. ',
+      'Reduced runtime by 65% using CUDA optimization and PyTorch data loaders. ',
+      'Led A/B validation with SciPy and Statsmodels for experimental results. '
     ],
     dateRange: 'Aug 2023 – Dec 2023'
   },
@@ -76,9 +68,9 @@ export const staticTimeline: TimelineItem[] = [
     title: 'Data Analyst',
     techStack: 'SQL, Python, Tableau',
     summaryPoints: [
-      'Automated dashboards and pipelines to improve ad revenue tracking by 25%',
-      'Designed A/B tests and delivered engineering-ready insights',
-      'Partnered with engineering to optimize targeting strategies'
+      'Automated dashboards and pipelines to improve ad revenue tracking by 25%.  ',
+      'Designed A/B tests and delivered engineering-ready insights.  ',
+      'Partnered with engineering to optimize targeting strategies.  '
     ],
     dateRange: 'Jun 2019 – Jun 2020'
   },
@@ -88,8 +80,8 @@ export const staticTimeline: TimelineItem[] = [
     title: 'M.S. in Data Analytics Engineering',
     techStack: 'NLP, Computer Vision, Data Mining, Databases',
     summaryPoints: [
-      'Specialized in AI/ML systems, computer vision, and data science',
-      'Coursework in NLP, CV, ML, Database Management'
+      'Specialized in AI/ML systems, computer vision, and data science. ',
+      'Coursework in NLP, CV, ML, Database Management. '
     ],
     dateRange: '2022 – 2024'
   },
@@ -99,8 +91,8 @@ export const staticTimeline: TimelineItem[] = [
     title: 'B.E. in Computer Engineering',
     techStack: 'C++, Data Structures, Algorithms, Software Engineering',
     summaryPoints: [
-      'Graduated with strong foundation in algorithms and systems',
-      'Active in coding competitions and academic projects'
+      'Graduated with strong foundation in algorithms and systems. ',
+      'Active in coding competitions and academic projects. '
     ],
     dateRange: '2015 – 2019'
   }
@@ -111,73 +103,87 @@ export const staticProjects: Project[] = [
       title: 'ASL Fingerspelling Recognition – Tatum Robotics',
       description: 'Deep learning pipeline for American Sign Language recognition, improving accuracy by 40%. Deployed in assistive robotics for DeafBlind accessibility with monitoring loops for stable releases.',
       techUsed: 'PyTorch, TensorFlow, Python, SQL, Tableau',
-      image: { url: '/tatumrobotics_logo.jpeg' }
+      image: { url: '/tatumrobotics_logo.jpeg' },
+      githubLink: 'https://github.com/shrunalisalian/asl-recognition'
     },
     {
       title: 'Multimodal AI Systems – Auxi.ai',
       description: 'Optimized inference pipelines for multimodal AI, built NLP classifiers with Hugging Face, and implemented safe image manipulation workflows with Stable Diffusion.',
       techUsed: 'PyTorch Lightning, TensorFlow Serving, Hugging Face, Stable Diffusion',
-      image: { url: '/auxi.jpeg' }
+      image: { url: '/auxi.jpeg' },
+      githubLink: 'https://github.com/shrunalisalian/multimodal-ai-systems'
     },
     {
       title: 'Motion Analysis – NEU Lab',
       description: 'GPU-accelerated motion analysis system with XGBoost and Random Forests, boosting accuracy from 30% → 72% and cutting runtime by 65%.',
       techUsed: 'CUDA, PyTorch, XGBoost, Statsmodels',
-      image: { url: '/neu.png' }
+      image: { url: '/neu.png' },
+      githubLink: 'https://github.com/shrunalisalian/motion-analysis-neu'
     },
     {
       title: 'Spotify Data Visualization',
-      description: 'Analyzed Spotify music trends and user behavior. Created visualizations of track characteristics and genre preferences, generating insights into streaming consumption patterns.',
+      description: 'Analyzed Spotify music trends: user behavior and track characteristics, generating insights on streaming patterns.',
       techUsed: 'Python, SQL, Data Visualization, HTML',
-      image: { url: '/spotify.jpeg' }
+      image: { url: '/spotify.jpeg' },
+      githubLink: 'https://github.com/shrunalisalian/spotify-data-visualization'
     },
     {
       title: 'Instagram Anomaly Detection & Forecasting',
-      description: 'Forecasted Instagram engagement growth using anomaly detection and SQL-driven insights. Delivered real-world influencer analytics for social media strategy.',
+      description: 'Forecasted Instagram engagement growth using anomaly detection and SQL-driven insights for social media strategy.',
       techUsed: 'Python, Jupyter, SQL, Forecasting Models',
-      image: { url: '/insta.jpeg' }
+      image: { url: '/insta.jpeg' },
+      githubLink: 'https://github.com/shrunalisalian/Instagram-Anomaly-Detection-Growth-Forecasting'
     },
     {
       title: 'TikTok E-Commerce Influencer Insights',
-      description: 'Analyzed TikTok influencer engagement, audience impact, and e-commerce growth. Provided insights into social commerce metrics and platform trends.',
+      description: 'Analyzed influencer engagement, audience impact, and e-commerce growth driving social commerce metrics.',
       techUsed: 'Python, Pandas, Jupyter, SQL',
-      image: { url: '/tiktok.jpeg' }
+      image: { url: '/tiktok.jpeg' },
+      githubLink: 'https://github.com/shrunalisalian/TikTok-E-commerce-Influencer-Insights'
     },
     {
       title: 'Movie Recommendation System',
-      description: 'Implemented a recommendation engine to analyze streaming content trends and user preferences. Delivered insights into personalization strategies for media platforms.',
+      description: 'Implemented a recommendation engine analyzing streaming content trends and personalization strategies.',
       techUsed: 'Python, Recommender Systems, Pandas',
-      image: { url: '/netflix.jpeg' }
+      image: { url: '/netflix.jpeg' },
+      githubLink: 'https://github.com/shrunalisalian/movie-recommendation-system'
     },
     {
       title: 'Goodreads Book Analysis – SQL',
-      description: 'Explored global reading trends using Goodreads datasets. Built queries to analyze book ratings, author popularity, and user behavior for data-driven insights.',
+      description: 'Explored global reading trends via queries on ratings, author popularity, and user behavior.',
       techUsed: 'SQL, Data Analytics, Jupyter',
-      image: { url: '/goodreads.jpeg' }
+      image: { url: '/goodreads.jpeg' },
+      githubLink: 'https://github.com/shrunalisalian/Goodreads-Book-Analysis-SQL'
     },
     {
       title: 'Hogwarts-GPT',
-      description: 'Built a fun generative AI project that creates Harry Potter-style stories using GPT, blending NLP, creativity, and storytelling.',
+      description: 'Built a fun generative AI project that creates Harry Potter-style stories using GPT, blending creativity and storytelling.',
       techUsed: 'Python, NLP, GPT, Transformers',
-      image: { url: '/hp.jpg' }
+      image: { url: '/hp.jpg' },
+      githubLink: 'https://github.com/shrunalisalian/hogwarts-gpt'
     },
     {
       title: 'TF–IDF Search Engine',
-      description: 'Information retrieval system with tokenization, stemming, TF–IDF vectors, and cosine similarity. Enhanced with user feedback learning-to-rank for improved relevance.',
+      description: 'Information retrieval system with tokenization, stemming, TF–IDF vectors, and cosine similarity, enhanced with learning-to-rank.',
       techUsed: 'Python, scikit-learn, NLP',
-      image: { url: '/tfidf.png' }
+      image: { url: '/search.jpg' },
+      githubLink: 'https://github.com/shrunalisalian/TF--IDF-vector-space-search-engine',
+      status: 'coming-soon'
     },
     {
       title: 'DBDB – Dog Bed Database',
-      description: 'Persistent Python key–value store with append-only storage, atomic commits, and multi-reader/one-writer concurrency, inspired by real-world databases.',
+      description: 'Persistent Python key–value store with append-only storage, atomic commits, and multi-reader/one-writer concurrency.',
       techUsed: 'Python, Systems Programming, Storage',
-      image: { url: '/dbdb.png' }
+      image: { url: '/db.jpg' },
+      githubLink: 'https://github.com/shrunalisalian/DBDB-Dog-Bed-Database-',
+      status: 'coming-soon'
     },
     {
       title: 'Fine-Tuning BERT for Multi-Label Classification',
-      description: 'Fine-tuned BERT to handle multi-label text classification, implemented imbalance handling, and evaluated with F1 and Precision@K metrics.',
+      description: 'Fine-tuned BERT to handle multi-label text classification, implemented imbalance handling, and evaluated with F1 metrics.',
       techUsed: 'Python, Hugging Face Transformers, PyTorch',
-      image: { url: '/bert.jpeg' }
+      image: { url: '/bert.jpeg' },
+      githubLink: 'https://github.com/shrunalisalian/Fine-Tuning-BERT-for-Multi-Label-Text-Classification'
     }
   ];
   

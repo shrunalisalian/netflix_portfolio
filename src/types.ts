@@ -31,6 +31,9 @@ export interface Project {
   description: string;
   techUsed: string;
   image: { url: string };
+  githubLink?: string;
+  liveLink?: string;
+  status?: 'completed' | 'in-progress' | 'coming-soon';
 }
 
 export interface Certification {
