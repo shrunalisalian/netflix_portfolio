@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import './TopPicksRow.css';
 import { FaPassport, FaCode, FaBriefcase, FaBookOpen, FaHandsHelping, FaProjectDiagram, FaEnvelope, FaMusic, FaBook } from 'react-icons/fa';
 
-type ProfileType = 'recruiter' | 'developer' | 'stalker' | 'adventure';
+type ProfileType = 'recruiter' | 'engineer' | 'innovator' | 'explorer';
 
 interface TopPicksRowProps {
   profile: ProfileType;
@@ -11,30 +11,28 @@ interface TopPicksRowProps {
 
 const topPicksConfig = {
   recruiter: [
-    { title: "Experience", imgSrc: "https://picsum.photos/seed/workexperience/250/200", icon: <FaBriefcase />, route: "/work-experience" },
-    { title: "Projects", imgSrc: "https://picsum.photos/seed/projects/250/200", icon: <FaProjectDiagram />, route: "/projects" },
-    { title: "Skills", imgSrc: "https://picsum.photos/seed/skills/250/200", icon: <FaCode />, route: "/skills" },
-    { title: "Publications", imgSrc: "https://picsum.photos/seed/publications/250/200", icon: <FaBookOpen />, route: "/publications" }
+    { title: "Experience", imgSrc: "https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=250&h=200&fit=crop", icon: <FaBriefcase />, route: "/work-experience" },
+    { title: "Projects", imgSrc: "https://images.unsplash.com/photo-1581291518857-4e27b48ff24e?w=250&h=200&fit=crop", icon: <FaProjectDiagram />, route: "/projects" },
+    { title: "Skills", imgSrc: "https://images.unsplash.com/photo-1517180102446-f3ece451e9d8?w=250&h=200&fit=crop", icon: <FaCode />, route: "/skills" },
+    { title: "Publications", imgSrc: "https://images.unsplash.com/photo-1481627834876-b7833e8f5570?w=250&h=200&fit=crop", icon: <FaBookOpen />, route: "/publications" }
   ],
-  developer: [
-    { title: "Experience", imgSrc: "https://picsum.photos/seed/work/250/200", route: "/work-experience", icon: <FaBriefcase /> },
-    { title: "Projects", imgSrc: "https://picsum.photos/seed/development/250/200", route: "/projects", icon: <FaProjectDiagram /> },
-    { title: "Skills", imgSrc: "https://picsum.photos/seed/coding/250/200", route: "/skills", icon: <FaCode /> },
-    { title: "Publications", imgSrc: "https://picsum.photos/seed/research/250/200", route: "/publications", icon: <FaBookOpen /> }
+  engineer: [
+    { title: "Experience", imgSrc: "https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=250&h=200&fit=crop", route: "/work-experience", icon: <FaBriefcase /> },
+    { title: "Projects", imgSrc: "https://images.unsplash.com/photo-1581291518857-4e27b48ff24e?w=250&h=200&fit=crop", route: "/projects", icon: <FaProjectDiagram /> },
+    { title: "Skills", imgSrc: "https://images.unsplash.com/photo-1517180102446-f3ece451e9d8?w=250&h=200&fit=crop", route: "/skills", icon: <FaCode /> },
+    { title: "Publications", imgSrc: "https://images.unsplash.com/photo-1481627834876-b7833e8f5570?w=250&h=200&fit=crop", route: "/publications", icon: <FaBookOpen /> }
   ],
-  stalker: [
-    { title: "Recommendations", imgSrc: "https://picsum.photos/seed/networking/250/200", route: "/recommendations", icon: <FaHandsHelping /> },
-    { title: "Contact Me", imgSrc: "https://picsum.photos/seed/call/250/200", route: "/contact-me", icon: <FaEnvelope /> },
-    { title: "Projects", imgSrc: "https://picsum.photos/seed/planning/250/200", route: "/projects", icon: <FaProjectDiagram /> },
-    { title: "Experience", imgSrc: "https://picsum.photos/seed/resume/250/200", route: "/work-experience", icon: <FaBriefcase /> },
-    { title: "Publications", imgSrc: "https://picsum.photos/seed/achievements/250/200", route: "/publications", icon: <FaBookOpen /> },
+  innovator: [
+    { title: "Experience", imgSrc: "https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=250&h=200&fit=crop", route: "/work-experience", icon: <FaBriefcase /> },
+    { title: "Projects", imgSrc: "https://images.unsplash.com/photo-1581291518857-4e27b48ff24e?w=250&h=200&fit=crop", route: "/projects", icon: <FaProjectDiagram /> },
+    { title: "Skills", imgSrc: "https://images.unsplash.com/photo-1517180102446-f3ece451e9d8?w=250&h=200&fit=crop", route: "/skills", icon: <FaCode /> },
+    { title: "Publications", imgSrc: "https://images.unsplash.com/photo-1481627834876-b7833e8f5570?w=250&h=200&fit=crop", route: "/publications", icon: <FaBookOpen /> },
   ],
-  adventure: [
-    { title: "Music", imgSrc: "https://picsum.photos/seed/music/250/200", route: "/music", icon: <FaMusic /> },
-    { title: "Projects", imgSrc: "https://picsum.photos/seed/innovation/250/200", route: "/projects", icon: <FaProjectDiagram /> },
-    { title: "Reading", imgSrc: "https://picsum.photos/seed/books/250/200", route: "/reading", icon: <FaBook /> },
-    { title: "Contact Me", imgSrc: "https://picsum.photos/seed/connect/250/200", route: "/contact-me", icon: <FaEnvelope /> },
-    { title: "Publications", imgSrc: "https://picsum.photos/seed/medal/250/200", route: "/publications", icon: <FaBookOpen /> }
+  explorer: [
+    { title: "Experience", imgSrc: "https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=250&h=200&fit=crop", route: "/work-experience", icon: <FaBriefcase /> },
+    { title: "Projects", imgSrc: "https://images.unsplash.com/photo-1581291518857-4e27b48ff24e?w=250&h=200&fit=crop", route: "/projects", icon: <FaProjectDiagram /> },
+    { title: "Skills", imgSrc: "https://images.unsplash.com/photo-1517180102446-f3ece451e9d8?w=250&h=200&fit=crop", route: "/skills", icon: <FaCode /> },
+    { title: "Publications", imgSrc: "https://images.unsplash.com/photo-1481627834876-b7833e8f5570?w=250&h=200&fit=crop", route: "/publications", icon: <FaBookOpen /> }
   ]
 };
 
@@ -45,7 +43,7 @@ const TopPicksRow: React.FC<TopPicksRowProps> = ({ profile }) => {
 
   return (
     <div className="top-picks-row">
-      <h2 className="row-title">Today's Top Picks for {profile}</h2>
+      <h2 className="row-title">Today's Top Picks for {profile.charAt(0).toUpperCase() + profile.slice(1)}</h2>
       <div className="card-row">
       {topPicks.map((pick, index) => (
           <div 

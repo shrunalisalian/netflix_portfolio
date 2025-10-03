@@ -2,7 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import './ContinueWatching.css';
 
-type ProfileType = 'recruiter' | 'developer' | 'stalker' | 'adventure';
+type ProfileType = 'recruiter' | 'engineer' | 'innovator' | 'explorer';
 
 interface ContinueWatchingProps {
   profile: ProfileType;
@@ -10,27 +10,28 @@ interface ContinueWatchingProps {
 
 const continueWatchingConfig = {
   recruiter: [
-    { title: "Work Permit", imgSrc: "https://picsum.photos/seed/workpermit/300/200", link: "/work-permit" },
-    { title: "Recommendations", imgSrc: "https://picsum.photos/seed/recommendations/300/200", link: "/recommendations" },
-    { title: "Blogs", imgSrc: "https://picsum.photos/id/1027/300/200", link: "/blogs" },
-    { title: "Contact Me", imgSrc: "https://picsum.photos/id/1029/300/200", link: "/contact-me" }
+    { title: "Work Permit", imgSrc: "https://images.unsplash.com/photo-1589829545856-d10d557cf95f?w=300&h=200&fit=crop", link: "/work-permit" },
+    { title: "Recommendations", imgSrc: "https://images.unsplash.com/photo-1542744173-8e7e53415bb0?w=300&h=200&fit=crop", link: "/recommendations" },
+    { title: "Blogs", imgSrc: "https://images.unsplash.com/photo-1513475382585-d06e58bcb0e0?w=300&h=200&fit=crop", link: "/blogs" },
+    { title: "Contact Me", imgSrc: "https://images.unsplash.com/photo-1557804506-669a67965ba0?w=300&h=200&fit=crop", link: "/contact-me" }
   ],
-  developer: [
-    { title: "Work Permit", imgSrc: "https://picsum.photos/seed/workpermit/300/200", link: "/work-permit" },
-    { title: "Recommendations", imgSrc: "https://picsum.photos/seed/recommendations/300/200", link: "/recommendations" },
-    { title: "Blogs", imgSrc: "https://picsum.photos/id/1027/300/200", link: "/blogs" },
-    { title: "Contact Me", imgSrc: "https://picsum.photos/id/1029/300/200", link: "/contact-me" }
+  engineer: [
+    { title: "Work Permit", imgSrc: "https://images.unsplash.com/photo-1589829545856-d10d557cf95f?w=300&h=200&fit=crop", link: "/work-permit" },
+    { title: "Recommendations", imgSrc: "https://images.unsplash.com/photo-1542744173-8e7e53415bb0?w=300&h=200&fit=crop", link: "/recommendations" },
+    { title: "Blogs", imgSrc: "https://images.unsplash.com/photo-1513475382585-d06e58bcb0e0?w=300&h=200&fit=crop", link: "/blogs" },
+    { title: "Contact Me", imgSrc: "https://images.unsplash.com/photo-1557804506-669a67965ba0?w=300&h=200&fit=crop", link: "/contact-me" }
   ],
-  stalker: [
-    { title: "Reading", imgSrc: "https://picsum.photos/id/1026/300/200", link: "/reading" },
-    { title: "Blogs", imgSrc: "https://picsum.photos/id/1027/300/200", link: "/blogs" },
-    { title: "Contact Me", imgSrc: "https://picsum.photos/id/1029/300/200", link: "/contact-me" }
+  innovator: [
+    { title: "Work Permit", imgSrc: "https://images.unsplash.com/photo-1589829545856-d10d557cf95f?w=300&h=200&fit=crop", link: "/work-permit" },
+    { title: "Recommendations", imgSrc: "https://images.unsplash.com/photo-1542744173-8e7e53415bb0?w=300&h=200&fit=crop", link: "/recommendations" },
+    { title: "Blogs", imgSrc: "https://images.unsplash.com/photo-1513475382585-d06e58bcb0e0?w=300&h=200&fit=crop", link: "/blogs" },
+    { title: "Contact Me", imgSrc: "https://images.unsplash.com/photo-1557804506-669a67965ba0?w=300&h=200&fit=crop", link: "/contact-me" }
   ],
-  adventure: [
-    { title: "Music", imgSrc: "https://picsum.photos/id/1025/300/200", link: "/music" },
-    { title: "Reading", imgSrc: "https://picsum.photos/id/1026/300/200", link: "/reading" },
-    { title: "Publications", imgSrc: "https://picsum.photos/id/1028/300/200", link: "/publications" },
-    { title: "Contact Me", imgSrc: "https://picsum.photos/id/1029/300/200", link: "/contact-me" }
+  explorer: [
+    { title: "Work Permit", imgSrc: "https://images.unsplash.com/photo-1589829545856-d10d557cf95f?w=300&h=200&fit=crop", link: "/work-permit" },
+    { title: "Recommendations", imgSrc: "https://images.unsplash.com/photo-1542744173-8e7e53415bb0?w=300&h=200&fit=crop", link: "/recommendations" },
+    { title: "Blogs", imgSrc: "https://images.unsplash.com/photo-1513475382585-d06e58bcb0e0?w=300&h=200&fit=crop", link: "/blogs" },
+    { title: "Contact Me", imgSrc: "https://images.unsplash.com/photo-1557804506-669a67965ba0?w=300&h=200&fit=crop", link: "/contact-me" }
   ]
 };
 
@@ -39,7 +40,7 @@ const ContinueWatching: React.FC<ContinueWatchingProps> = ({ profile }) => {
 
   return (
     <div className="continue-watching-row">
-      <h2 className="row-title">Continue Watching for {profile}</h2>
+      <h2 className="row-title">Continue Watching for {profile.charAt(0).toUpperCase() + profile.slice(1)}</h2>
       <div className="card-row">
         {continueWatching.map((pick, index) => (
           <Link to={pick.link} key={index} className="pick-card">

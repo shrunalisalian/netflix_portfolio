@@ -103,21 +103,21 @@ export const staticProjects: Project[] = [
       title: 'ASL Fingerspelling Recognition – Tatum Robotics',
       description: 'Deep learning pipeline for American Sign Language recognition, improving accuracy by 40%. Deployed in assistive robotics for DeafBlind accessibility with monitoring loops for stable releases.',
       techUsed: 'PyTorch, TensorFlow, Python, SQL, Tableau',
-      image: { url: '/tatumrobotics_logo.jpeg' },
+      image: { url: '/tr.jpg' },
       githubLink: 'https://github.com/shrunalisalian/asl-recognition'
     },
     {
       title: 'Multimodal AI Systems – Auxi.ai',
       description: 'Optimized inference pipelines for multimodal AI, built NLP classifiers with Hugging Face, and implemented safe image manipulation workflows with Stable Diffusion.',
       techUsed: 'PyTorch Lightning, TensorFlow Serving, Hugging Face, Stable Diffusion',
-      image: { url: '/auxi.jpeg' },
+      image: { url: '/img-seg.png' },
       githubLink: 'https://github.com/shrunalisalian/multimodal-ai-systems'
     },
     {
       title: 'Motion Analysis – NEU Lab',
       description: 'GPU-accelerated motion analysis system with XGBoost and Random Forests, boosting accuracy from 30% → 72% and cutting runtime by 65%.',
       techUsed: 'CUDA, PyTorch, XGBoost, Statsmodels',
-      image: { url: '/neu.png' },
+      image: { url: '/aclab.jpg' },
       githubLink: 'https://github.com/shrunalisalian/motion-analysis-neu'
     },
     {
