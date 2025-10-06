@@ -1,7 +1,7 @@
 // Chat GPT optmised 
 // Static data customized to match Shrunali's resume & portfolio
 
-import { ProfileBanner, ContactMe, TimelineItem, Project, Publication, Skill, WorkPermit } from '../types';
+import { ProfileBanner, ContactMe, TimelineItem, Project, Publication, Skill, WorkPermit, AcademicCoursework } from '../types';
 
 export const staticProfileBanner: ProfileBanner = {
     backgroundImage: { 
@@ -258,3 +258,21 @@ export const staticWorkPermit: WorkPermit = {
   summary: 'Currently on F1 STEM OPT, authorized to work in the United States until 2027',
   additionalInfo: 'Open to relocation, remote work, and international opportunities'
 }
+
+export const staticAcademicCoursework: AcademicCoursework[] = [
+  { title: 'Object Oriented Programming', description: 'Advanced programming concepts, design patterns, and software architecture principles', category: 'Programming', icon: 'code' },
+  { title: 'Data Structures & Algorithms', description: 'Core algorithms, complexity analysis, and problem-solving techniques', category: 'Computer Science', icon: 'algorithm' },
+  { title: 'Software Engineering', description: 'Software development lifecycle, project management, and best practices', category: 'Engineering', icon: 'engineering' },
+  { title: 'Artificial Intelligence', description: 'AI fundamentals, search algorithms, knowledge representation, and reasoning', category: 'AI/ML', icon: 'ai' },
+  { title: 'Machine Learning', description: 'Supervised/unsupervised learning, neural networks, and model evaluation', category: 'AI/ML', icon: 'ml' },
+  { title: 'Advanced Database Management', description: 'Database design, optimization, distributed systems, and NoSQL', category: 'Database', icon: 'database' },
+  { title: 'Natural Language Processing', description: 'Text processing, language models, sentiment analysis, and transformers', category: 'AI/ML', icon: 'nlp' },
+  { title: 'Computer Vision', description: 'Image processing, feature detection, object recognition, and deep learning', category: 'AI/ML', icon: 'vision' },
+  { title: 'Data Mining', description: 'Pattern discovery, clustering, association rules, and big data analytics', category: 'Data Science', icon: 'mining' },
+  { title: 'Data Science', description: 'Statistical analysis, visualization, predictive modeling, and insights', category: 'Data Science', icon: 'datascience' },
+  { title: 'Human Machine Interaction', description: 'User interface design, usability testing, and human-computer interaction principles', category: 'Systems', icon: 'interaction' },
+  { title: 'Parallel and Distributed Systems', description: 'Concurrent programming, distributed algorithms, and system scalability', category: 'Systems', icon: 'parallel' },
+  { title: 'Digital Signal Processing', description: 'Signal analysis, filtering, and digital signal processing algorithms', category: 'Systems', icon: 'signal' },
+  { title: 'Distributed Databases', description: 'Database replication, consistency models, and distributed transaction management', category: 'Database', icon: 'distributed' },
+  { title: 'Operating Systems', description: 'Process management, memory allocation, file systems, and system programming', category: 'Systems', icon: 'os' }
+];

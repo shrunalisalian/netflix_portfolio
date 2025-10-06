@@ -14,6 +14,7 @@ import Music from './pages/Music';
 import Reading from './pages/Reading';
 import Blogs from './pages/Blogs';
 import Publications from './pages/Publications';
+import AcademicCoursework from './pages/AcademicCoursework';
 
 const App: React.FC = () => {
   return (
@@ -31,6 +32,7 @@ const App: React.FC = () => {
       <Route path="/reading" element={<Layout><Reading /></Layout>} />
       <Route path="/blogs" element={<Layout><Blogs /></Layout>} />
       <Route path="/publications" element={<Layout><Publications /></Layout>} />
+      <Route path="/academic-coursework" element={<Layout><AcademicCoursework /></Layout>} />
     </Routes>
   );
 };

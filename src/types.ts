@@ -70,3 +70,10 @@ export interface Skill {
   description: string;
   icon: string;
 }
+
+export interface AcademicCoursework {
+  title: string;
+  description: string;
+  category: string;
+  icon: string;
+}

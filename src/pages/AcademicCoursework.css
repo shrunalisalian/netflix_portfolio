@@ -1,0 +1,205 @@
+.academic-coursework-container {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #0f0f0f 0%, #1a1a1a 100%);
+  color: #fff;
+  padding: 40px 20px;
+  font-family: 'Netflix Sans', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+}
+
+.page-header {
+  text-align: center;
+  margin-bottom: 60px;
+  animation: fadeInUp 0.8s ease-out;
+}
+
+.page-header h1 {
+  font-size: 3.5rem;
+  font-weight: 700;
+  margin-bottom: 20px;
+  background: linear-gradient(45deg, #e50914, #ff6b6b);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  text-shadow: 0 0 30px rgba(229, 9, 20, 0.3);
+}
+
+.page-header p {
+  font-size: 1.2rem;
+  color: #b3b3b3;
+  max-width: 600px;
+  margin: 0 auto;
+  line-height: 1.6;
+}
+
+.coursework-section {
+  max-width: 1200px;
+  margin: 0 auto;
+  animation: slideInUp 0.6s ease-out forwards;
+}
+
+.section-title {
+  font-size: 2.2rem;
+  font-weight: 600;
+  margin-bottom: 30px;
+  color: #fff;
+  border-left: 4px solid #e50914;
+  padding-left: 20px;
+  position: relative;
+}
+
+.section-title::before {
+  content: '';
+  position: absolute;
+  left: -4px;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: linear-gradient(180deg, #e50914, #ff6b6b);
+  border-radius: 2px;
+}
+
+.coursework-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+  gap: 25px;
+}
+
+.coursework-card {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  padding: 30px;
+  transition: all 0.3s ease;
+  animation: slideInUp 0.5s ease-out forwards;
+  opacity: 0;
+  animation-delay: var(--delay);
+  position: relative;
+  overflow: hidden;
+}
+
+.coursework-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #e50914, #ff6b6b);
+  transform: scaleX(0);
+  transition: transform 0.3s ease;
+}
+
+.coursework-card:hover::before {
+  transform: scaleX(1);
+}
+
+.coursework-card:hover {
+  transform: translateY(-8px);
+  box-shadow: 0 20px 40px rgba(229, 9, 20, 0.2);
+  border-color: rgba(229, 9, 20, 0.3);
+}
+
+.coursework-icon {
+  font-size: 2.5rem;
+  color: #e50914;
+  margin-bottom: 20px;
+  transition: all 0.3s ease;
+}
+
+.coursework-card:hover .coursework-icon {
+  color: #ff6b6b;
+  transform: scale(1.1);
+}
+
+.coursework-content h3 {
+  font-size: 1.4rem;
+  font-weight: 600;
+  margin-bottom: 15px;
+  color: #fff;
+  line-height: 1.3;
+}
+
+.coursework-content p {
+  color: #b3b3b3;
+  line-height: 1.6;
+  font-size: 0.95rem;
+}
+
+/* Animations */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideInUp {
+  from {
+    opacity: 0;
+    transform: translateY(50px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .academic-coursework-container {
+    padding: 20px 15px;
+  }
+  
+  .page-header h1 {
+    font-size: 2.5rem;
+  }
+  
+  .page-header p {
+    font-size: 1rem;
+  }
+  
+  .category-title {
+    font-size: 1.8rem;
+  }
+  
+  .coursework-grid {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+  
+  .coursework-card {
+    padding: 25px;
+  }
+  
+  .coursework-content h3 {
+    font-size: 1.2rem;
+  }
+  
+  .coursework-content p {
+    font-size: 0.9rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .page-header h1 {
+    font-size: 2rem;
+  }
+  
+  .category-title {
+    font-size: 1.5rem;
+    padding-left: 15px;
+  }
+  
+  .coursework-card {
+    padding: 20px;
+  }
+  
+  .coursework-icon {
+    font-size: 2rem;
+  }
+}
