@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { FaHome, FaBriefcase, FaTools, FaProjectDiagram, FaEnvelope } from 'react-icons/fa'; // Import icons
+import { FaHome, FaBriefcase, FaTools, FaProjectDiagram, FaEnvelope, FaPenAlt } from 'react-icons/fa'; // Import icons
 import './Navbar.css';
 import netflixLogo from '../images/logo-2.png';
 import blueImage from '../images/blue.png';
@@ -42,6 +42,7 @@ const Navbar: React.FC = () => {
             <li><Link to="/skills">Skills</Link></li>
             <li><Link to="/projects">Projects</Link></li>
             <li><Link to="/contact-me">Hire Me</Link></li>
+            <li><Link to="/articles">Articles</Link></li>
           </ul>
         </div>
         <div className="navbar-right">
@@ -69,6 +70,7 @@ const Navbar: React.FC = () => {
           <li><Link to="/skills" onClick={closeSidebar}><FaTools /> Skills</Link></li>
           <li><Link to="/projects" onClick={closeSidebar}><FaProjectDiagram /> Projects</Link></li>
           <li><Link to="/contact-me" onClick={closeSidebar}><FaEnvelope /> Hire Me</Link></li>
+          <li><Link to="/articles" onClick={closeSidebar}><FaPenAlt /> Articles</Link></li>
         </ul>
       </div>
     </>
