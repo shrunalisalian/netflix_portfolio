@@ -10360,4 +10360,409 @@ WELLBEING METRICS (not engagement metrics):
       }
     ]
   },
+  {
+    slug: '2bit-qat-lora-recovery-apple',
+    title: 'Compressing a Symphony to Four Notes (and Hiring a Section to Fix the Difference): 2-Bit QAT and LoRA Recovery in AFM',
+    subtitle: 'Why 2 bits, why it breaks the model, and how a small set of trainable correction parameters brings it back to near-lossless.',
+    date: 'June 16, 2026',
+    readTime: '16 min read',
+    tags: ['Quantization', 'LoRA', 'Apple', 'Model Compression', 'On-Device ML', 'Interview Prep'],
+    coverEmoji: '🎼',
+    content: [
+      {
+        type: 'callout',
+        emoji: '🎯',
+        text: 'This question comes from Apple\'s ML interview pool. Understand 2-bit quantization-aware training, why it\'s necessary, and how LoRA adapters recover lost accuracy without retraining the base model.'
+      },
+      {
+        type: 'quote',
+        text: 'We use 2-bit quantization-aware training for specific layers. Why 2-bit? How do you maintain accuracy? Discuss the use of Low-Rank Adapters (LoRA) to recover lost performance.'
+      },
+      {
+        type: 'divider'
+      },
+      {
+        type: 'paragraph',
+        text: 'Imagine compressing a full orchestral symphony down to four possible notes per instrument. Every note the violin plays must be one of exactly four pitches — not the continuous range of a real violin, just four discrete choices. The symphony would sound recognizably wrong: melodies flattened, harmonies distorted, the nuance gone.'
+      },
+      {
+        type: 'paragraph',
+        text: 'Now imagine hiring a small correction ensemble — just a handful of musicians — who listen to the four-note version and play subtle compensating notes alongside it, specifically trained to counteract the distortion. The combination: the cheap four-note orchestra (small, easy to transport, fits in your pocket) plus the small correction ensemble (lightweight, swappable, easy to retrain for different venues) — together approximating the full symphony.'
+      },
+      {
+        type: 'paragraph',
+        text: 'This is 2-bit quantization with LoRA accuracy recovery. The "four notes" are the 2-bit weight values. The "correction ensemble" is the LoRA adapter. Apple\'s AFM-on-device model does exactly this, and the engineering reasoning behind it — why 2 bits specifically, and why this particular recovery mechanism — is the heart of the interview question.'
+      },
+      {
+        type: 'divider'
+      },
+      {
+        type: 'h2',
+        text: 'Why quantize this aggressively at all?'
+      },
+      {
+        type: 'paragraph',
+        text: 'The motivating constraint: AFM-on-device is a ~3B parameter model running on an iPhone. At 16-bit precision (bfloat16), the model weights alone require:'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: '3,000,000,000 params × 2 bytes = 6 GB'
+      },
+      {
+        type: 'paragraph',
+        text: 'An iPhone has 6-8GB total RAM, shared with the OS, every other app, and the rest of the inference pipeline (KV cache, activations, embeddings). A 6GB model footprint is not viable. At 4-bit precision: 1.5GB. At 2-bit precision: 750MB. This is the target that makes a capable 3B model coexist with the rest of an iPhone\'s memory budget — leaving room for the KV cache, the vision encoder, the embedding tables, and the rest of iOS. The motivation for 2-bit specifically isn\'t arbitrary — it\'s the precision level at which the memory budget closes for a 3B model on consumer hardware.'
+      },
+      {
+        type: 'divider'
+      },
+      {
+        type: 'h2',
+        text: 'Why 2-bit breaks naively'
+      },
+      {
+        type: 'paragraph',
+        text: 'Standard post-training quantization (PTQ) maps the continuous distribution of trained weights onto a small discrete set of values. At 2 bits, you have exactly 4 representable values per weight.'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: '4-bit quantization: 16 possible values per weight\n2-bit quantization: 4 possible values per weight'
+      },
+      {
+        type: 'paragraph',
+        text: 'The information loss is severe. A weight that was originally 0.347 might need to round to the nearest of {-1.5, -0.5, 0.5, 1.5}. The rounding error compounds across millions of weights and many layers, and naive PTQ at 2-bit typically produces catastrophic accuracy degradation.'
+      },
+      {
+        type: 'h3',
+        text: 'Why quantization-aware training (QAT) is necessary'
+      },
+      {
+        type: 'paragraph',
+        text: 'Instead of training the model at full precision and then quantizing afterward, QAT simulates the quantization during training itself. The model\'s gradients flow through a quantization-aware forward pass, so the model learns weights that are inherently more robust to being rounded to 2-bit values.'
+      },
+      {
+        type: 'code',
+        language: 'python',
+        code: 'class QuantizationAwareLinear(nn.Module):\n    """\n    Simulates 2-bit quantization during the forward pass.\n    Gradients flow through via straight-through estimator.\n    """\n    def __init__(self, in_features, out_features):\n        self.weight = nn.Parameter(torch.randn(out_features, in_features))\n        self.scale = nn.Parameter(torch.ones(out_features, 1))\n\n    def quantize_weight(self, w):\n        # Apple\'s balanced 2-bit value set: {-1.5, -0.5, 0.5, 1.5}\n        levels = torch.tensor([-1.5, -0.5, 0.5, 1.5])\n        scaled = w / self.scale\n        quantized = levels[torch.argmin(torch.abs(scaled.unsqueeze(-1) - levels), dim=-1)]\n        return quantized * self.scale\n\n    def forward(self, x):\n        # Straight-through estimator: forward uses quantized weight,\n        # backward propagates as if weight were continuous\n        w_quantized = self.weight + (self.quantize_weight(self.weight) - self.weight).detach()\n        return F.linear(x, w_quantized)'
+      },
+      {
+        type: 'h3',
+        text: 'The balanced value set insight'
+      },
+      {
+        type: 'paragraph',
+        text: 'Apple\'s technical report identifies a balanced 2-bit value set {-1.5, -0.5, 0.5, 1.5} as superior to alternatives. This is a symmetric, evenly-spaced set that doesn\'t bias toward zero or collapse toward extreme values. The report notes this produces smoother training with fewer loss spikes compared to other 2-bit configurations. The intuition: at 4 discrete levels, if the levels are poorly chosen (clustered near zero, or asymmetric), the model can\'t represent the full range of useful weight magnitudes. A balanced, symmetric set maximizes the expressive range available within the 4-value constraint.'
+      },
+      {
+        type: 'divider'
+      },
+      {
+        type: 'h2',
+        text: 'The mixed-precision strategy: not every layer gets 2 bits'
+      },
+      {
+        type: 'paragraph',
+        text: 'Apple doesn\'t apply 2-bit uniformly. The actual deployed configuration mixes 2-bit and 4-bit per-layer, averaging approximately 3.7 bits-per-weight (with more aggressive configurations reaching 3.5 bits-per-weight without significant quality loss).'
+      },
+      {
+        type: 'h3',
+        text: 'Why mixed precision'
+      },
+      {
+        type: 'paragraph',
+        text: 'Not all layers are equally sensitive to quantization. Some layers (often attention projections, certain FFN layers) tolerate aggressive 2-bit compression with minimal quality impact. Others are more sensitive and need 4-bit precision to avoid degrading the model\'s behavior.'
+      },
+      {
+        type: 'h3',
+        text: 'Talaria: the tool that decides allocation'
+      },
+      {
+        type: 'paragraph',
+        text: 'Apple uses an interactive model latency and power analysis tool called Talaria specifically to guide bit-rate selection per operation. Rather than hand-tuning which layers get 2-bit vs. 4-bit, Talaria profiles the actual latency/power/quality trade-off for different bit allocations and helps select the configuration that hits memory and latency targets while minimizing quality loss. This mixed strategy is why the achieved average (3.7 bits-per-weight) is higher than the headline "2-bit" — the question\'s framing is precise: it\'s 2-bit for specific layers, not the whole model.'
+      },
+      {
+        type: 'divider'
+      },
+      {
+        type: 'h2',
+        text: 'LoRA accuracy-recovery adapters: the correction ensemble'
+      },
+      {
+        type: 'paragraph',
+        text: 'Even with QAT and careful balanced value sets, compressing to an average of 3.7 bits-per-weight introduces quality loss relative to the full-precision model. This is where LoRA adapters do their work — not as a fine-tuning mechanism for new tasks, but specifically as a quantization error correction mechanism.'
+      },
+      {
+        type: 'h3',
+        text: 'The mechanism'
+      },
+      {
+        type: 'paragraph',
+        text: 'A standard linear layer computes `y = Wx`. With a LoRA adapter, this becomes:'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'y = Wx + (B @ A)x\n\nWhere:\n  W: the frozen, quantized base weight (2-bit or 4-bit)\n  A: a trainable low-rank matrix, shape [r, d_in]\n  B: a trainable low-rank matrix, shape [d_out, r]\n  r: the adapter rank (Apple uses r=16 as optimal, with {8, 16, 32} available)'
+      },
+      {
+        type: 'paragraph',
+        text: 'The base weight W stays frozen at its compressed precision — the memory savings from quantization are fully preserved. The adapter (A, B) is small: at rank 16, the adapter parameters typically require only tens of megabytes for the ~3B on-device model — versus the 750MB-1.5GB base model. The adapter is trained at 16-bit precision, giving it the precision needed to make fine corrections that the quantized base weights cannot represent.'
+      },
+      {
+        type: 'code',
+        language: 'python',
+        code: 'class LoRARecoveryLayer(nn.Module):\n    def __init__(self, in_features, out_features, rank=16):\n        # Frozen, quantized base weight\n        self.base_weight = QuantizedWeight(in_features, out_features, bits=2)\n        self.base_weight.requires_grad = False\n\n        # Trainable low-rank correction\n        self.lora_A = nn.Parameter(torch.randn(rank, in_features) * 0.01)\n        self.lora_B = nn.Parameter(torch.zeros(out_features, rank))\n\n    def forward(self, x):\n        base_output = self.base_weight(x)\n        correction = (x @ self.lora_A.T) @ self.lora_B.T\n        return base_output + correction'
+      },
+      {
+        type: 'h3',
+        text: 'Why this works'
+      },
+      {
+        type: 'paragraph',
+        text: 'The quantization error isn\'t random noise — it\'s systematic, structured distortion introduced by rounding each weight to its nearest discrete level. A trained LoRA adapter can learn to predict and counteract this systematic distortion, because the adapter is trained on the same data recipe as the base model, specifically to compensate for the compression artifacts introduced by quantization. The training process: freeze the quantized base model, then fine-tune only the LoRA adapter parameters using the same training data/recipe. Because the base weights don\'t move, this training is much cheaper than full model retraining — only the small adapter matrices need gradient updates.'
+      },
+      {
+        type: 'paragraph',
+        text: 'Per Apple\'s report: this framework achieves "near-lossless quantization that is on average less than 4 bits-per-weight" — meaning the quantized + LoRA-recovered model performs comparably to the full-precision model despite using less than a quarter of the storage.'
+      },
+      {
+        type: 'divider'
+      },
+      {
+        type: 'h2',
+        text: 'The bonus capability: task-specific adapter swapping'
+      },
+      {
+        type: 'paragraph',
+        text: 'Because LoRA adapters are small (tens of megabytes) and modular, Apple trains multiple adapters for different purposes: a base accuracy-recovery adapter (compensates for quantization) and task-specific adapters (the foundation model is fine-tuned for specific Apple Intelligence features — writing tools, notification summarization, Siri tasks — using additional LoRA adapters layered on top). Adapters can be dynamically loaded, temporarily cached in memory, and swapped — giving the foundation model the ability to specialize itself on the fly for the task at hand, all without duplicating the multi-gigabyte base model.'
+      },
+      {
+        type: 'divider'
+      },
+      {
+        type: 'h2',
+        text: 'The whole thing in five sentences'
+      },
+      {
+        type: 'list',
+        ordered: true,
+        items: [
+          '2-bit quantization is chosen because it\'s the precision level that makes a ~3B parameter model\'s memory footprint (750MB at 2-bit vs. 6GB at bfloat16) compatible with an iPhone\'s shared memory budget, but it\'s applied selectively per-layer guided by Apple\'s Talaria latency/power analysis tool, with the deployed model averaging approximately 3.7 bits-per-weight across a mix of 2-bit and 4-bit layers.',
+          'Naive post-training quantization at 2-bit causes catastrophic accuracy loss because only 4 discrete values can represent each weight, so Apple uses quantization-aware training (QAT) — simulating the rounding during the forward pass via a straight-through estimator so gradients teach the model to find weight configurations inherently robust to 2-bit rounding — combined with a balanced, symmetric value set ({-1.5, -0.5, 0.5, 1.5}) that maximizes the expressive range achievable within 4 discrete levels.',
+          'LoRA accuracy-recovery adapters add a small trainable low-rank correction (B @ A, rank 16 optimal, with {8,16,32} available) on top of the frozen quantized base weights, trained at 16-bit precision on the same data recipe as the base model specifically to learn and counteract the systematic distortion introduced by quantization rounding.',
+          'This recovery approach is computationally cheap (only the small adapter matrices receive gradient updates) and storage-cheap (tens of megabytes per adapter vs. hundreds of megabytes to gigabytes for the base model), achieving near-lossless quality at under 4 bits-per-weight average — roughly a quarter of the storage of full 16-bit precision with comparable accuracy.',
+          'Beyond accuracy recovery, the LoRA mechanism doubles as a task-specialization architecture: because adapters are small and modular, Apple trains separate adapters for different Apple Intelligence features that can be dynamically loaded, cached, and swapped on top of the single frozen quantized base model — giving one compressed foundation model the ability to specialize on the fly across many on-device tasks.'
+        ]
+      },
+      {
+        type: 'divider'
+      },
+      {
+        type: 'h2',
+        text: 'Why I wrote this'
+      },
+      {
+        type: 'paragraph',
+        text: 'This question continues directly from the KV-cache sharing article — both describe specific architectural choices in the same AFM-on-device system. The orchestra-compressed-to-four-notes analogy captures both halves of the engineering story honestly: the compression really does break things, and the recovery mechanism really does fix most of it — without overselling either side. If the balanced value set insight made the QAT training stability question feel concrete, or if the adapter-swapping capability made LoRA recovery feel like an architectural feature rather than just an accuracy patch — that was the goal.'
+      },
+      {
+        type: 'paragraph',
+        text: 'More breakdowns on the way.'
+      }
+    ]
+  },
+  {
+    slug: 'parallel-track-moe-apple',
+    title: 'Three Restaurant Kitchens Instead of One Open Kitchen: Apple\'s Parallel Track MoE',
+    subtitle: 'Standard MoE synchronizes at every layer. Apple\'s PT-MoE splits the model into independent tracks and synchronizes only at the boundaries — trading a small amount of cross-track communication for a large reduction in how often chips have to wait for each other.',
+    date: 'June 16, 2026',
+    readTime: '16 min read',
+    tags: ['Mixture-of-Experts', 'Apple', 'Distributed Systems', 'Private Cloud Compute', 'Synchronization', 'Interview Prep'],
+    coverEmoji: '🏢',
+    content: [
+      {
+        type: 'callout',
+        emoji: '🎯',
+        text: 'This question comes from Apple\'s ML interview pool. Understand how Parallel Track MoE reduces synchronization overhead in distributed inference compared to standard sparse MoE, specifically for Private Cloud Compute.'
+      },
+      {
+        type: 'quote',
+        text: 'For the Private Cloud Compute (PCC) model, we use a Parallel Track MoE architecture. How does this differ from a standard Sparse MoE? How does it reduce synchronization overhead across chips?'
+      },
+      {
+        type: 'divider'
+      },
+      {
+        type: 'paragraph',
+        text: 'Picture a restaurant with one enormous open kitchen. Every dish requires the grill station, the sauté station, and the plating station, in sequence, for every single course. After each station, the dish must be physically handed across the kitchen to the next station — and the next chef can\'t start until the previous one finishes and hands it over. Even with many chefs working, the kitchen has constant cross-kitchen handoffs: pass the dish, wait, pass again, wait. The handoffs become the bottleneck, not the cooking itself.'
+      },
+      {
+        type: 'paragraph',
+        text: 'Now imagine instead three independent kitchens, each fully equipped with its own grill, sauté, and plating stations. A dish enters one kitchen, gets fully prepared there from start to finish, and only needs to be handed off when it leaves the kitchen entirely — once, not at every station. The first kitchen is standard sparse MoE with tensor parallelism: synchronization happens at every layer. The second kitchen is Apple\'s Parallel Track MoE (PT-MoE): independent "tracks," each a complete mini-Transformer with its own MoE layers, synchronizing only when tokens enter and leave a track block — not at every internal layer.'
+      },
+      {
+        type: 'divider'
+      },
+      {
+        type: 'h2',
+        text: 'Standard sparse MoE: where the synchronization comes from'
+      },
+      {
+        type: 'paragraph',
+        text: 'In a standard sparse MoE transformer, every MoE layer works with a critical all-to-all dispatch-then-combine pattern:'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Standard MoE layer, distributed across devices:\n\n  Token arrives at layer L\n       ↓\n  [Router] computes expert assignment for each token\n       ↓\n  [All-to-all dispatch] — CRITICAL COMMUNICATION STEP\n    Tokens are physically routed to the device hosting\n    their assigned expert(s).\n       ↓\n  [Expert computation] — each device computes its local experts\n       ↓\n  [All-to-all combine] — CRITICAL COMMUNICATION STEP\n    Results are routed BACK to the originating device\n       ↓\n  [Continue to layer L+1] — repeat the entire process'
+      },
+      {
+        type: 'paragraph',
+        text: 'This all-to-all dispatch-then-combine pattern happens at every single MoE layer. For a model with L layers (or L MoE layers specifically), this means 2×L all-to-all communication events — each one a synchronization point where every device must wait for every other device to finish before proceeding.'
+      },
+      {
+        type: 'h3',
+        text: 'Why this is expensive'
+      },
+      {
+        type: 'paragraph',
+        text: 'All-to-all communication is inherently a synchronization barrier. Device 0 cannot proceed to layer L+1 until it has received all the tokens routed to it from every other device for layer L. The slowest device in any given round determines how long everyone waits. At scale — many devices, many layers — this accumulates into substantial idle time, where expensive accelerators sit waiting for network communication rather than computing. This is the well-documented bottleneck of expert parallelism: the all-to-all pattern is dynamic (depends on the router\'s decisions) and frequent (every MoE layer), making it one of the hardest communication patterns to optimize.'
+      },
+      {
+        type: 'divider'
+      },
+      {
+        type: 'h2',
+        text: 'Apple\'s Parallel Track MoE: restructuring to avoid the frequency'
+      },
+      {
+        type: 'paragraph',
+        text: 'Apple\'s architectural insight is not "make the all-to-all communication faster" (the usual approach). It\'s "make the all-to-all communication happen far less often" by restructuring the model itself.'
+      },
+      {
+        type: 'h3',
+        text: 'The PT-MoE structure'
+      },
+      {
+        type: 'paragraph',
+        text: 'The server model is divided into **tracks** — multiple smaller, independent Transformers, each with its own complete stack of layers including its own MoE layers. Crucially: tokens are routed to a track at the start of a track block, processed entirely within that track (through all of that track\'s layers, with that track\'s own MoE routing happening internally), and only synchronized again when they exit the track block.'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'PT-MoE structure:\n\n  Input tokens\n       ↓\n  [Track assignment] — tokens routed to one of N tracks\n       ↓\n  ┌─────────────┬─────────────┬─────────────┐\n  │   TRACK 1   │   TRACK 2   │   TRACK 3   │\n  │             │             │             │\n  │  Layer 1    │  Layer 1    │  Layer 1    │\n  │  (own MoE)  │  (own MoE)  │  (own MoE)  │\n  │  ...        │  ...        │  ...        │\n  │  Layer K    │  Layer K    │  Layer K    │\n  │  (own MoE)  │  (own MoE)  │  (own MoE)  │\n  │             │             │             │\n  │ NO cross-   │ NO cross-   │ NO cross-   │\n  │ track sync  │ track sync  │ track sync  │\n  └─────────────┴─────────────┴─────────────┘\n       ↓             ↓              ↓\n  [Synchronization at track block boundary]\n    Combine outputs from all tracks'
+      },
+      {
+        type: 'code',
+        language: 'python',
+        code: 'class TrackBlock(nn.Module):\n    """\n    A single independent track: a complete mini-Transformer\n    with its own internal MoE layers.\n    Runs entirely on a small, fixed set of devices.\n    No communication with other tracks during forward().\n    """\n    def __init__(self, n_layers: int, d_model: int, n_experts: int):\n        self.layers = nn.ModuleList([\n            TransformerLayerWithMoE(d_model, n_experts)\n            for _ in range(n_layers)\n        ])\n\n    def forward(self, x):\n        # Internal MoE routing happens WITHIN this track\'s\n        # own small device group — all-to-all stays local\n        for layer in self.layers:\n            x = layer(x)  # includes internal expert routing + combine\n        return x  # only synchronized with other tracks AFTER this returns\n\n\nclass ParallelTrackMoE(nn.Module):\n    def __init__(self, n_tracks: int, layers_per_track: int, d_model: int):\n        self.tracks = nn.ModuleList([\n            TrackBlock(layers_per_track, d_model, n_experts=8)\n            for _ in range(n_tracks)\n        ])\n\n    def forward(self, x):\n        track_outputs = [track(x) for track in self.tracks]\n        # SYNCHRONIZATION POINT: only here, once per block\n        combined = torch.cat(track_outputs, dim=-1)\n        return combined'
+      },
+      {
+        type: 'h3',
+        text: 'The frequency reduction, quantified'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Standard MoE (L total layers, all MoE):\n  Synchronization events: 2 × L (dispatch + combine, every layer)\n\nPT-MoE (N tracks, K layers per track, B blocks):\n  Synchronization events: 2 × B (dispatch + combine, only at block boundaries)\n  Internal track MoE routing: stays within the track\'s own device group\n\nIf K (layers per track) = 4, the reduction in cross-device sync events\nrelative to standard MoE is roughly 4× fewer synchronization barriers\nfor the same total depth.'
+      },
+      {
+        type: 'divider'
+      },
+      {
+        type: 'h2',
+        text: 'Why this works: independence within a block is a feature'
+      },
+      {
+        type: 'paragraph',
+        text: 'The natural objection: doesn\'t restricting communication to block boundaries limit what the model can compute?'
+      },
+      {
+        type: 'h3',
+        text: 'Key difference from KV-cache sharing'
+      },
+      {
+        type: 'paragraph',
+        text: 'In KV-cache sharing, layers that share a KV cache lose access to fresh, more-abstracted key/value representations — there\'s a real expressivity cost. In PT-MoE, each track has its **own complete set of layers and its own complete set of experts** — it\'s not that computation is removed, it\'s that the *same total computation* is reorganized into independent parallel streams that don\'t need to constantly cross-communicate. This is structurally similar to how a deep neural network\'s depth is processed layer by layer regardless of how you partition the width across devices.'
+      },
+      {
+        type: 'h3',
+        text: 'The empirical claim'
+      },
+      {
+        type: 'paragraph',
+        text: 'Apple claims that despite architectural changes, PT-MoE matches or surpasses traditional MoE models in accuracy and overall performance. The model isn\'t sacrificing quality for the communication efficiency — this is closer to a free efficiency win achieved by recognizing where synchronization is structurally necessary (combining genuinely different specialized computations) versus where it was just an artifact of how standard MoE happens to be implemented.'
+      },
+      {
+        type: 'divider'
+      },
+      {
+        type: 'h2',
+        text: 'Combining with track parallelism for training and inference efficiency'
+      },
+      {
+        type: 'paragraph',
+        text: 'Track independence isn\'t just a communication optimization — it\'s also what Apple calls **track parallelism**, a training and inference parallelization strategy:'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Because tracks are independent within a block:\n\nTRAINING:\n  Each track can be assigned to its own group of accelerators.\n  Track 1\'s forward/backward pass doesn\'t block on Track 2\'s.\n  Gradient computation is independent until the block-boundary combine.\n\nINFERENCE:\n  Track 1 and Track 2 can process their portion of the token batch\n  in parallel, on separate hardware, with no inter-track waiting\n  until the block output is needed.\n  This directly reduces time-to-first-token by reducing\n  mandatory synchronization stalls.'
+      },
+      {
+        type: 'divider'
+      },
+      {
+        type: 'h2',
+        text: 'How PT-MoE composes with AFM-server architecture'
+      },
+      {
+        type: 'paragraph',
+        text: 'PT-MoE isn\'t deployed in isolation. Apple\'s server model combines three architectural techniques:'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'AFM-server architecture:\n  1. Track parallelism (PT-MoE) — reduces cross-device sync frequency\n  2. Mixture-of-experts sparse computation — within each track, only a\n     subset of that track\'s experts activate per token\n  3. Interleaved global-local attention — alternating sliding-window\n     local attention and global attention layers for long-context'
+      },
+      {
+        type: 'paragraph',
+        text: 'Each technique addresses a different efficiency dimension: PT-MoE reduces communication overhead, sparse MoE reduces compute per token, and interleaved attention reduces the cost of long-context processing. They compose because they operate at different levels of the architecture.'
+      },
+      {
+        type: 'divider'
+      },
+      {
+        type: 'h2',
+        text: 'The whole thing in five sentences'
+      },
+      {
+        type: 'list',
+        ordered: true,
+        items: [
+          'Standard sparse MoE distributes experts across devices and requires all-to-all dispatch-then-combine communication at every single MoE layer (2×L synchronization events for L layers) — each one a hard barrier where every device must wait for every other device\'s tokens to arrive before the next layer can proceed.',
+          'Apple\'s Parallel Track MoE restructures the model into independent "tracks" — each a complete mini-Transformer with its own internal layers and its own MoE experts — where tokens are routed to a track once, processed through that track\'s entire internal depth without any cross-track communication, and only synchronized again at the track block\'s output boundary.',
+          'This reduces synchronization events from one pair (dispatch + combine) per layer to one pair per track block (which may span several layers), a multiplicative reduction in cross-device communication frequency proportional to how many layers are grouped per track — while the actual computation performed is unchanged, just reorganized to minimize how often devices must reconverge.',
+          'Unlike KV-cache sharing (which trades real expressivity for memory savings), PT-MoE\'s tracks each retain their own complete, independent set of layers and experts — the efficiency gain comes from recognizing that not every layer\'s computation requires cross-device synchronization, not from removing or sharing computation across tracks.',
+          'PT-MoE composes with the rest of AFM-server\'s architecture (sparse MoE within each track for compute efficiency, interleaved global-local attention for context efficiency) and is particularly suited to Private Cloud Compute\'s constraints, where Apple\'s server silicon and privacy-preserving stateless infrastructure benefit disproportionately from reduced sensitivity to interconnect bandwidth and latency.'
+        ]
+      },
+      {
+        type: 'divider'
+      },
+      {
+        type: 'h2',
+        text: 'Why I wrote this'
+      },
+      {
+        type: 'paragraph',
+        text: 'This is the third article in the AFM architecture trilogy — KV-cache sharing covers the attention/memory dimension, 2-bit QAT covers the weight-precision dimension, and PT-MoE covers the distributed-systems dimension. Together they paint a complete picture of how Apple engineers a foundation model family for two very different deployment targets: an iPhone\'s tight memory budget and PCC\'s latency-and-privacy-constrained server infrastructure. The restaurant kitchen analogy captures the core insight — handoffs are expensive, so minimize how often you need them, not how fast each handoff is. If the distinction from KV-cache sharing made PT-MoE feel different, or if the "2×L vs. 2×B" framing made the scale of the synchronization reduction feel concrete — that was the goal.'
+      },
+      {
+        type: 'paragraph',
+        text: 'More breakdowns on the way.'
+      }
+    ]
+  },
 ];
