@@ -9619,4 +9619,388 @@ WELLBEING METRICS (not engagement metrics):
       }
     ]
   },
+  {
+    slug: 'ar-glasses-assistant-meta',
+    title: 'The Concierge Who Never Sleeps (But Never Eavesdrops): Designing an AI Assistant for Meta AR Glasses',
+    subtitle: 'Three tiers of compute (glasses, puck, cloud), a wake-word model that draws less power than a blinking LED, and why privacy on a device that sees everything you see is the hardest problem of all.',
+    date: 'June 15, 2026',
+    readTime: '17 min read',
+    tags: ['AR Glasses', 'Meta', 'On-Device ML', 'Privacy', 'Multimodal', 'Interview Prep'],
+    coverEmoji: '👓',
+    content: [
+      {
+        type: 'callout',
+        emoji: '🎯',
+        text: 'This question comes from Meta\'s ML interview pool. Design an on-device AI assistant for AR glasses that manages limited compute, battery, and privacy — the hardest constraint of all.'
+      },
+      {
+        type: 'quote',
+        text: 'Design an on-device personal assistant for Meta\'s AR glasses. How would you manage limited compute/battery and protect privacy?'
+      },
+      {
+        type: 'divider'
+      },
+      {
+        type: 'paragraph',
+        text: 'The best hotel concierge is nearly invisible. They\'re present — always nearby, aware of your preferences, ready to help — but they don\'t interrupt. They speak when you address them, handle simple requests themselves ("can you call a cab?"), escalate complex ones to specialists ("I need to arrange a private dining room for 20 people"), and maintain strict confidentiality about everything they observe while accompanying you.'
+      },
+      {
+        type: 'paragraph',
+        text: 'This is the design brief for an AI assistant on AR glasses. Always present, barely noticeable. Ready to help without being asked — but only when invited. Capable of handling simple tasks on-device (on the glasses themselves), complex tasks via a nearby compute unit (in your pocket), and the hardest tasks via cloud (when connectivity permits).'
+      },
+      {
+        type: 'paragraph',
+        text: 'Meta\'s Orion prototype revealed in 2024 shows exactly this architecture in hardware: the glasses handle the latency-critical rendering and tracking, a wireless compute puck in your pocket runs the heavier AI inference, and Meta AI (Llama-based) is available for complex assistance. The challenge the question is asking you to design: how does the software and ML stack make this work for an all-day AI assistant?'
+      },
+      {
+        type: 'divider'
+      },
+      {
+        type: 'h2',
+        text: 'The hardware reality: what you\'re working with'
+      },
+      {
+        type: 'paragraph',
+        text: 'Before designing the software, understand the constraints of the actual hardware — because they dominate every design decision.'
+      },
+      {
+        type: 'h3',
+        text: 'On the glasses frame (~98g, Orion)'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Custom silicon: SLAM, VIO (visual-inertial odometry), world-locked rendering — all latency-critical',
+          '7 cameras: environmental sensing, eye tracking, hand tracking',
+          'microLED holographic display: high power draw for rendering',
+          'Magnesium alloy frame: passive thermal dissipation (no fans, no heatsinks)',
+          '11 custom microcontrollers managing thermal distribution',
+          'Battery: tiny, maybe 200-400mAh — enough for 2-3 hours of normal use',
+          'AI compute budget on glasses: near zero — custom silicon is occupied with tracking and rendering'
+        ]
+      },
+      {
+        type: 'h3',
+        text: 'In the pocket (wireless compute puck)'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Substantially more compute than the glasses (custom chip, thermal throttled but manageable)',
+          'Battery: larger, say 3,000-5,000mAh — hours of runtime',
+          'Wireless link to glasses: sub-15ms latency when within 15 feet',
+          'This is where most AI inference runs'
+        ]
+      },
+      {
+        type: 'h3',
+        text: 'Cloud'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Unlimited compute, unlimited model size',
+          'But: requires WiFi/cellular, 50-200ms round-trip latency, privacy exposure, battery drain for radio'
+        ]
+      },
+      {
+        type: 'paragraph',
+        text: 'The architectural conclusion is forced by the hardware: design for three compute tiers with careful assignment of which tasks run where.'
+      },
+      {
+        type: 'divider'
+      },
+      {
+        type: 'h2',
+        text: 'The three-tier compute architecture'
+      },
+      {
+        type: 'h3',
+        text: 'Tier 1: On the glasses — 0-5ms latency'
+      },
+      {
+        type: 'paragraph',
+        text: 'Only the tasks that absolutely must run here do. Every milliwatt counts.'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'ON-GLASS RESPONSIBILITIES:\n  ✓ Wake word detection ("Hey Meta")\n    - Always-on DNN: < 1MB model, ~0.3mW power draw\n    - Equivalent to a blinking LED\'s power consumption\n    - Triggers wake of puck\'s main processor\n\n  ✓ Audio capture + streaming to puck\n    - Compressed audio pipeline to puck via BLE\n    - Beamforming to isolate user\'s voice\n\n  ✓ Gaze tracking → attention context\n    - What the user is looking at → sent to puck as attention signal\n    - Critical for context-aware assistance\n\n  ✓ Emergency / latency-critical responses\n    - "Pause" / "Stop" voice commands → immediate response\n    - Navigation turn confirmation\n\n  ✗ NOT on glasses: heavy ML inference, scene understanding,\n    LLM queries, complex reasoning'
+      },
+      {
+        type: 'h3',
+        text: 'Tier 2: Compute puck — 15-50ms round-trip'
+      },
+      {
+        type: 'paragraph',
+        text: 'The puck is the workhorse. It runs when the glasses wake it, processes the request, and returns results fast enough to feel responsive.'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'PUCK RESPONSIBILITIES:\n  ✓ Small Llama model (Llama 3.2 3B or smaller, INT4 quantized)\n    - General question answering\n    - Command parsing and intent classification\n    - Short conversational responses\n\n  ✓ Scene understanding\n    - Receive frames from glasses cameras\n    - MobileViT or EfficientNet-Lite for object/scene recognition\n    - "What is this?" — answer from local model if possible\n\n  ✓ Context state management\n    - User\'s calendar, contacts, recent messages\n    - Short-term episodic memory\n    - Preference model\n\n  ✓ Wake-word-to-intent pipeline\n    - Audio → speech recognition → intent classification\n    - Route to: local answer / cloud query / device action\n\n  ✗ NOT on puck: queries requiring internet data,\n    complex multi-step reasoning, large model inference'
+      },
+      {
+        type: 'h3',
+        text: 'Tier 3: Cloud — 100-300ms round-trip'
+      },
+      {
+        type: 'paragraph',
+        text: 'Reserved for tasks that genuinely need it.'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'CLOUD RESPONSIBILITIES:\n  ✓ Full Llama model (70B+) for complex queries\n    - "What\'s the historical significance of this building?"\n    - "Summarize what I said in my meeting this morning"\n\n  ✓ Real-time information\n    - "What are the reviews for this restaurant?"\n    - "Is this product on sale anywhere?"\n\n  ✓ Long-term memory / cross-device sync\n    - Notes, reminders, preferences synced across devices\n    - Long-term episodic memory beyond puck\'s local storage\n\n  ✗ NOT in cloud: private conversations, face recognition,\n    health data, location data without explicit consent'
+      },
+      {
+        type: 'divider'
+      },
+      {
+        type: 'h2',
+        text: 'Power management: keeping the concierge invisible'
+      },
+      {
+        type: 'paragraph',
+        text: 'The hardest constraint is battery. 2-3 hours of display-on time is the Orion prototype\'s current limit — and the AI assistant cannot materially shorten it.'
+      },
+      {
+        type: 'h3',
+        text: 'The always-on power budget'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'TARGET: AI assistant contributes < 15% of total battery draw\n\nAlways-on components (can\'t be turned off):\n  Wake word detector:    0.3 mW   (DNN on dedicated always-on processor)\n  Gaze processing:       0.5 mW   (feeds attention context)\n  Microphone:            0.2 mW\n  BLE radio (idle):      0.5 mW\n  Total always-on:     ~1.5 mW\n\nOn wakeword trigger (active for ~5-30 seconds per interaction):\n  Audio streaming to puck:  50 mW  (BLE active)\n  Puck AI inference:       800 mW  (puck\'s own battery, not glasses)\n  Display rendering:     1,500 mW  (always the dominant load)\n  GPU/NPU on glasses:      200 mW\n\nKey insight: the puck runs on its own battery.\nThe glasses battery primarily serves: display + tracking + communication.\nOffloading AI to puck offloads AI\'s power draw off the glasses battery.'
+      },
+      {
+        type: 'h3',
+        text: 'The progressive activation model'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'STATE: IDLE (between user interactions)\n  Active: wake word detector only (1.5mW)\n  Display: off or minimal ambient display\n\nSTATE: LISTENING (wake word detected)\n  Active: microphone stream, audio compression, BLE transfer to puck\n  Duration: until intent is captured (< 3 seconds typically)\n\nSTATE: PROCESSING (intent recognized)\n  Active: relevant glasses sensors (gaze, camera frame if needed)\n  Puck: runs inference on its own battery\n\nSTATE: RESPONDING (answer ready)\n  Active: speaker + optional holographic overlay\n  Duration: response playback (2-10 seconds)\n\nReturn to IDLE'
+      },
+      {
+        type: 'h3',
+        text: 'Thermal management'
+      },
+      {
+        type: 'paragraph',
+        text: 'Orion uses 11 custom microcontrollers specifically for thermal distribution. The AI system must respect thermal constraints:'
+      },
+      {
+        type: 'code',
+        language: 'python',
+        code: 'class ThermalAwareness:\n    def __init__(self):\n        self.temp_sensors = GlassesTemperatureSensors()\n        self.THERMAL_THROTTLE_THRESHOLD = 42\n        self.THERMAL_EMERGENCY_THRESHOLD = 48\n\n    def choose_inference_tier(self, task: Task) -> ComputeTier:\n        glasses_temp = self.temp_sensors.frame_temperature()\n\n        if glasses_temp > self.THERMAL_EMERGENCY_THRESHOLD:\n            # Offload everything — glasses are too hot\n            return ComputeTier.CLOUD\n\n        if glasses_temp > self.THERMAL_THROTTLE_THRESHOLD:\n            # Offload heavy tasks to puck\n            if task.compute_class == "heavy":\n                return ComputeTier.PUCK\n            return ComputeTier.GLASSES\n\n        return task.default_tier'
+      },
+      {
+        type: 'divider'
+      },
+      {
+        type: 'h2',
+        text: 'The model stack: size targets per tier'
+      },
+      {
+        type: 'h3',
+        text: 'On-glasses models (total budget: < 5MB, < 2mW always-on)'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Wake word detector: 0.8MB\n  Architecture: DNN with CTC loss on MFCC features\n  Languages: 12 initial, model per language (shared base)\n  Update: OTA, user\'s device preference\n\nEmergency command classifier: 1.2MB\n  Captures: stop, pause, call, mute, help\n  Must work without puck connection\n  Latency: < 50ms\n\nGaze-to-attention encoder: 0.5MB\n  Converts eye-tracking → visual attention vector\n  Feeds puck\'s scene understanding with focus hint'
+      },
+      {
+        type: 'h3',
+        text: 'On-puck models (total budget: < 2GB, NPU-accelerated)'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Speech recognition (ASR): 80MB\n  WhisperTiny or equivalent, INT8 quantized\n  On-device transcription — audio never leaves puck\n\nIntent + NLU classifier: 15MB\n  Routes to: device_action / local_qa / cloud_query\n  Extracts entities for structured actions\n\nSmall LLM: 1.2GB\n  Llama 3.2 3B at INT4: fits in 1.5GB RAM\n  Handles most conversational queries\n  Grounded by local context\n\nScene understanding: 25MB\n  MobileViT-S or EfficientNet-Lite4\n  Object detection + scene classification\n  Triggered by "what is this?" with gaze context\n\nPersonalization model: 50MB\n  User preference embeddings\n  Habit patterns\n  Short-term episodic memory encoder'
+      },
+      {
+        type: 'divider'
+      },
+      {
+        type: 'h2',
+        text: 'Privacy architecture: when the concierge sees everything you see'
+      },
+      {
+        type: 'paragraph',
+        text: 'AR glasses are uniquely privacy-challenging because they continuously capture video of the world around the user, can see other people\'s faces and private conversations, and are worn in contexts where the user has no ability to announce "I\'m recording".'
+      },
+      {
+        type: 'h3',
+        text: 'The four privacy principles'
+      },
+      {
+        type: 'h3',
+        text: '1. Local-first for sensitive sensing'
+      },
+      {
+        type: 'paragraph',
+        text: 'Face recognition is the clearest example. The temptation: send frames to cloud, run a powerful face recognition model, return names. The problem: this uploads video of strangers (who haven\'t consented) to Meta\'s servers. The design: face recognition must be opt-in, on-device, and consent-gated.'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'ALLOWED:\n  Recognize people in USER\'S contacts who have opted in to being recognized\n  Process entirely on puck (never send facial data to cloud)\n  User must explicitly enable this feature\n\nNOT ALLOWED:\n  Identify strangers\n  Recognize people who haven\'t opted in\n  Upload facial embeddings or images to cloud for recognition'
+      },
+      {
+        type: 'h3',
+        text: '2. The physical privacy indicator'
+      },
+      {
+        type: 'paragraph',
+        text: 'Ray-Ban Meta already has this: a hardware LED that activates when the camera is capturing. Orion must have an equivalent — and critically, it must be hardware-controlled, not software-controlled. A software-controlled indicator can be disabled by a bug or malicious code. Design requirement: the privacy LED is wired directly to the camera power circuit. When the camera receives power, the LED lights. No software override. This is the privacy guarantee users and bystanders can verify.'
+      },
+      {
+        type: 'h3',
+        text: '3. Contextual privacy zones'
+      },
+      {
+        type: 'code',
+        language: 'python',
+        code: 'PRIVACY_CONTEXTS = {\n    "public_outdoor": {\n        "scene_analysis": "allowed",\n        "voice_capture_to_cloud": "with_consent",\n        "face_recognition_strangers": "never"\n    },\n    "private_home": {\n        "scene_analysis": "on_device_only",\n        "voice_capture_to_cloud": "explicit_opt_in_per_session",\n        "face_recognition_strangers": "never"\n    },\n    "medical_legal": {\n        "scene_analysis": "disabled",\n        "voice_capture": "disabled",\n        "all_cloud_features": "disabled"\n    },\n    "workplace": {\n        "scene_analysis": "on_device_only",\n        "voice_capture_to_cloud": "employer_policy_dependent"\n    }\n}'
+      },
+      {
+        type: 'paragraph',
+        text: 'Location inference (GPS, WiFi fingerprint) determines context and adjusts the feature set accordingly. Medical and legal settings disable cloud features automatically.'
+      },
+      {
+        type: 'h3',
+        text: '4. Data minimization and zero persistent video'
+      },
+      {
+        type: 'paragraph',
+        text: 'The glasses should never store raw video. Frames are processed in real-time (on the puck) and immediately discarded. No frame buffer persists beyond the current interaction.'
+      },
+      {
+        type: 'code',
+        language: 'python',
+        code: 'class FrameProcessor:\n    def process_frame(self, frame: np.ndarray) -> SceneContext:\n        # Process the frame\n        context = self.scene_model.infer(frame)\n\n        # Immediately discard the raw frame\n        del frame  # explicit garbage collection signal\n        gc.collect()\n\n        # Only the semantic representation is kept\n        return context  # objects present, text, gaze target — no pixels'
+      },
+      {
+        type: 'paragraph',
+        text: 'User-requested captures (photos, video clips) are the only persistent media — and these are subject to normal on-device photo storage permissions.'
+      },
+      {
+        type: 'divider'
+      },
+      {
+        type: 'h2',
+        text: 'Context awareness and proactive assistance'
+      },
+      {
+        type: 'paragraph',
+        text: 'The AR assistant should be proactive without being intrusive — more like a knowledgeable companion than a voice-activated search engine.'
+      },
+      {
+        type: 'h3',
+        text: 'The context state maintained on puck'
+      },
+      {
+        type: 'code',
+        language: 'python',
+        code: '@dataclass\nclass CurrentContext:\n    visible_objects: list[str]\n    detected_text: list[str]\n    location_type: str\n    gaze_target: Optional[str]\n\n    active_calendar_event: Optional[Event]\n    pending_reminders: list[Reminder]\n    recent_interactions: list[str]\n\n    recognized_nearby_contacts: list[str]\n    active_conversation: bool'
+      },
+      {
+        type: 'h3',
+        text: 'Proactive triggers (showing without being asked)'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Scan a restaurant menu → auto-surface dietary restriction matches',
+          'Look at someone you haven\'t talked to in a while → gentle reminder',
+          'Walk past a store you\'ve been to before → relevant note',
+          'Enter a meeting → pull up agenda, last meeting notes'
+        ]
+      },
+      {
+        type: 'paragraph',
+        text: 'All proactive triggers run on the puck, using local context. None require cloud connectivity. Surfacing is via holographic overlay in the user\'s peripheral vision — not audio interruption.'
+      },
+      {
+        type: 'divider'
+      },
+      {
+        type: 'h2',
+        text: 'The interaction model: EMG, gaze, and voice'
+      },
+      {
+        type: 'paragraph',
+        text: 'AR glasses have three input channels that work together:'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Voice: primary input. "Hey Meta, what\'s this restaurant\'s specialty?" Natural language, hands-free.',
+          'Eye gaze: continuous context signal. "What\'s this?" with gaze pointed at a building means "what is THAT building?"',
+          'EMG wristband (Orion\'s neural interface): gesture input without hand movement. A pinch gesture can dismiss a notification, confirm a suggestion, or scroll'
+        ]
+      },
+      {
+        type: 'h3',
+        text: 'The interaction fusion model'
+      },
+      {
+        type: 'code',
+        language: 'python',
+        code: 'def resolve_user_intent(\n    voice_transcript: str,\n    gaze_target: Optional[str],\n    gesture: Optional[str]\n) -> Intent:\n\n    # "What\'s this?" with gaze at a product\n    if "this" in voice_transcript and gaze_target:\n        return Intent.OBJECT_QUERY(target=gaze_target)\n\n    # "Call [pause]" + eye-gaze at a contact\n    if "call" in voice_transcript and recognized_person_in_fov:\n        return Intent.CALL(contact=recognized_person_in_fov)\n\n    # Pinch gesture while looking at a notification\n    if gesture == "pinch" and notification_visible_in_gaze:\n        return Intent.DISMISS_NOTIFICATION(notification_id=...)\n\n    # Fall back to pure voice NLU\n    return nlu_classifier.classify(voice_transcript)'
+      },
+      {
+        type: 'divider'
+      },
+      {
+        type: 'h2',
+        text: 'Full architecture'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'INPUT LAYER (on glasses)\n  7 cameras → frames to puck (compressed, on-demand)\n  Microphones → wake word detector (always-on, 0.3mW)\n               → audio to puck on wakeword (BLE compressed)\n  Eye tracking → gaze vector to puck (10Hz, low bandwidth)\n  EMG wristband → gesture recognition to puck (BLE)\n\nPUCK (primary AI compute)\n  ASR: audio → text (80MB WhisperTiny, on-puck)\n  Intent: text + gaze + gesture → intent (15MB classifier)\n  Context: current scene + user state + calendar\n  Small LLM: local answers (1.2GB Llama 3.2 3B INT4)\n  Scene: gaze-hinted scene understanding (25MB MobileViT)\n  Personalization: user preference + episodic memory\n\nCLOUD (selective, explicit)\n  Large LLM for complex queries\n  Real-time information retrieval\n  Long-term memory sync\n  NEVER: face recognition data, private conversations,\n         medical/legal context, local-only user data\n\nOUTPUT LAYER (on glasses)\n  Holographic overlay: text, UI elements, notifications\n  Bone conduction audio: private spoken responses\n  Privacy LED: hardware-wired camera active indicator\n\nPRIVACY ENFORCEMENT\n  Face recognition: puck-only, opted-in contacts only\n  Contextual zones: medical/legal → disable cloud features\n  Zero persistent video: frames discarded after processing\n  Privacy LED: hardware-controlled, not software-suppressible\n  Data minimization: only semantic context retained, no raw pixels'
+      },
+      {
+        type: 'divider'
+      },
+      {
+        type: 'h2',
+        text: 'The whole thing in five sentences'
+      },
+      {
+        type: 'list',
+        ordered: true,
+        items: [
+          'The compute architecture follows Orion\'s actual hardware design: near-zero ML compute on the glasses (which are occupied with tracking, rendering, and wake-word detection at ~0.3mW), a compute puck in the pocket running the main AI inference stack (small Llama 3.2 3B at INT4, scene understanding, ASR, intent classification — all on the puck\'s own battery), and cloud only for complex queries requiring large models or real-time information.',
+          'Battery management uses progressive activation (idle: wake word detector only at 1.5mW total; active: BLE audio stream + puck inference; display: the dominant load regardless of AI) with thermal-aware compute routing (glasses temperature sensors trigger offloading to puck or cloud when the frame approaches uncomfortable warmth) and zero heavy inference on the glasses battery.',
+          'The model stack per tier has hard size targets: wake word (0.8MB, always-on), gaze encoder (0.5MB), ASR on puck (80MB WhisperTiny INT8), intent classifier (15MB), small LLM (1.2GB Llama 3.2 3B INT4), and scene understanding (25MB MobileViT) — allowing the puck to handle ~80% of interactions locally with the full Llama model in cloud reserved for the ~20% requiring complex reasoning or real-time data.',
+          'Privacy requires four properties: local-only face recognition (puck-only, opted-in contacts only, never cloud), a hardware-wired privacy LED (camera power circuit directly drives the LED, not suppressible by software), contextual privacy zones (medical/legal contexts disable cloud features automatically), and zero persistent video (frames processed immediately on puck and discarded, only semantic representations retained).',
+          'The interaction model fuses three input channels — voice (primary NLU), eye gaze (contextual disambiguation: "what\'s this?" becomes OBJECT_QUERY(target=gaze_target)), and EMG wristband gestures (invisible pinch to dismiss/confirm) — resolved via a multimodal intent fusion model on the puck that produces structured intents before routing to local response, puck inference, or cloud query.'
+        ]
+      },
+      {
+        type: 'divider'
+      },
+      {
+        type: 'h2',
+        text: 'Why I wrote this'
+      },
+      {
+        type: 'paragraph',
+        text: 'This question sits at the intersection of on-device ML, multimodal content safety, and privacy architecture — all three series threads converge in AR glasses because the device that sees everything you see raises privacy challenges that none of those contexts individually had to face. The hotel concierge analogy captures the essential design tension: always present, instantly responsive, deeply knowledgeable about you — and yet unobtrusive, confidential, and unable to eavesdrop on what isn\'t addressed to them. If the hardware-wired privacy LED felt like the most important single privacy decision in the article (you can\'t trust a software indicator on a device with cameras), or if the puck-on-its-own-battery insight made the "limited compute/battery" problem feel structurally different from typical on-device ML — that was the goal.'
+      },
+      {
+        type: 'paragraph',
+        text: 'More breakdowns on the way.'
+      }
+    ]
+  },
 ];
