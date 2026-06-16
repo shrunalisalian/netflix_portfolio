@@ -8450,4 +8450,401 @@ WELLBEING METRICS (not engagement metrics):
       }
     ]
   },
+  {
+    slug: 'multimodal-content-safety-meta',
+    title: 'The Airport That Screens Four Billion Passengers a Day: Designing Multimodal Content Safety at Meta Scale',
+    subtitle: 'Hash matching catches known threats in milliseconds, fast classifiers scan everything, advanced models handle nuance, and humans review the genuinely hard cases — but only the hard cases.',
+    date: 'June 15, 2026',
+    readTime: '15 min read',
+    tags: ['Content Safety', 'Meta', 'Multimodal', 'ML Systems', 'Classification', 'Interview Prep'],
+    coverEmoji: '🛡️',
+    content: [
+      {
+        type: 'callout',
+        emoji: '🎯',
+        text: 'This question comes from Meta\'s ML interview pool. The system design requires reasoning about scale, multiple modalities, policy trade-offs, and the role of humans in the loop.'
+      },
+      {
+        type: 'quote',
+        text: 'Design a machine-learning system to detect unsafe content across text, images and video.'
+      },
+      {
+        type: 'divider'
+      },
+      {
+        type: 'paragraph',
+        text: 'A major international airport screens tens of thousands of passengers daily. It uses a layered detection system: metal detectors catch obvious threats in seconds, X-ray machines reveal what\'s inside luggage, specially trained agents handle flagged items, and expert analysts investigate genuinely suspicious cases. No single layer catches everything — each is designed to catch what the others miss.'
+      },
+      {
+        type: 'paragraph',
+        text: 'Meta needs to screen something closer to four billion daily interactions across Facebook, Instagram, WhatsApp, Threads, and Reels. The content arrives as text, images, and video, simultaneously, in 100+ languages, from every country on earth, including some where content legal elsewhere is illegal and vice versa.'
+      },
+      {
+        type: 'paragraph',
+        text: 'The airport analogy holds at this scale too. Hash matching catches known-bad content in microseconds. Fast ML classifiers scan everything else in milliseconds. Advanced models handle nuanced, context-dependent cases. Human reviewers decide the genuinely hard ones. The engineering challenge is building each layer correctly and connecting them so the right content reaches the right level of scrutiny.'
+      },
+      {
+        type: 'divider'
+      },
+      {
+        type: 'h2',
+        text: 'Layer 0: The harm taxonomy'
+      },
+      {
+        type: 'paragraph',
+        text: 'Before designing any ML, define what you\'re detecting. Unsafe content at Meta falls into categories with very different urgency levels, false-negative tolerances, and detection challenges:'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'TIER 1 — Zero tolerance, immediate action:\n  CSAM (Child Sexual Abuse Material)\n  Imminent credible threats of violence\n  Terrorist recruitment/propaganda\n\nTIER 2 — High priority, near-zero false negative tolerance:\n  Graphic violence/gore\n  Non-consensual intimate imagery (NCII)\n  Self-harm/suicide promotion\n  Drug sales\n\nTIER 3 — Context-dependent, balanced FP/FN:\n  Hate speech (targeting protected characteristics)\n  Adult nudity (medical/artistic vs. sexual)\n  Misinformation (COVID, elections)\n  Harassment/bullying\n\nTIER 4 — Higher false positive cost, nuanced:\n  Political speech\n  Satire that resembles hate speech\n  Newsworthy violent imagery (photojournalism)\n  Graphic medical content'
+      },
+      {
+        type: 'paragraph',
+        text: 'Each tier has a different acceptable error rate. CSAM missed is catastrophic — near-zero false negatives required. A satirical post incorrectly removed is a false positive with real free speech costs — false negatives are more tolerable. This taxonomy drives the threshold calibration for every classifier in the system.'
+      },
+      {
+        type: 'divider'
+      },
+      {
+        type: 'h2',
+        text: 'Layer 1: Hash-based matching (microseconds, no ML required)'
+      },
+      {
+        type: 'paragraph',
+        text: 'The fastest and most reliable detection is exact or perceptual matching against databases of known-bad content. No inference required, no error margin, sub-millisecond per item.'
+      },
+      {
+        type: 'h3',
+        text: 'PhotoDNA for CSAM'
+      },
+      {
+        type: 'paragraph',
+        text: 'PhotoDNA (Microsoft, used by Meta and most major platforms) generates a "fingerprint" of each image that is robust to common transformations — resizing, compression, color shifts, minor crops. Every image uploaded is compared against the NCMEC (National Center for Missing and Exploited Children) hash database. A match triggers immediate removal and mandatory reporting to NCMEC and law enforcement.'
+      },
+      {
+        type: 'code',
+        language: 'python',
+        code: 'def photodna_check(image: bytes) -> bool:\n    """\n    Returns True if image matches known CSAM in the hash database.\n    Sub-millisecond. No ML.\n    """\n    perceptual_hash = compute_photodna_hash(image)\n    return hash_database.contains(perceptual_hash, threshold=0.95)'
+      },
+      {
+        type: 'h3',
+        text: 'Video hashing (TMK+PDQF)'
+      },
+      {
+        type: 'paragraph',
+        text: 'Meta open-sourced TMK+PDQF for video content matching — a temporal perceptual hash that identifies known-bad videos even after re-encoding, trimming, or slight edits. Terror recruitment videos, known violent content, and previously removed NCII can be caught before any ML inference.'
+      },
+      {
+        type: 'paragraph',
+        text: 'Why this layer matters: Bad actors re-share the same content repeatedly. A video that was removed yesterday will be re-uploaded today, slightly re-encoded. Hash matching catches re-uploads in the time it takes to compute a hash, without requiring expensive ML inference.'
+      },
+      {
+        type: 'divider'
+      },
+      {
+        type: 'h2',
+        text: 'Layer 2: Fast text classifiers'
+      },
+      {
+        type: 'paragraph',
+        text: 'Text arrives at higher volume than any other modality — status updates, captions, comments, messages, article shares. The text classifier must operate at very high throughput with low latency.'
+      },
+      {
+        type: 'h3',
+        text: 'Architecture: multilingual multi-label classifier'
+      },
+      {
+        type: 'code',
+        language: 'python',
+        code: 'class TextSafetyClassifier(nn.Module):\n    """\n    Fine-tuned XLM-RoBERTa for multilingual content classification.\n    Multi-label: one model, all categories.\n    Target: < 20ms inference on GPU.\n    """\n    def __init__(self):\n        self.encoder = XLMRobertaModel.from_pretrained("xlm-roberta-large")\n        self.heads = nn.ModuleDict({\n            "hate_speech":    MLP(1024 → 1),\n            "violence":       MLP(1024 → 1),\n            "sexual_content": MLP(1024 → 1),\n            "self_harm":      MLP(1024 → 1),\n            "harassment":     MLP(1024 → 1),\n            "spam":           MLP(1024 → 1),\n            "misinformation": MLP(1024 → 1),\n        })\n\n    def forward(self, text: str) -> dict[str, float]:\n        embedding = self.encoder(tokenize(text)).pooler_output\n        return {cat: head(embedding).sigmoid() for cat, head in self.heads.items()}'
+      },
+      {
+        type: 'h3',
+        text: 'The dog-whistle problem'
+      },
+      {
+        type: 'paragraph',
+        text: 'Hate speech doesn\'t always use literal slurs. Coded language evolves specifically to evade detection:'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Number codes: "1488" (neo-Nazi reference)',
+          'Shifted meanings: dog whistles that are benign to outsiders, clear to the targeted community',
+          'Leetspeak: "h4t3 spe3ch" replacing characters to avoid keyword matching',
+          'Emoji-as-code: certain emoji combinations carry specific coded meanings'
+        ]
+      },
+      {
+        type: 'paragraph',
+        text: 'Defense: train on a continuously updated adversarial dataset that includes known evasion techniques. Maintain a lexicon of evolving coded language updated by human policy teams. Use semantic models (which understand meaning, not just surface form) rather than keyword matchers.'
+      },
+      {
+        type: 'h3',
+        text: 'The multilingual challenge'
+      },
+      {
+        type: 'paragraph',
+        text: 'At Meta\'s scale, content arrives in 100+ languages. Code-switching (mixing languages in one post) is common. A hate speech classifier trained only on English will miss slurs in Portuguese, Arabic, or Hindi. XLM-RoBERTa\'s multilingual pre-training handles the majority of cases. For languages with limited training data, few-shot learning and cross-lingual transfer from higher-resource languages fill the gaps.'
+      },
+      {
+        type: 'divider'
+      },
+      {
+        type: 'h2',
+        text: 'Layer 3: Fast image classifiers'
+      },
+      {
+        type: 'paragraph',
+        text: 'Every image is processed by a multi-task visual classifier. The goal at this layer is high recall (catch everything potentially unsafe) accepting higher false positive rate (some safe images will be flagged for review).'
+      },
+      {
+        type: 'h3',
+        text: 'Architecture: multi-task ViT with category-specific heads'
+      },
+      {
+        type: 'code',
+        language: 'python',
+        code: 'class ImageSafetyClassifier(nn.Module):\n    def __init__(self):\n        self.backbone = ViTModel.from_pretrained("google/vit-large-patch16-224")\n        self.heads = nn.ModuleDict({\n            "nudity":          MLP(1024 → 3),  # [none, partial, explicit]\n            "violence":        MLP(1024 → 3),  # [none, moderate, graphic]\n            "hate_symbols":    MLP(1024 → 1),  # hate symbols, flags\n            "self_harm":       MLP(1024 → 1),\n            "drug_content":    MLP(1024 → 1),\n            "weapons":         MLP(1024 → 1),\n        })\n\n    def forward(self, image: Tensor) -> dict[str, Tensor]:\n        features = self.backbone(image).pooler_output\n        return {cat: head(features) for cat, head in self.heads.items()}'
+      },
+      {
+        type: 'h3',
+        text: 'Contextual nudity detection'
+      },
+      {
+        type: 'paragraph',
+        text: 'Nudity detection illustrates why binary classifiers aren\'t enough. A bare chest is safe (medical diagram, breastfeeding photo, athletic image) or unsafe (sexual content violating community standards). The nudity head outputs three classes: none, partial, explicit — and "partial" triggers downstream context-aware analysis rather than immediate action. The same applies to violence: photojournalism of conflict is newsworthy; gratuitous gore is not.'
+      },
+      {
+        type: 'h3',
+        text: 'Scale optimizations'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Process images asynchronously on upload — don\'t block the user',
+          'Maintain a reverse image search index: has this exact image (or near-duplicate) been flagged before? Re-use the result',
+          'Use image pyramids: run the classifier on a downsampled version first; only run full-resolution on positive classifications'
+        ]
+      },
+      {
+        type: 'divider'
+      },
+      {
+        type: 'h2',
+        text: 'Layer 4: Video classifiers'
+      },
+      {
+        type: 'paragraph',
+        text: 'Video adds temporal complexity. A single frame might be safe; the sequence might not be. A person loading a weapon in one frame is ambiguous; combined with subsequent frames showing a threat, it\'s clearly dangerous.'
+      },
+      {
+        type: 'h3',
+        text: 'The sampling strategy'
+      },
+      {
+        type: 'paragraph',
+        text: 'Processing every frame of every video at full ML inference cost is prohibitive. Practical approaches:'
+      },
+      {
+        type: 'code',
+        language: 'python',
+        code: 'def sample_frames(video: Video, strategy: str = "adaptive") -> list[Frame]:\n    if strategy == "uniform":\n        # Simple: every N seconds (e.g., 1 fps)\n        return video.frames_at_rate(fps=1)\n\n    elif strategy == "adaptive":\n        # Smarter: sample more densely around shot boundaries and motion peaks\n        boundaries = detect_shot_boundaries(video)\n        high_motion = detect_high_motion_segments(video)\n\n        frames = []\n        for segment in boundaries + high_motion:\n            frames.extend(segment.sample(fps=3))  # higher rate at changes\n\n        frames.extend(video.frames_at_rate(fps=0.5))  # sparse background\n        return deduplicate_similar(frames)  # don\'t process near-identical frames'
+      },
+      {
+        type: 'h3',
+        text: 'Temporal classification'
+      },
+      {
+        type: 'paragraph',
+        text: 'Once frames are sampled, temporal models capture sequence-level context:'
+      },
+      {
+        type: 'code',
+        language: 'python',
+        code: 'class VideoSafetyClassifier(nn.Module):\n    def __init__(self):\n        self.frame_encoder = ViTModel.from_pretrained("google/vit-large-patch16-224")\n        self.temporal_model = TimeSformerBlock(\n            d_model=1024,\n            n_frames=32,\n            n_heads=16\n        )\n        self.classifier = MLP(1024 → n_categories)\n        self.audio_encoder = AudioSpectrogramTransformer()\n        self.av_fusion = CrossAttention(video_dim=1024, audio_dim=512)\n\n    def forward(self, frames: Tensor, audio: Tensor) -> dict[str, float]:\n        frame_features = self.frame_encoder(frames)\n        temporal_features = self.temporal_model(frame_features)\n        audio_features = self.audio_encoder(audio)\n        fused = self.av_fusion(temporal_features, audio_features)\n        return self.classifier(fused)'
+      },
+      {
+        type: 'h3',
+        text: 'The audio channel'
+      },
+      {
+        type: 'paragraph',
+        text: 'Video without audio analysis misses significant signals. A video of someone holding a gun is ambiguous; combine with audio of gunshots and explicit threats and the classification changes completely. The audio branch processes speech (transcribed and passed to the text classifier) and non-speech audio (gunshots, screaming, other acoustic signatures).'
+      },
+      {
+        type: 'h3',
+        text: 'Live video: real-time constraints'
+      },
+      {
+        type: 'paragraph',
+        text: 'Meta\'s Instagram and Facebook Live present the hardest constraint: detection must be fast enough to interrupt a stream mid-broadcast if harmful content appears. This requires inference latency < 3 seconds (human perception threshold for "instant" intervention), streaming inference (process frames as they arrive, not after), and hardware acceleration on inference infrastructure (A100/H100 clusters dedicated to live moderation).'
+      },
+      {
+        type: 'divider'
+      },
+      {
+        type: 'h2',
+        text: 'Layer 5: Multimodal fusion'
+      },
+      {
+        type: 'paragraph',
+        text: 'The most nuanced cases require understanding how text and image relate to each other. Consider:'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Image: A photo of a mosque\nText:  "These people are terrorists — we should ban them all"\n\nVerdict: Hate speech targeting Muslims'
+      },
+      {
+        type: 'paragraph',
+        text: 'Neither the image nor the text alone necessarily violates policy. Together, the relationship between them does.'
+      },
+      {
+        type: 'h3',
+        text: 'CLIP-based fusion'
+      },
+      {
+        type: 'code',
+        language: 'python',
+        code: 'class MultimodalSafetyClassifier(nn.Module):\n    def __init__(self):\n        self.clip_image = CLIPVisionModel.from_pretrained("openai/clip-vit-large-patch14")\n        self.clip_text  = CLIPTextModel.from_pretrained("openai/clip-vit-large-patch14")\n        self.cross_attention = CrossAttention(dim=768)\n        self.classifier = MLP(768*2 → n_categories)\n\n    def forward(self, image: Tensor, text: str) -> dict[str, float]:\n        image_emb = self.clip_image(image).pooler_output\n        text_emb  = self.clip_text(tokenize(text)).pooler_output\n        cross_modal = self.cross_attention(\n            query=text_emb,\n            key=image_emb,\n            value=image_emb\n        )\n        combined = torch.cat([text_emb, cross_modal], dim=-1)\n        return self.classifier(combined)'
+      },
+      {
+        type: 'paragraph',
+        text: 'Multimodal fusion is computationally more expensive than unimodal classifiers and should be triggered selectively — when at least one of the unimodal classifiers returns a borderline score, or for categories known to require cross-modal understanding (hate speech is the primary one; harassment often requires reading both the content and the context of who it\'s targeting).'
+      },
+      {
+        type: 'divider'
+      },
+      {
+        type: 'h2',
+        text: 'Layer 6: Context signals'
+      },
+      {
+        type: 'paragraph',
+        text: 'Content doesn\'t exist in isolation. The same image can be safe or unsafe depending on who posted it, where, and when.'
+      },
+      {
+        type: 'h3',
+        text: 'Account signals'
+      },
+      {
+        type: 'code',
+        language: 'python',
+        code: 'account_risk_score = weighted_combination([\n    account_age_days,               # new accounts have higher risk\n    prior_violations_count,         # prior policy violations\n    posting_rate_anomaly,           # posting faster than humans can type\n    network_clustering_coefficient, # isolated accounts vs. connected community\n    follower_to_following_ratio,    # bot-like ratios\n])'
+      },
+      {
+        type: 'h3',
+        text: 'Platform and temporal signals'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Public post vs. private group vs. direct message → different expected content standards',
+          'Advertiser-supported surface vs. subscription → different sensitivity',
+          'Geographic region → different legal requirements (content legal in US may be illegal in Germany)',
+          'Breaking news event: graphic imagery may be newsworthy (photojournalism exception)',
+          'Political campaign season: election misinformation policy heightened',
+          'Crisis event (disaster, public health): different information needs'
+        ]
+      },
+      {
+        type: 'paragraph',
+        text: 'Context signals are combined with content classifier scores to produce a final risk score that routes the content to the appropriate action tier.'
+      },
+      {
+        type: 'divider'
+      },
+      {
+        type: 'h2',
+        text: 'Layer 7: The human review integration'
+      },
+      {
+        type: 'paragraph',
+        text: 'ML is not the final decision-maker for borderline cases. Human reviewers make the call, and their decisions feed back into model training.'
+      },
+      {
+        type: 'h3',
+        text: 'The review pyramid'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'TIER 1 (automatic action, no review needed):\n  Hash matches → immediate removal + NCMEC report\n  ML confidence > 0.97 on CSAM or imminent threat → immediate action\n\nTIER 2 (specialist human review, < 2 hour SLA):\n  ML confidence 0.7–0.97 on Tier 1 categories\n  Any NCII classification above threshold\n  Escalations from general reviewers\n\nTIER 3 (general human review, 24-48 hour SLA):\n  ML confidence 0.5–0.7 across any category\n  Account appeal of ML-automated action\n  Borderline cases from multimodal fusion\n\nTIER 4 (no action):\n  ML confidence < 0.5 across all categories'
+      },
+      {
+        type: 'paragraph',
+        text: 'Every human review decision creates a labeled data point. Correct ML predictions that humans confirm → reinforce the model\'s learned boundary. ML errors that humans correct → new training data for the next model update. This feedback loop is what allows the system to adapt to new content patterns, new evasion techniques, and evolving policy guidelines.'
+      },
+      {
+        type: 'divider'
+      },
+      {
+        type: 'h2',
+        text: 'The false positive / false negative calibration'
+      },
+      {
+        type: 'paragraph',
+        text: 'Different content categories require different operating points on the precision-recall curve:'
+      },
+      {
+        type: 'code',
+        language: 'python',
+        code: 'CATEGORY_THRESHOLDS = {\n    # Near-zero false negative tolerance\n    "csam":           {"threshold": 0.30, "action": "remove + report"},\n    "imminent_threat": {"threshold": 0.40, "action": "remove + escalate"},\n\n    # Low false negative tolerance\n    "graphic_violence": {"threshold": 0.55, "action": "remove or age-gate"},\n    "self_harm":        {"threshold": 0.50, "action": "remove + safe messaging"},\n    "ncii":             {"threshold": 0.45, "action": "remove + report"},\n\n    # Balanced tolerance (FP cost is significant)\n    "hate_speech":    {"threshold": 0.65, "action": "human review"},\n    "nudity":         {"threshold": 0.70, "action": "age-gate or human review"},\n\n    # High FP cost (free speech concerns)\n    "political_speech": {"threshold": 0.80, "action": "reduce distribution"},\n    "satire":           {"threshold": 0.85, "action": "label, not remove"},\n}'
+      },
+      {
+        type: 'paragraph',
+        text: 'Thresholds are calibrated by category policy teams, validated against human review data, and A/B tested for precision/recall impact before deployment.'
+      },
+      {
+        type: 'divider'
+      },
+      {
+        type: 'h2',
+        text: 'Full architecture'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'CONTENT UPLOAD (text / image / video)\n    ↓\n[LAYER 0: Hash matching — microseconds]\n  PhotoDNA / TMK+PDQF / URL hash\n  Match → immediate action (CSAM: remove + NCMEC report)\n  No match → continue\n    ↓\n[LAYER 1: Fast unimodal classifiers — milliseconds]\n  Text → XLM-RoBERTa multi-label classifier\n  Image → ViT multi-task classifier\n  Video → frame sampling + TimeSformer + audio branch\n  Each produces per-category confidence scores\n    ↓\n[LAYER 2: Account + context signals — < 5ms]\n  Account risk score, posting rate, prior violations\n  Platform surface, region, temporal context\n  Adjusted risk score per category\n    ↓\n[ROUTING DECISION]\n  High confidence (above auto-action threshold) → immediate action\n  Borderline (triggers multimodal fusion threshold) → Layer 3\n  Low confidence → no action\n    ↓\n[LAYER 3: Multimodal fusion — for borderline cases]\n  CLIP-based cross-modal attention (text + image relationship)\n  Re-scores borderline cases\n    ↓\n[LAYER 4: Human review — for remaining borderline cases]\n  Routed to specialist or general review queue by category\n  Human decision → logged as training data\n  Appeal pathway for users\n    ↓\n[CONTINUOUS IMPROVEMENT]\n  Human review decisions → training data pipeline\n  New evasion patterns → adversarial dataset updates\n  Policy changes → threshold recalibration\n  Model updates → A/B tested before full deployment'
+      },
+      {
+        type: 'divider'
+      },
+      {
+        type: 'h2',
+        text: 'The whole thing in five sentences'
+      },
+      {
+        type: 'list',
+        ordered: true,
+        items: [
+          'The system runs four layers in priority order: perceptual hash matching (PhotoDNA for CSAM, TMK+PDQF for video) catches known-bad content in microseconds without any ML inference; fast unimodal classifiers (multilingual XLM-RoBERTa for text, multi-task ViT for images, frame-sampled TimeSformer with audio fusion for video) produce per-category confidence scores in milliseconds across 100+ languages; multimodal fusion (CLIP-based cross-modal attention) handles cases where text and image are individually borderline but harmful in combination; and human review handles the genuinely ambiguous cases with decisions fed back as training data.',
+          'Video detection specifically requires adaptive frame sampling (densely at shot boundaries and high-motion segments, sparsely at stable segments), temporal models (TimeSformer) to capture sequence-level context that individual frames miss, and a separate audio branch for speech transcription and acoustic signature detection (gunshots, screaming) — combined via audio-visual cross-attention, then run as a streaming pipeline for live video with < 3 second latency requirements.',
+          'The harm taxonomy drives the entire threshold calibration: CSAM and imminent threats require near-zero false negative tolerance (threshold 0.30–0.40 for automatic action), hate speech and political content have high false positive costs (threshold 0.65–0.80, route to human review), and different content categories map to different human reviewer specializations (CSAM/terrorism require specialists, harassment/spam use general review queues).',
+          'Context signals — account age and prior violations, posting rate anomalies, network clustering coefficients, platform surface, geographic region, and temporal events (breaking news, election season) — combine with content classifier scores to produce a final risk score, because the same image can be newsworthy photojournalism in one context and gratuitous violence in another.',
+          'The system\'s continuous improvement loop depends on human review decisions as labeled training data: every human correction of an ML error is a new training example for the next model update, adversarial evasion patterns (leetspeak, dog whistles, hash-evading video re-encoding) trigger dataset updates and model retraining, and thresholds are A/B tested against precision/recall targets before deployment — making the system adaptive rather than static against an adversarial environment.'
+        ]
+      },
+      {
+        type: 'divider'
+      },
+      {
+        type: 'h2',
+        text: 'Why I wrote this'
+      },
+      {
+        type: 'paragraph',
+        text: 'This question is uniquely Meta\'s in scale and urgency — no other company moderates content at 4 billion daily active users across three modalities simultaneously. The airport analogy felt exactly right because it captures the layered, role-differentiated nature of the system: hash matching isn\'t "worse" than ML because it can only catch known threats; it\'s the right tool for that specific job, running in microseconds to handle cases that don\'t need any ML at all. The four-layer pipeline (hash → fast classifiers → multimodal fusion → human review) is the architecture that emerges when you take the throughput constraint seriously, and if the threshold table (CSAM at 0.30, political speech at 0.80) made the false positive/false negative calibration feel like a deliberate policy choice rather than a technical default — that was the goal.'
+      },
+      {
+        type: 'paragraph',
+        text: 'More breakdowns on the way.'
+      }
+    ]
+  },
 ];
