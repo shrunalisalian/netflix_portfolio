@@ -11905,4 +11905,38 @@ WELLBEING METRICS (not engagement metrics):
       { type: 'paragraph', text: 'More breakdowns on the way.' }
     ]
   },
+  {
+    slug: 'gptoss-vs-managed-gpt5-azure-microsoft',
+    title: 'Leasing the Car vs. Owning the Engine: GPT-OSS on Azure vs. Managed GPT-5 API',
+    subtitle: 'Managed API: smooth lease, professionally tuned, no permission to modify. Open weights: own the engine, responsible for maintenance.',
+    date: 'June 16, 2026',
+    readTime: '14 min read',
+    tags: ['GPT-OSS', 'GPT-5', 'Azure', 'Cost Economics', 'Fine-tuning', 'Microsoft', 'Interview Prep'],
+    coverEmoji: '⚙️',
+    content: [
+      { type: 'paragraph', text: 'Managed GPT-5 is the dealership lease: professionally maintained, no infrastructure costs. GPT-OSS is car ownership: you own the engine, take on operational responsibility.' },
+      { type: 'h2', text: 'Cost control' },
+      { type: 'h3', text: 'Managed GPT-5: consumption pricing' },
+      { type: 'list', ordered: false, items: ['Pure pay-per-token: $1.25/$10.00 per million input/output tokens', 'Zero idle infrastructure cost', 'No volume discount ceiling — scales linearly forever'] },
+      { type: 'h3', text: 'GPT-OSS: infrastructure pricing' },
+      { type: 'list', ordered: false, items: ['Provisioned GPU (A100/H100/H200/MI300)', 'Worse at low/bursty volume (idle GPU cost)', 'Better at high, sustained, predictable throughput (infrastructure cost amortizes)'] },
+      { type: 'h3', text: 'Batching advantage' },
+      { type: 'paragraph', text: 'GPT-OSS self-hosted enables batching: roughly 50% lower cost for non-real-time workloads (batch processing, overnight reports). Managed API targets real-time interactivity.' },
+      { type: 'h3', text: 'Fine-tuning hosting cost' },
+      { type: 'paragraph', text: 'Same hourly hosting cost regardless of model family once deployed. This cost isn\'t a differentiator between managed and open-weight.' },
+      { type: 'h2', text: 'Fine-tuning flexibility' },
+      { type: 'h3', text: 'GPT-5 fine-tuning: gated' },
+      { type: 'paragraph', text: 'Reinforcement fine-tuning is invitation-only. Requires Microsoft account team enrollment. Deep customization unavailable to most teams.' },
+      { type: 'h3', text: 'GPT-OSS fine-tuning: open' },
+      { type: 'paragraph', text: 'Full weight access. LoRA/QLoRA/PEFT available self-service on Azure AI Foundry. No gating. Proprietary data control. Hours, not weeks.' },
+      { type: 'h3', text: 'Beyond fine-tuning: open weights enable' },
+      { type: 'list', ordered: false, items: ['Internal attention/activation audits (closed API: outputs only)', 'Custom distillation to smaller models', 'Custom quantization (2-bit, 4-bit, specific targets)', 'Structured sparsity for strict memory envelopes', 'Individual layer retraining', 'ONNX/Triton export for custom serving', 'Air-gapped, offline, on-device via Foundry Local on Windows'] },
+      { type: 'h3', text: 'The cost of ownership' },
+      { type: 'paragraph', text: 'Self-hosted latency ~200-500ms vs managed <100ms. Professional tuning requires engineering effort.' },
+      { type: 'h2', text: 'Decision framework' },
+      { type: 'list', ordered: false, items: ['Choose GPT-OSS: need unrestricted fine-tuning, proprietary data, air-gapped/edge, model audits, high sustained throughput', 'Choose Managed: low/bursty volume, zero overhead, best latency, frontier capability only'] },
+      { type: 'divider' },
+      { type: 'paragraph', text: 'More breakdowns on the way.' }
+    ]
+  },
 ];
