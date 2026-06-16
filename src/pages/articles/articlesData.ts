@@ -11781,4 +11781,37 @@ WELLBEING METRICS (not engagement metrics):
       { type: 'paragraph', text: 'More breakdowns on the way.' }
     ]
   },
+  {
+    slug: 'perplexity-citation-verification-apple',
+    title: 'The Brief That Cites a Case That Doesn\'t Exist: Designing Verifiable Citations for Siri',
+    subtitle: 'Lawyers have been sanctioned for filing briefs with AI-generated citations to cases that don\'t exist. Citation features must structurally prevent this failure mode.',
+    date: 'June 16, 2026',
+    readTime: '16 min read',
+    tags: ['Source-Backed Answers', 'Citation Verification', 'Apple', 'Perplexity', 'Interview Prep'],
+    coverEmoji: '📚',
+    content: [
+      { type: 'paragraph', text: 'Multiple lawyers have filed legal briefs with AI-generated citations to cases that don\'t exist. A "Source-Backed Answers" feature must engineer against this failure mode structurally, not just hope it doesn\'t happen.' },
+      { type: 'h2', text: 'Part 1: Rendering citations in UI' },
+      { type: 'h3', text: 'Visual context (Spotlight, Siri response card, Safari)' },
+      { type: 'list', ordered: false, items: ['Inline superscript markers (¹, ²) that are tappable', 'Tap opens source card: title, domain/favicon, publication date, supporting excerpt', 'Persistent sources footer: horizontally scrollable chips showing all cited sources at a glance', 'Confidence-tiered styling: verified citations solid, related-only softer/dotted, failed suppressed'] },
+      { type: 'h3', text: 'Voice-only context (HomePod, CarPlay)' },
+      { type: 'paragraph', text: 'Cannot read footnotes aloud. Use natural-language attribution inline ("According to a 2024 Nature report...") rather than citation markers. Parallel visual card on nearby screen if available.' },
+      { type: 'h3', text: 'Accessibility (VoiceOver)' },
+      { type: 'paragraph', text: 'Citation markers need accessibility labels announcing source and double-tap instructions for VoiceOver users — consistent with Apple\'s accessibility-first design.' },
+      { type: 'h2', text: 'Part 2: Preventing citation hallucination' },
+      { type: 'h3', text: 'Two distinct failure modes' },
+      { type: 'list', ordered: false, items: ['Failure A: phantom citation pointing to non-existent source', 'Failure B: real source that doesn\'t support the specific claim'] },
+      { type: 'h3', text: 'Defense A: make phantom citations structurally impossible' },
+      { type: 'paragraph', text: 'Tag every retrieved document with a stable reference ID at retrieval time. Constrain model output so citation tokens can only reference actual retrieved sources. Grammar-constrained decoding prevents the model from generating phantom IDs even from its parametric training memory.' },
+      { type: 'h3', text: 'Defense B: per-claim entailment verification' },
+      { type: 'paragraph', text: 'For each (claim, cited excerpt) pair, run NLI classification: does the excerpt entail the claim? Verified → solid citation. Neutral → related-only. Contradiction → suppress citation. This runs as pre-display gate, not offline metric.' },
+      { type: 'h3', text: 'Additional layer: cross-resampling for high-stakes' },
+      { type: 'paragraph', text: 'For health/legal/financial queries: generate claim-citation multiple times, check consistency. Different source attributions across runs signals weak grounding even if each passes entailment individually.' },
+      { type: 'h2', text: 'Full pipeline' },
+      { type: 'list', ordered: true, items: ['Perplexity retrieval (real docs, each assigned stable source ID)', 'Context assembly: <source id="N"> tagged blocks injected', 'Constrained generation: citations restricted to retrieved IDs (Failure A prevented)', 'Per-claim NLI check against cited excerpt (Failure B caught)', 'High-stakes check: cross-resampling consistency', 'UI rendering: confidence-tiered styling from verification outcome', 'Response displayed with all citations having passed both existence guarantee and faithfulness check'] },
+      { type: 'h2', text: 'Key principle' },
+      { type: 'paragraph', text: 'UI renders verification results, doesn\'t independently decide them. Citation confidence is driven directly by verification pipeline output, not by UI-level heuristics.' },
+      { type: 'paragraph', text: 'More breakdowns on the way.' }
+    ]
+  },
 ];
