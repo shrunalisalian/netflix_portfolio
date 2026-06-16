@@ -11814,4 +11814,29 @@ WELLBEING METRICS (not engagement metrics):
       { type: 'paragraph', text: 'More breakdowns on the way.' }
     ]
   },
+  {
+    slug: 'windows11-email-summarization-microsoft',
+    title: 'The Chef Who Already Knows Your Stove: Choosing a Model for Windows 11 Email Summarization',
+    subtitle: 'One candidate can\'t run locally at all. Between the two who can, the real trade-off is hardware-software co-design.',
+    date: 'June 16, 2026',
+    readTime: '14 min read',
+    tags: ['Model Selection', 'On-Device ML', 'Windows 11', 'Phi', 'Llama', 'Microsoft', 'Interview Prep'],
+    coverEmoji: '💻',
+    content: [
+      { type: 'paragraph', text: 'Choose between GPT-5.1, Phi-4-mini, and Llama 3 (quantized) for on-device email summarization. Privacy, battery life, accuracy. One disqualifies itself before the trade-off analysis even starts.' },
+      { type: 'h2', text: 'GPT-5.1: disqualified by the requirement' },
+      { type: 'paragraph', text: 'GPT-5.1 has no publicly deployable local weights — only accessible via hosted OpenAI API. Requirement states "locally on the laptop." Every email would travel to OpenAI\'s servers. This violates the constraint, not a trade-off on the privacy axis. Disqualify before further comparison.' },
+      { type: 'h2', text: 'Phi-4-mini: chef trained on your stove' },
+      { type: 'list', ordered: false, items: ['3.8B parameters, 128K context (adequate for email threads)', 'Purpose-built for Copilot+ PC NPUs via Phi Silica quantization', 'Ships with Windows Copilot Runtime integration', 'Published measurements: 4.8mWh context processing, 56% power improvement on NPU vs CPU', 'Trained for instruction-following, math, reasoning — aligns with summarization task'] },
+      { type: 'h2', text: 'Llama 3 (quantized): capable freelancer who needs time' },
+      { type: 'paragraph', text: 'Commonly 8B-param at 4-bit via GGUF (llama.cpp). Genuinely viable: open weights, mature tooling, broader hardware compatibility. But main ecosystem (llama.cpp) targets CPU/GPU, requires additional engineering (ONNX conversion, NPU-specific quantization) to reach Phi-4-mini\'s battery efficiency on Copilot+ PCs.' },
+      { type: 'h3', text: 'Raw accuracy: closer than parameter count suggests' },
+      { type: 'paragraph', text: 'Llama 3 has more parameters, but Phi-4-mini\'s high-quality training-data strategy makes it competitive. Both credible on output quality; hardware efficiency and platform integration drive the choice.' },
+      { type: 'h3', text: 'Privacy depends on deployment, not model' },
+      { type: 'paragraph', text: 'Both can run fully on-device. Privacy guarantee comes from feature design: no email serialized to network, no silent cloud fallback, no incidental retention beyond session. Model choice alone doesn\'t guarantee privacy.' },
+      { type: 'h2', text: 'The recommendation' },
+      { type: 'list', ordered: false, items: ['GPT-5.1: DISQUALIFIED — cannot run locally', 'Phi-4-mini: RECOMMENDED — purpose-built Copilot+ PC integration, measured efficiency, sufficient accuracy', 'Llama 3: VIABLE ALTERNATIVE — if must support older non-NPU hardware where CPU/GPU tooling maturity matters more than NPU efficiency'] },
+      { type: 'paragraph', text: 'More breakdowns on the way.' }
+    ]
+  },
 ];
