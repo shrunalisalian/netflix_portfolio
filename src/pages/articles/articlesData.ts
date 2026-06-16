@@ -10765,4 +10765,348 @@ WELLBEING METRICS (not engagement metrics):
       }
     ]
   },
+  {
+    slug: 'rope-nope-safari-apple',
+    title: 'A Magnifying Glass and a Map: Why AFM Mixes RoPE and NoPE for Long Context',
+    subtitle: 'Local layers need to know exact distance. Global layers need to avoid ever being told a distance they weren\'t trained on. Apple gives each layer the tool suited to its job — and that\'s what lets Safari summarize a 40,000-word article it never trained on summarizing.',
+    date: 'June 16, 2026',
+    readTime: '15 min read',
+    tags: ['Positional Embeddings', 'Long Context', 'Apple', 'RoPE', 'Safari', 'Interview Prep'],
+    coverEmoji: '🗺️',
+    content: [
+      {
+        type: 'callout',
+        emoji: '🎯',
+        text: 'This question comes from Apple\'s ML interview pool. Understand RoPE\'s length generalization problem and why Apple uses NoPE for global attention layers to support long-context Safari summarization.'
+      },
+      {
+        type: 'quote',
+        text: 'Why do we use RoPE (Rotary Positional Embeddings) combined with "NoPE" (No Positional Embeddings) for global context? How does this help with long-context summarization in Safari?'
+      },
+      {
+        type: 'divider'
+      },
+      {
+        type: 'paragraph',
+        text: 'Two tools help you navigate a city. A magnifying glass shows you precise distances on a street map — this building is exactly 40 meters from that one. A compass shows you general direction without committing to a specific distance — north is north, whether you\'re 40 meters away or 40 kilometers away. Apple\'s interleaved attention architecture gives the AFM model both tools, each assigned to the job it\'s actually good at. RoPE handles local attention layers, where precise relative distance between nearby tokens genuinely matters. NoPE handles the global attention layer, where the model needs to attend across the entire context without ever encountering a distance value it wasn\'t trained on.'
+      },
+      {
+        type: 'divider'
+      },
+      {
+        type: 'h2',
+        text: 'First: why positional information matters and why RoPE alone has a length problem'
+      },
+      {
+        type: 'paragraph',
+        text: 'Self-attention has no inherent sense of position. Without positional encoding, "the cat sat" and "sat the cat" would produce identical attention patterns. RoPE solves this by rotating Query and Key vectors by an angle proportional to their position, so the dot product naturally encodes relative distance (j - i), not absolute positions. This relative encoding is why RoPE generalizes better than naive absolute position embeddings.'
+      },
+      {
+        type: 'h3',
+        text: 'RoPE\'s length generalization problem'
+      },
+      {
+        type: 'paragraph',
+        text: 'RoPE is trained on sequences up to some maximum length, say 4,096 tokens. The rotation angles the model has seen during training span a specific range. When you feed RoPE a sequence longer than its training length, the rotation angles for very distant token pairs become out-of-distribution — the model is asked to interpret rotation angles it has literally never encountered during training. Empirically, this produces measurable degradation: perplexity explodes once you exceed the trained context length. This is a well-documented phenomenon in long-context research: RoPE\'s length extrapolation failure stems from these out-of-distribution rotation angles at extreme relative distances.'
+      },
+      {
+        type: 'divider'
+      },
+      {
+        type: 'h2',
+        text: 'NoPE: removing the failure mode by removing the cause'
+      },
+      {
+        type: 'h3',
+        text: 'No Positional Embeddings (NoPE)'
+      },
+      {
+        type: 'paragraph',
+        text: 'NoPE takes the opposite approach for layers where it\'s applied: don\'t inject any explicit positional signal into the attention computation at all. This sounds like it should make attention purely positionless — but it doesn\'t, because of an important property of causal (autoregressive) transformers: the causal mask itself, combined with the model\'s ability to learn positional information implicitly through the residual stream and context accumulation, allows NoPE models to develop implicit notion of relative position without being constrained to a specific trained rotation range.'
+      },
+      {
+        type: 'h3',
+        text: 'The NoPE advantage and trade-off'
+      },
+      {
+        type: 'paragraph',
+        text: 'Research on NoPE has found that for causal transformers, position information can be learned implicitly, and NoPE models perform comparably to RoPE models on standard benchmarks at trained sequence lengths — but their key advantage emerges specifically at length generalization: because there\'s no explicit rotation angle to go out-of-distribution, NoPE layers don\'t have the catastrophic failure mode when sequences extend far beyond training length. What NoPE sacrifices is precision — without explicit rotation angles encoding relative distance, the model\'s sense of "exactly how far apart are these two tokens" is fuzzier. This is fine for some attention patterns and bad for others, which is exactly why Apple doesn\'t use NoPE everywhere.'
+      },
+      {
+        type: 'divider'
+      },
+      {
+        type: 'h2',
+        text: 'Apple\'s interleaved design: the right tool for each job'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'AFM repeating transformer block:\n\n  Layer 1: Local attention (sliding window, size 4096) + RoPE\n  Layer 2: Local attention (sliding window, size 4096) + RoPE\n  Layer 3: Local attention (sliding window, size 4096) + RoPE\n  Layer 4: Global attention (full context) + NoPE\n  ─────────────────────────────────────────────────────\n  [repeat this 4-layer pattern for the full model depth]'
+      },
+      {
+        type: 'h3',
+        text: 'Why RoPE for local layers'
+      },
+      {
+        type: 'paragraph',
+        text: 'Local attention layers use a sliding window (4,096 tokens) — they only attend to nearby tokens, never anything outside that window. Within a fixed, bounded window, RoPE\'s precise relative-distance encoding is exactly what\'s needed: the model genuinely benefits from knowing "this token is 3 positions away" vs. "this token is 200 positions away" within the local window. Local syntactic and semantic relationships depend on fine-grained position. And because the window size is fixed and bounded, RoPE never needs to handle rotation angles beyond what it was trained on — the maximum relative distance within a 4,096-token window is always within RoPE\'s trained range.'
+      },
+      {
+        type: 'h3',
+        text: 'Why NoPE for the global layer'
+      },
+      {
+        type: 'paragraph',
+        text: 'The global attention layer attends across the entire context — which, for long-document tasks, can be far longer than anything seen during training. This is precisely the scenario where RoPE\'s out-of-distribution rotation angle problem would bite hardest. A global layer attending from token 1 to token 50,000 would need RoPE to interpret a relative distance of 49,999 positions, likely far outside its trained range. By removing positional embeddings entirely from this layer, Apple avoids ever generating an out-of-distribution rotation angle — the global layer\'s attention pattern can extend to arbitrary lengths without the failure mode that would otherwise occur.'
+      },
+      {
+        type: 'divider'
+      },
+      {
+        type: 'h2',
+        text: 'The compounding benefit: KV cache size'
+      },
+      {
+        type: 'paragraph',
+        text: 'This design isn\'t only about length generalization — it directly reduces KV cache memory. Local attention layers have a bounded KV cache: because they only attend within a 4,096-token sliding window, they only need to retain the most recent 4,096 tokens\' worth of K, V in cache — older tokens outside the window can be evicted. This is a hard ceiling on memory regardless of total sequence length.'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'For a 50,000-token document, 4-layer repeating block (3 local + 1 global):\n\n  If all 4 layers needed full KV cache:\n    4 layers × 50,000 tokens × (K,V size) = full cost\n\n  With interleaved design:\n    3 local layers × 4,096 tokens (bounded window) × (K,V size)\n    + 1 global layer × 50,000 tokens × (K,V size)\n    = dramatically less than 4 × 50,000\n\n  The local layers\' KV cache doesn\'t scale with document length at all.\n  Only the global layer\'s KV cache scales with document length.\n  And there\'s only one such layer per four.'
+      },
+      {
+        type: 'divider'
+      },
+      {
+        type: 'h2',
+        text: 'How this enables Safari\'s long-context summarization'
+      },
+      {
+        type: 'paragraph',
+        text: 'Safari\'s web page summarization feature (part of Apple Intelligence) takes an entire article — which can easily run 5,000-15,000+ words — and produces a coherent summary, on-device, in a few seconds.'
+      },
+      {
+        type: 'h3',
+        text: 'Why this stresses the positional encoding design'
+      },
+      {
+        type: 'paragraph',
+        text: 'A long-form article, tokenized, can easily exceed 10,000-20,000 tokens — well beyond typical short-context training regimes. Good summarization requires two things simultaneously: (1) Coherent understanding of the whole document (needs the global layer) — a good summary requires understanding the article\'s overall argument. Apple\'s introduction often previews a conclusion elaborated 8,000 tokens later. Recognizing this connection requires attention spanning the full document. (2) Locally coherent processing within each section (needs the local layers) — within paragraphs, fine-grained relative position matters for parsing grammar, resolving pronoun references, tracking argument flow.'
+      },
+      {
+        type: 'paragraph',
+        text: 'The practical payoff: because the global NoPE layer doesn\'t experience the out-of-distribution rotation angle failure that a RoPE-only model would, AFM-on-device can process article lengths well beyond its training distribution without degradation. Combined with the bounded local-layer KV cache, Safari\'s summarization can handle long articles on an iPhone\'s memory budget, in the few seconds users expect, without needing a model trained at 20,000+ token lengths.'
+      },
+      {
+        type: 'divider'
+      },
+      {
+        type: 'h2',
+        text: 'The whole thing in five sentences'
+      },
+      {
+        type: 'list',
+        ordered: true,
+        items: [
+          'RoPE encodes relative position by rotating Query and Key vectors by position-dependent angles, which generalizes well within its trained range but suffers a well-documented failure mode at long context: rotation angles for token pairs far apart in a sequence exceeding the trained length are out-of-distribution, causing measurable quality degradation (perplexity explosion) beyond the trained context window.',
+          'NoPE removes explicit positional embeddings entirely, relying on the causal mask and the model\'s implicit learning of position through the residual stream — this sacrifices the precision of RoPE\'s exact relative-distance encoding but entirely avoids the out-of-distribution rotation angle failure mode, because there\'s no explicit angle to go out of range.',
+          'Apple\'s AFM architecture assigns each technique to layers where its property matters most: three sliding-window local attention layers (bounded 4,096-token window) use RoPE, because within a fixed bounded window relative distance is always in-distribution and precise local position matters for parsing; one global attention layer (full context) uses NoPE, because it must attend across arbitrarily long documents where RoPE\'s rotation angles would otherwise go out-of-distribution.',
+          'This design compounds two benefits: length generalization (the global layer never experiences RoPE\'s catastrophic long-context failure) and KV cache memory reduction (local layers only need to retain a bounded 4,096-token cache regardless of document length, while only the single global layer per block needs the full-sequence cache) — directly addressing iPhone memory constraints.',
+          'For Safari\'s on-device summarization, this translates directly into capability: long-form articles (5,000-20,000+ tokens, often exceeding typical training context lengths) can be coherently summarized because the global NoPE layer maintains full-document attention without degrading at extreme lengths, the local RoPE layers maintain precise sentence-level parsing within their bounded window regardless of total document length, and the resulting bounded KV cache footprint keeps the whole pipeline within an iPhone\'s memory and latency budget.'
+        ]
+      },
+      {
+        type: 'divider'
+      },
+      {
+        type: 'h2',
+        text: 'Why I wrote this'
+      },
+      {
+        type: 'paragraph',
+        text: 'This question completes a natural quartet with the three earlier Apple architecture articles in this series — KV-cache sharing, 2-bit QAT, and PT-MoE all addressed efficiency, while this one addresses robustness at lengths the model wasn\'t explicitly trained for. The magnifying-glass-and-compass framing captures why you\'d want two different tools: precision is valuable up close (RoPE, bounded local windows) and becomes a liability at unbounded range, while a less precise but unbounded tool (NoPE) is exactly backwards if applied locally but exactly right for the layer that must span an entire long document. If the Safari connection (introduction previews conclusion 8,000 tokens later) made the architecture\'s purpose feel concrete, or if the KV cache compounding tied this back to memory constraints — that was the goal.'
+      },
+      {
+        type: 'paragraph',
+        text: 'More breakdowns on the way.'
+      }
+    ]
+  },
+  {
+    slug: 'ferret-ui-anyres-apple',
+    title: 'Reading a Phone Screen Like a Newspaper, Not a Postcard: Ferret-UI\'s Any-Resolution Architecture',
+    subtitle: 'A standard ViT squishes a tall, narrow, icon-dense screenshot into a square. Ferret-UI splits it into sub-images instead — reading each half at full resolution before looking at the whole page.',
+    date: 'June 16, 2026',
+    readTime: '15 min read',
+    tags: ['Vision Transformers', 'UI Understanding', 'Apple', 'Multimodal', 'Ferret-UI', 'Interview Prep'],
+    coverEmoji: '📱',
+    content: [
+      {
+        type: 'callout',
+        emoji: '🎯',
+        text: 'This question comes from Apple\'s ML interview pool. Understand how Ferret-UI\'s any-resolution architecture solves the problem of processing dense, aspect-ratio-extreme UI screenshots with standard ViTs.'
+      },
+      {
+        type: 'quote',
+        text: 'How would you design a model to understand an iPhone screenshot? Standard ViTs are too slow. Discuss the "Any Resolution" architecture from Ferret-UI that splits screens into sub-images.'
+      },
+      {
+        type: 'divider'
+      },
+      {
+        type: 'paragraph',
+        text: 'Hand someone a postcard and a newspaper and ask them to read both the same way — glance at it once, take in the whole thing at a glance. The postcard works fine: one photo, maybe a few words, low information density. The newspaper does not: dense columns of small text, headlines of different sizes, classified ads in tiny print. Glance at a newspaper page shrunk to postcard size and you\'ll recognize "this is a newspaper" but you won\'t read a single headline. A standard Vision Transformer treats every image like a postcard: resize it to a fixed square (224×224 or 336×336 pixels), chop it into patches, encode. This works beautifully for natural photographs. It works terribly for an iPhone screenshot, which is the newspaper case: a tall, narrow, 1170×2532-pixel surface densely packed with small icons, fine text labels, thin dividers, and UI elements.'
+      },
+      {
+        type: 'divider'
+      },
+      {
+        type: 'h2',
+        text: 'Why standard ViTs fail specifically on UI screenshots'
+      },
+      {
+        type: 'h3',
+        text: '1. Extreme and unusual aspect ratios'
+      },
+      {
+        type: 'paragraph',
+        text: 'An iPhone screenshot is roughly 1:2.16 (much taller than wide) for portrait, or 2.16:1 for landscape. A standard ViT\'s fixed square input (224×224 or 336×336) forces an aspect-ratio-destroying resize. A portrait screenshot resized to a square gets horizontally stretched and vertically compressed — distorting spatial relationships between UI elements that the model needs to reason about.'
+      },
+      {
+        type: 'h3',
+        text: '2. Small objects of interest relative to overall image size'
+      },
+      {
+        type: 'paragraph',
+        text: 'UI screens contain dense arrangements of small icons, brief text labels, and compact widgets. Ferret-UI\'s paper makes this explicit: UI screens typically exhibit a more elongated aspect ratio and contain smaller objects of interest (icons, text) than natural images. Once you\'ve resized a 1170×2532 screenshot to 224×224, roughly 1 patch-grid-cell covers a region that might contain 5-10 distinct small UI elements. Information that distinguishes "settings gear icon" from "info circle icon" from "share icon" gets lost.'
+      },
+      {
+        type: 'h3',
+        text: '3. Precise spatial grounding requirements'
+      },
+      {
+        type: 'paragraph',
+        text: 'A general image understanding task tolerates spatial imprecision. A UI understanding task often requires precise localization: "tap the button labeled Continue" needs exact bounding box coordinates, not just recognizing that a button exists somewhere. Standard ViT\'s low effective resolution on UI content makes fine-grained grounding unreliable.'
+      },
+      {
+        type: 'divider'
+      },
+      {
+        type: 'h2',
+        text: 'The Ferret-UI any-resolution (anyres) architecture'
+      },
+      {
+        type: 'h3',
+        text: 'The core mechanism — aspect-ratio-aware splitting'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Given a screenshot with its original aspect ratio:\n\n  IF portrait (taller than wide):\n    Split HORIZONTALLY into 2 sub-images (top half, bottom half)\n\n  IF landscape (wider than tall):\n    Split VERTICALLY into 2 sub-images (left half, right half)\n\nEach sub-image preserves a more "natural" aspect ratio than the\nfull original screen, making it more amenable to standard ViT encoding\nwithout extreme distortion.'
+      },
+      {
+        type: 'paragraph',
+        text: 'This is deliberately simple — a binary split based on orientation, not an elaborate variable-resolution tiling scheme. Each screen is divided into 2 sub-images based on the original aspect ratio — horizontal division for portrait screens, vertical division for landscape screens.'
+      },
+      {
+        type: 'h3',
+        text: 'Why splitting helps where resizing fails'
+      },
+      {
+        type: 'code',
+        language: 'python',
+        code: 'def prepare_screenshot(screenshot: Image) -> dict:\n    width, height = screenshot.size\n    is_portrait = height > width\n\n    if is_portrait:\n        mid = height // 2\n        sub_image_1 = screenshot.crop((0, 0, width, mid))\n        sub_image_2 = screenshot.crop((0, mid, width, height))\n    else:\n        mid = width // 2\n        sub_image_1 = screenshot.crop((0, 0, mid, height))\n        sub_image_2 = screenshot.crop((mid, 0, width, height))\n\n    return {\n        "global_image": screenshot.resize((336, 336)),\n        "sub_image_1": sub_image_1.resize((336, 336)),\n        "sub_image_2": sub_image_2.resize((336, 336)),\n    }'
+      },
+      {
+        type: 'paragraph',
+        text: 'Each sub-image, once cropped, has less extreme aspect ratio and represents a smaller spatial area. Resizing that region to 336×336 means each pixel corresponds to a much smaller area of the original screen than if the entire screen had been squeezed into the same budget. For a 1170×2532 portrait screenshot: standard ViT (whole screen → 336×336) each output patch covers roughly 49×106 original pixels. Ferret-UI anyres (top half: 1170×1266 → 336×336) each patch covers roughly 49×53 original pixels — TWICE the effective resolution on the same UI elements, because each sub-image encodes half the original screen area into the same patch budget.'
+      },
+      {
+        type: 'divider'
+      },
+      {
+        type: 'h2',
+        text: 'The full architecture: global context + local detail + regional grounding'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'INPUT: screenshot\n    ↓\n┌────────────────────────────────────────┐\n│  GLOBAL IMAGE PATH                      │\n│  Full screenshot → resize → ViT encoder  │\n│  Purpose: layout, screen-level context   │\n└────────────────────────────────────────┘\n    ↓\n┌────────────────────────────────────────┐\n│  SUB-IMAGE PATH (anyres)                 │\n│  2 sub-images → ViT encoder (shared)     │\n│  Purpose: fine detail, icon/text         │\n│           recognition                    │\n└────────────────────────────────────────┘\n    ↓\n┌────────────────────────────────────────┐\n│  REGIONAL FEATURE PATH                   │\n│  For regional references via bounding box│\n│  → visual sampler extracts regional      │\n│     features for that exact location     │\n│  Purpose: precise referring, grounding   │\n└────────────────────────────────────────┘\n    ↓\n[Combined and projected to LLM token space]\n    ↓\n[LLM receives all representations]'
+      },
+      {
+        type: 'paragraph',
+        text: 'The model has simultaneous access to: the big picture (global — "this is a settings screen"), fine detail anywhere on screen (sub-image — "the small toggle switch in the upper right reads Wi-Fi"), and precise localized features for any specific region a query references (regional — "what does the icon at this exact location do?"). The same pre-trained ViT encoder processes the global image and both sub-images — keeping parameter count manageable (one visual encoder, applied multiple times) rather than requiring distinct specialized encoders for different resolution regimes.'
+      },
+      {
+        type: 'divider'
+      },
+      {
+        type: 'h2',
+        text: 'Addressing the "standard ViTs are too slow" framing'
+      },
+      {
+        type: 'paragraph',
+        text: 'The interview question specifically flags that standard ViTs are too slow — worth addressing directly, because encoding 3 images (1 global + 2 sub-images) instead of 1 sounds like it should be slower.'
+      },
+      {
+        type: 'h3',
+        text: 'The resolution-quality trade-off'
+      },
+      {
+        type: 'paragraph',
+        text: 'A standard ViT, to achieve Ferret-UI\'s effective resolution on UI elements, would need to either: (1) Use much higher native input resolution (e.g., 672×672 or 1024×1024) — directly increasing compute quadratically, OR (2) Use 336×336 and accept degraded quality. Ferret-UI achieves option 1\'s quality without paying its full compute cost: 3 separate 336×336 passes (1 global + 2 sub) is far cheaper than 1 pass at 1024×1024, because ViT compute scales quadratically with resolution but linearly with the number of separate fixed-resolution images:'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Cost of one ViT pass at resolution R: O(R²) (quadratic)\n\nStandard ViT at high res (1024×1024) to match detail: O(1024²) = O(~1M)\n\nFerret-UI anyres (3 passes at 336×336): 3 × O(336²) = 3 × O(~113K) ≈ O(~339K)\n\nFerret-UI is roughly 3× cheaper than brute-force high-resolution,\nwhile achieving comparable or better effective resolution because\nUI-relevant detail is concentrated in small elements.'
+      },
+      {
+        type: 'divider'
+      },
+      {
+        type: 'h2',
+        text: 'What this enables in practice'
+      },
+      {
+        type: 'paragraph',
+        text: 'This architecture is precisely what\'s needed for Apple Intelligence features that must reason about what\'s currently on a user\'s screen — visual intelligence, Siri\'s onscreen awareness, accessibility features, and any future on-device agent. Each requires exactly this combination: coarse understanding of the screen type (global path), precise identification of small elements (sub-image path), and exact spatial grounding for any element a user refers to (regional path) — all without the prohibitive compute cost of brute-force high-resolution ViT encoding.'
+      },
+      {
+        type: 'divider'
+      },
+      {
+        type: 'h2',
+        text: 'The whole thing in five sentences'
+      },
+      {
+        type: 'list',
+        ordered: true,
+        items: [
+          'Standard ViTs fail on UI screenshots for three compounding reasons: extreme aspect ratios that get destructively squeezed into a fixed square input, small UI elements (icons, text labels) that collapse into indistinguishable blurs at low effective resolution, and precise spatial grounding requirements (exact bounding boxes) that low-resolution encoding can\'t reliably support.',
+          'Ferret-UI\'s any-resolution (anyres) architecture splits each screenshot into 2 sub-images based on orientation (horizontal split for portrait screens, vertical split for landscape screens), encoding each sub-image with the same pre-trained ViT at full resolution — effectively doubling the resolution budget spent on any given region of the original screen compared to encoding the whole screen at once.',
+          'The full architecture combines three representations: global image features (whole-screen context for "what kind of screen is this"), sub-image features (fine-grained detail for small icon/text recognition), and regional features extracted by a visual sampler for precise referring to specific bounding-box regions — all flattened and combined with text embeddings before reaching the LLM decoder.',
+          'The "standard ViTs are too slow" problem is really a resolution-vs-compute trade-off: matching any-resolution\'s effective detail with a single high-resolution ViT would cost quadratically more compute, so processing multiple cheap fixed-resolution sub-images (3 × 336² compute) is roughly 3× cheaper than one expensive high-resolution pass (1024²) while achieving comparable or better detail because UI-relevant information is concentrated.',
+          'The architecture is trained on UI-specific tasks (icon recognition, OCR, widget classification, grounding) using RICO Android data and Apple\'s proprietary iPhone data, enabling exactly the capabilities needed for on-device agents and accessibility features that must understand and act on whatever is currently displayed on a user\'s screen.'
+        ]
+      },
+      {
+        type: 'divider'
+      },
+      {
+        type: 'h2',
+        text: 'Why I wrote this'
+      },
+      {
+        type: 'paragraph',
+        text: 'This question complements the four AFM articles earlier in this series — those covered text-only efficiency, and this covers the vision side of Apple\'s on-device intelligence stack, with a genuinely different bottleneck: not memory or synchronization, but the quadratic cost of resolution in vision transformers colliding with UI screens\' unusual aspect ratios and small-element density. The postcard vs. newspaper framing captures a distinction everyone understands — you don\'t read a newspaper by glancing at a thumbnail, you read section by section — and that\'s the architectural choice Ferret-UI makes. If the patch-coverage arithmetic made doubling effective resolution feel measurable rather than marketing, or if the quadratic-cost comparison made the speed framing feel like a real engineering trade-off — that was the goal.'
+      },
+      {
+        type: 'paragraph',
+        text: 'More breakdowns on the way.'
+      }
+    ]
+  },
 ];
