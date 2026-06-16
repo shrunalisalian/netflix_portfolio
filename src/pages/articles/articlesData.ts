@@ -11473,4 +11473,194 @@ WELLBEING METRICS (not engagement metrics):
       }
     ]
   },
+  {
+    slug: 'siri-routing-ondevice-pcc-gemini-apple',
+    title: 'The Family Doctor, the Regional Hospital, and the Specialist Overseas: Routing Siri Between On-Device, PCC, and Gemini',
+    subtitle: 'Three tiers of capability, a privacy gate that overrides the latency/complexity trade-off rather than competing with it, and what happens when the specialist\'s phone lines go down.',
+    date: 'June 16, 2026',
+    readTime: '16 min read',
+    tags: ['Siri Routing', 'Apple', 'On-Device ML', 'Private Cloud Compute', 'Gemini Integration', 'Interview Prep'],
+    coverEmoji: '🏥',
+    content: [
+      {
+        type: 'callout',
+        emoji: '🎯',
+        text: 'This question comes from Apple\'s ML interview pool. Design the routing system that decides if a Siri query goes to on-device, PCC, or Gemini. Understand the signals, failure handling, and why privacy gates must come first.'
+      },
+      {
+        type: 'quote',
+        text: 'Design the system that decides if a Siri query goes to On-Device, Private Cloud, or Gemini. What are your signals? How do you handle failure if Gemini is down?'
+      },
+      {
+        type: 'divider'
+      },
+      {
+        type: 'paragraph',
+        text: 'Think about how a well-run healthcare referral system works. Your family doctor handles the overwhelming majority of what you need — they know your history, they\'re immediately available. For cases beyond their expertise but still within the system, they refer to the regional hospital. For the rarest cases needing world-renowned expertise, they refer overseas with your explicit consent. And if that overseas specialist is closed? The regional hospital does its best with what it has, being honest about limitations rather than pretending nothing changed.'
+      },
+      {
+        type: 'paragraph',
+        text: 'This is Apple\'s three-tier Siri architecture: on-device (the family doctor), Private Cloud Compute (the regional hospital, still inside Apple\'s privacy boundary), and Gemini (the specialist overseas, requiring explicit consent before data leaves Apple\'s infrastructure).'
+      },
+      {
+        type: 'divider'
+      },
+      {
+        type: 'h2',
+        text: 'The three tiers and what each handles'
+      },
+      {
+        type: 'h3',
+        text: 'Tier 1 — On-Device (AFM-3B)'
+      },
+      {
+        type: 'paragraph',
+        text: 'Handles the large majority of real Siri query volume: device control (timers, alarms), App Intents-based actions (sending messages, adjusting settings), short conversational exchanges, and anything requiring access to private on-device context (messages, photos, calendar, health data). Works offline. Lowest latency. Free per request.'
+      },
+      {
+        type: 'h3',
+        text: 'Tier 2 — Private Cloud Compute'
+      },
+      {
+        type: 'paragraph',
+        text: 'Handles queries exceeding on-device capability — longer reasoning chains, more complex synthesis — where queries benefit from the user\'s personal context but data stays within Apple\'s infrastructure and audit boundary. Stateless processing, no data retention, independently auditable software.'
+      },
+      {
+        type: 'h3',
+        text: 'Tier 3 — Gemini'
+      },
+      {
+        type: 'paragraph',
+        text: 'Reserved for queries needing frontier-scale world knowledge or reasoning capability — the kind of breadth that comes from a model trained at massive scale. User must explicitly consent before any query is routed here, following Apple\'s existing ChatGPT-extension consent pattern.'
+      },
+      {
+        type: 'divider'
+      },
+      {
+        type: 'h2',
+        text: 'The signals: hard gates and soft scoring'
+      },
+      {
+        type: 'h3',
+        text: 'Signal group 1: PII and privacy (hard gate, evaluated first)'
+      },
+      {
+        type: 'paragraph',
+        text: 'Privacy gates are evaluated BEFORE any latency or complexity scoring. These hard gates either keep Gemini eligible or remove it entirely — they never add it back in. A query touching personal data, containing detected PII, or lacking explicit consent for Gemini routing gets the best available answer from PCC instead, not Gemini, regardless of how complex the query is. A privacy guarantee that can be outweighed by sufficient complexity is not actually a guarantee.'
+      },
+      {
+        type: 'h3',
+        text: 'Signal group 2: Complexity and capability'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Structured intent detection (timer, alarm, message send — bounded, deterministic)',
+          'On-device confidence score (similar to hallucination calibration, but used for routing)',
+          'Recency requirement (does this need live information beyond training cutoff?)',
+          'Estimated reasoning depth (multi-step chains, code generation, long synthesis)'
+        ]
+      },
+      {
+        type: 'h3',
+        text: 'Signal group 3: Latency and connectivity'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Network available (offline queries stay on-device)',
+          'Battery level (low battery prefers on-device, avoids radio-heavy cloud)',
+          'User latency tolerance (voice Siri has tighter expectations than typed chat)',
+          'Gemini circuit breaker state (is Gemini actually healthy right now?)'
+        ]
+      },
+      {
+        type: 'divider'
+      },
+      {
+        type: 'h2',
+        text: 'Cascading decision logic'
+      },
+      {
+        type: 'list',
+        ordered: true,
+        items: [
+          'Privacy gate: hard filter (eliminates Gemini if PII, personal data access, or no consent)',
+          'Structured intent shortcut: bounded operations never leave device',
+          'Attempt on-device first: covers most real query volume',
+          'Check if on-device confidence is sufficient and doesn\'t need real-time data',
+          'If escalation needed, check connectivity (no network = on-device degraded)',
+          'If frontier capability needed AND Gemini eligible AND healthy, route to Gemini',
+          'Otherwise default to PCC (queries that need more than on-device but don\'t clear Gemini bar)',
+          'If all escalation options removed by privacy gate, return on-device result flagged as potentially incomplete'
+        ]
+      },
+      {
+        type: 'divider'
+      },
+      {
+        type: 'h2',
+        text: 'Handling Gemini failure'
+      },
+      {
+        type: 'h3',
+        text: 'Failure mode 1: Circuit breaker (fully unavailable)'
+      },
+      {
+        type: 'paragraph',
+        text: 'A circuit breaker prevents repeatedly attempting and timing out against a known-down service, which would degrade latency for every user during an outage. When the circuit is open, the router never even attempts a Gemini call — it falls through immediately to PCC. A known outage should never cost users additional latency from a doomed request that\'s going to fail anyway.'
+      },
+      {
+        type: 'h3',
+        text: 'Failure mode 2: Slow but responding (timeout budget)'
+      },
+      {
+        type: 'paragraph',
+        text: 'Slow-but-technically-up Gemini and fully-down Gemini should produce the same fallback behavior — distinct for monitoring/dashboards but identical for user-facing decisions. Don\'t make users wait past the interactive latency budget regardless of cause.'
+      },
+      {
+        type: 'h3',
+        text: 'Failure mode 3: Graceful degradation'
+      },
+      {
+        type: 'paragraph',
+        text: 'When Gemini fails, fall back to PCC. If PCC can\'t confidently answer what genuinely needed Gemini capability, return an honest "I\'m not able to fully answer that right now — could you try again in a few minutes?" rather than a confident-sounding but unreliable answer.'
+      },
+      {
+        type: 'h3',
+        text: 'Monitoring without compromising privacy'
+      },
+      {
+        type: 'paragraph',
+        text: 'Detecting Gemini outages in aggregate (rising failure rates across population) uses privacy-preserving telemetry, never per-user query logging. Engineers need to know "Gemini error rate spiked at 14:32 UTC" — they do not need logs of which specific users asked what during the outage.'
+      },
+      {
+        type: 'divider'
+      },
+      {
+        type: 'h2',
+        text: 'The whole thing in five sentences'
+      },
+      {
+        type: 'list',
+        ordered: true,
+        items: [
+          'The three tiers — on-device AFM-3B (default for most queries, anything requiring personal context), Private Cloud Compute (when on-device capability is exceeded but Apple\'s privacy boundary applies), and Gemini (frontier-scale capability, requiring explicit prior consent) — form a natural hierarchy.',
+          'Signals split into hard gates (PII, personal-data-access, consent — which remove Gemini entirely before soft scoring) and soft signals (confidence, reasoning depth, recency, connectivity, Gemini health) — conflating them into one score lets complexity outweigh privacy, which defeats the purpose of a hard gate.',
+          'The cascade always attempts on-device first, escalates to Gemini only when frontier capability is needed AND privacy-eligible AND Gemini is healthy, and defaults to PCC for everything in between.',
+          'Gemini failure has three distinct engineering modes: circuit breaker prevents wasted timeouts during outages, timeout budget treats slow responses same as failures, and graceful degradation to PCC with honest "can\'t fully answer" preserves usability without compromising accuracy.',
+          'Outage detection uses aggregate privacy-preserving telemetry (population-level failure rates), not per-user query logs — engineers know the system is degraded without knowing what specific users asked.'
+        ]
+      },
+      {
+        type: 'divider'
+      },
+      {
+        type: 'paragraph',
+        text: 'More breakdowns on the way.'
+      }
+    ]
+  },
 ];
