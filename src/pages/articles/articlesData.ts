@@ -9228,4 +9228,395 @@ WELLBEING METRICS (not engagement metrics):
       }
     ]
   },
+  {
+    slug: 'realtime-comments-meta',
+    title: 'The Town Hall That Never Sleeps: Designing Real-Time Comments, Reactions, and AI Moderation at Meta Scale',
+    subtitle: 'WebSocket fan-out for 10 million simultaneous viewers, reaction count debouncing, three-tier AI censorship, and why WhatsApp is a completely different problem.',
+    date: 'June 15, 2026',
+    readTime: '17 min read',
+    tags: ['Real-time Systems', 'Meta', 'Comments', 'Moderation', 'Distributed Systems', 'Interview Prep'],
+    coverEmoji: '💬',
+    content: [
+      {
+        type: 'callout',
+        emoji: '🎯',
+        text: 'This question comes from Meta\'s ML interview pool. The challenge: design a real-time comment system supporting reactions and AI moderation across three platforms with fundamentally different constraints.'
+      },
+      {
+        type: 'quote',
+        text: 'Design a real-time comment system for Facebook, Instagram and WhatsApp that supports reactions and AI censorship.'
+      },
+      {
+        type: 'divider'
+      },
+      {
+        type: 'paragraph',
+        text: 'Imagine a town hall meeting with three billion attendees. People are asking questions, reacting to what others say, and — because it\'s the internet — some are saying things that shouldn\'t be said. The moderators need to screen those before they reach the microphone, and catch the ones they missed after the fact.'
+      },
+      {
+        type: 'paragraph',
+        text: 'There are also three separate halls running simultaneously: the Facebook conference center (public, noisy, threaded discussions), the Instagram auditorium (public, curated, reactions-first), and the WhatsApp private room (encrypted, intimate, where the moderator legally cannot listen at the door).'
+      },
+      {
+        type: 'paragraph',
+        text: 'The engineering problem is: build a system that handles all three halls in real-time, delivers reactions and comments to everyone watching at once, and screens harmful content before it reaches the microphone — in under 100 milliseconds.'
+      },
+      {
+        type: 'divider'
+      },
+      {
+        type: 'h2',
+        text: 'The data model'
+      },
+      {
+        type: 'paragraph',
+        text: 'Comments and reactions share a common core but diverge at the edges for each platform.'
+      },
+      {
+        type: 'h3',
+        text: 'Comment'
+      },
+      {
+        type: 'code',
+        language: 'sql',
+        code: 'CREATE TABLE comments (\n    id              UUID PRIMARY KEY,\n    post_id         UUID NOT NULL,\n    parent_id       UUID,                  -- null = top-level; non-null = reply\n    author_id       UUID NOT NULL,\n    platform        ENUM(\'FB\',\'IG\',\'WA\') NOT NULL,\n    content         TEXT,                  -- null for deleted comments\n    created_at      TIMESTAMP NOT NULL,\n    status          ENUM(\'pending\',\'published\',\'hidden\',\'deleted\') NOT NULL,\n    hide_reason     ENUM(\'ai_auto\',\'ai_review\',\'user_report\',\'human_review\'),\n    edit_history    JSONB,                 -- array of {content, edited_at}\n    INDEX (post_id, created_at),           -- pagination\n    INDEX (author_id, created_at)          -- author\'s comment history\n);'
+      },
+      {
+        type: 'h3',
+        text: 'Reaction (separate table, high write volume)'
+      },
+      {
+        type: 'code',
+        language: 'sql',
+        code: 'CREATE TABLE reactions (\n    comment_id      UUID NOT NULL,\n    user_id         UUID NOT NULL,\n    reaction_type   ENUM(\'like\',\'love\',\'haha\',\'wow\',\'sad\',\'angry\') NOT NULL,\n    created_at      TIMESTAMP NOT NULL,\n    PRIMARY KEY (comment_id, user_id),     -- one reaction per user per comment\n    INDEX (comment_id)                     -- fetch reactions for a comment\n);\n\n-- Denormalized aggregate (updated asynchronously)\nCREATE TABLE comment_reaction_counts (\n    comment_id  UUID PRIMARY KEY,\n    like_count  INT DEFAULT 0,\n    love_count  INT DEFAULT 0,\n    haha_count  INT DEFAULT 0,\n    wow_count   INT DEFAULT 0,\n    sad_count   INT DEFAULT 0,\n    angry_count INT DEFAULT 0,\n    updated_at  TIMESTAMP\n);'
+      },
+      {
+        type: 'paragraph',
+        text: 'The reaction counts table is denormalized deliberately. Querying `COUNT(*)` for every comment on a hot post would be catastrophically expensive. Pre-aggregated counts are updated asynchronously via a consumer that processes the reaction event stream.'
+      },
+      {
+        type: 'divider'
+      },
+      {
+        type: 'h2',
+        text: 'The write path: from keystroke to database'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'User submits comment\n    ↓\n[Client: optimistic UI — show comment immediately in grey]\n    ↓\n[API Gateway: auth, rate limiting (30 comments/min/user)]\n    ↓\n[Comment Service]\n    ↓\n[Tier 1 AI Censorship — synchronous, < 80ms]\n  Hash check: known banned phrases, spam URLs\n  Fast ML classifier (distilled model, < 50ms inference)\n  Result: ALLOW / BLOCK / PENDING_REVIEW\n    ↓\n  BLOCK: return error to client, comment not stored\n  PENDING_REVIEW: store with status=\'pending\', notify moderators\n  ALLOW: continue\n    ↓\n[Write to Cassandra: status=\'published\']\n    ↓\n[Publish to Kafka: comment.created event]\n    ↓\n[Return comment_id to client: optimistic comment confirmed]\n\nKafka consumers (async):\n  ├── Fan-out service → WebSocket delivery to active viewers\n  ├── Notification service → push/email to author + mentioned users\n  ├── Tier 2 AI Censorship → deeper analysis, may flip to hidden\n  ├── Search indexer → make comment searchable\n  └── Analytics → engagement metrics pipeline'
+      },
+      {
+        type: 'h3',
+        text: 'Why Cassandra for comment storage'
+      },
+      {
+        type: 'paragraph',
+        text: 'Comments have a natural time-series structure (post_id + created_at is the access pattern for paginating comments on a post). Cassandra\'s wide-row model stores all comments for a post together, making pagination efficient. It also handles the write volume (billions of comments/day) better than a traditional RDBMS.'
+      },
+      {
+        type: 'h3',
+        text: 'Rate limiting at the comment layer'
+      },
+      {
+        type: 'paragraph',
+        text: 'Per-user rate limits (30 comments/min) prevent spam flooding. Per-post limits prevent coordinated brigading. Temporary "slow mode" can be applied to posts that are receiving unusually high comment rates.'
+      },
+      {
+        type: 'divider'
+      },
+      {
+        type: 'h2',
+        text: 'The fan-out problem: delivering comments in real-time'
+      },
+      {
+        type: 'paragraph',
+        text: 'Here\'s the scaling challenge. Kim Kardashian posts a photo. 10 million people are actively viewing it. Someone comments. That comment needs to appear on 10 million screens simultaneously.'
+      },
+      {
+        type: 'h3',
+        text: 'Naive approach'
+      },
+      {
+        type: 'paragraph',
+        text: 'Each of the 10M clients polls the server every 2 seconds. That\'s 5M requests/second just for this one post. Impossible at scale.'
+      },
+      {
+        type: 'h3',
+        text: 'The WebSocket + pub/sub architecture'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: '[Comment Service writes to Cassandra]\n    ↓\n[Kafka: comment.created event]\n    ↓\n[Fan-out Service]\n  Subscribes to Kafka\n  Looks up active viewers: which WebSocket servers have clients subscribed to this post_id?\n  Publishes comment to post_id channel in pub/sub layer\n    ↓\n[Pub/Sub Layer — Redis Cluster per region]\n  post_id:ABC → [ws-server-1, ws-server-7, ws-server-23, ...]\n    ↓\n[WebSocket Servers — stateful connection servers]\n  Each server maintains persistent WebSocket connections to clients\n  Receives pub/sub message for post_id:ABC\n  Pushes comment payload to all clients subscribed to post_id:ABC\n\nClient receives new comment, adds to thread in real-time'
+      },
+      {
+        type: 'h3',
+        text: 'The selective real-time delivery principle'
+      },
+      {
+        type: 'paragraph',
+        text: 'Not all 10M viewers need real-time delivery. Meta\'s actual approach:'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Active viewers (page visible, interacting recently): real-time via WebSocket — the minority of viewers at any moment',
+          'Background viewers (tab open but user is elsewhere): rate-limited delivery, maybe 30-second intervals',
+          'Returning viewers (come back to a post after 10 minutes): fetch latest comments on focus via HTTP poll'
+        ]
+      },
+      {
+        type: 'paragraph',
+        text: 'This dramatically reduces real-time fan-out load. At any given moment, maybe 100K of the 10M viewers are "active" — a 100× reduction in real-time fan-out requirements.'
+      },
+      {
+        type: 'h3',
+        text: 'WebSocket connection management'
+      },
+      {
+        type: 'code',
+        language: 'python',
+        code: 'class WebSocketServer:\n    subscriptions: dict[str, set[Session]] = defaultdict(set)\n\n    async def on_client_viewing_post(self, session: Session, post_id: str):\n        self.subscriptions[post_id].add(session)\n\n    async def on_comment_received(self, post_id: str, comment: Comment):\n        dead_sessions = set()\n        for session in self.subscriptions.get(post_id, set()):\n            try:\n                await session.send_json(comment.to_dict())\n            except ConnectionClosed:\n                dead_sessions.add(session)\n\n        self.subscriptions[post_id] -= dead_sessions'
+      },
+      {
+        type: 'divider'
+      },
+      {
+        type: 'h2',
+        text: 'Reactions: the high-frequency special case'
+      },
+      {
+        type: 'paragraph',
+        text: 'Reactions differ from comments in one critical way: they happen at a far higher frequency, and what matters to the viewer is the aggregate count, not individual reactions.'
+      },
+      {
+        type: 'paragraph',
+        text: 'When a viral post gets 50,000 reactions in one minute, pushing each individual reaction to all active viewers would be prohibitive. Instead:'
+      },
+      {
+        type: 'h3',
+        text: 'Debounced aggregate delivery'
+      },
+      {
+        type: 'code',
+        language: 'python',
+        code: 'class ReactionDebouncer:\n    """\n    Buffer reactions for each comment, flush aggregates on a schedule.\n    """\n    def __init__(self, flush_interval_seconds: float = 2.0):\n        self.buffer: dict[str, Counter] = defaultdict(Counter)\n        self.flush_interval = flush_interval_seconds\n\n    async def record_reaction(self, comment_id: str, reaction_type: str):\n        self.buffer[comment_id][reaction_type] += 1\n\n    async def flush(self):\n        while True:\n            await asyncio.sleep(self.flush_interval)\n            for comment_id, counts in self.buffer.items():\n                if counts:\n                    await fan_out_service.publish_reaction_aggregate(\n                        comment_id=comment_id,\n                        delta_counts=dict(counts)\n                    )\n            self.buffer.clear()'
+      },
+      {
+        type: 'paragraph',
+        text: 'Every 2 seconds, aggregate reaction deltas are pushed to viewers — not individual reaction events. The number changing from 1,203 to 1,247 over 2 seconds is what the user sees, not 44 individual events.'
+      },
+      {
+        type: 'h3',
+        text: 'The reaction toggle problem'
+      },
+      {
+        type: 'paragraph',
+        text: 'A user can react, un-react, and re-react. The `reactions` table uses `(comment_id, user_id)` as the primary key with a single reaction_type — an upsert changes the type, a delete removes the row. The denormalized counts table must handle decrements.'
+      },
+      {
+        type: 'divider'
+      },
+      {
+        type: 'h2',
+        text: 'Comment ordering: chronological vs. ranked'
+      },
+      {
+        type: 'h3',
+        text: 'Chronological (simplest, WhatsApp default)'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Comments in the order they arrived',
+          'Predictable, no ML needed',
+          'Pagination: cursor-based on (created_at, id)'
+        ]
+      },
+      {
+        type: 'h3',
+        text: 'Ranked (Facebook default for top-level comments)'
+      },
+      {
+        type: 'code',
+        language: 'python',
+        code: 'comment_score = (\n    0.4 * log(reaction_count + 1)  +   # engagement signal\n    0.3 * log(reply_count + 1)     +   # discussion-starter quality\n    0.2 * author_relationship_score +   # friend vs. stranger\n    0.1 * recency_score                 # decay over time\n)'
+      },
+      {
+        type: 'paragraph',
+        text: 'Ranking is applied at query time, not write time — scores are computed dynamically rather than stored. For hot posts, top-5 ranked comments are cached in Redis with a 30-second TTL; deeper pages are computed on demand.'
+      },
+      {
+        type: 'h3',
+        text: 'Instagram\'s hybrid approach'
+      },
+      {
+        type: 'paragraph',
+        text: 'Show the top 2 comments (ranked, usually the post author\'s response and the most-liked comment) immediately. Load more in chronological order on tap. This optimizes for both first-impression engagement and discoverability.'
+      },
+      {
+        type: 'divider'
+      },
+      {
+        type: 'h2',
+        text: 'AI censorship: the three-tier pipeline'
+      },
+      {
+        type: 'paragraph',
+        text: 'Comments are a specific application with three distinct differences from post-level moderation: (1) Volume is far higher, (2) Latency is stricter, (3) Context matters more (same words mean different things in different threads).'
+      },
+      {
+        type: 'h3',
+        text: 'Tier 1: Pre-publication (synchronous, < 80ms SLA)'
+      },
+      {
+        type: 'code',
+        language: 'python',
+        code: 'async def tier1_check(comment: Comment) -> CensorshipVerdict:\n    # Hash matching: < 1ms\n    if hash_index.contains(comment.content):\n        return CensorshipVerdict.BLOCK\n\n    # Fast ML classifier: 40-60ms on GPU\n    # Distilled model: 256M params, optimized for throughput\n    scores = fast_classifier.classify(comment.content)\n\n    if scores.max() > BLOCK_THRESHOLD:\n        return CensorshipVerdict.BLOCK\n    elif scores.max() > REVIEW_THRESHOLD:\n        return CensorshipVerdict.PENDING_REVIEW\n    else:\n        return CensorshipVerdict.ALLOW'
+      },
+      {
+        type: 'paragraph',
+        text: 'High-confidence blocks never reach storage. Borderline cases are published with `status=\'pending\'` — visible to the author but not to other users until reviewed.'
+      },
+      {
+        type: 'h3',
+        text: 'Tier 2: Context-aware async analysis (post-publication, < 5 minutes)'
+      },
+      {
+        type: 'paragraph',
+        text: 'The comment is now stored. A heavier model runs with full context:'
+      },
+      {
+        type: 'code',
+        language: 'python',
+        code: 'class ContextAwareCommentClassifier(nn.Module):\n    def __init__(self):\n        self.text_encoder = XLMRobertaModel()\n        self.context_encoder = XLMRobertaModel()\n        self.cross_attention = CrossAttention(dim=768)\n        self.account_features = MLP(64 → 128)\n        self.classifier = MLP(768 + 128 → n_categories)\n\n    def forward(self, comment_text: str, post_text: str,\n                parent_comment_text: str | None,\n                account_signals: Tensor) -> dict[str, float]:\n\n        comment_emb = self.text_encoder(comment_text).pooler_output\n        context_text = f"{post_text} {parent_comment_text or \'\'}"\n        context_emb = self.context_encoder(context_text).pooler_output\n\n        contextualized = self.cross_attention(\n            query=comment_emb,\n            key=context_emb,\n            value=context_emb\n        )\n\n        account_emb = self.account_features(account_signals)\n        combined = torch.cat([contextualized, account_emb], dim=-1)\n        return self.classifier(combined)'
+      },
+      {
+        type: 'h3',
+        text: 'Why context matters for comments'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '"Go back to your country" on a travel post by someone excited about a trip home: likely benign',
+          '"Go back to your country" on a political post by a politician of a minority background: hate speech',
+          'The exact same string, very different classification — only the context disambiguates'
+        ]
+      },
+      {
+        type: 'paragraph',
+        text: 'If Tier 2 returns a high-confidence unsafe verdict: flip comment to `status=\'hidden\'` (not deleted — audit trail preserved).'
+      },
+      {
+        type: 'h3',
+        text: 'Tier 3: Human review queue'
+      },
+      {
+        type: 'paragraph',
+        text: 'Borderline Tier 2 cases, user-reported comments, and appeals from users whose comments were hidden all enter the human review queue.'
+      },
+      {
+        type: 'divider'
+      },
+      {
+        type: 'h2',
+        text: 'WhatsApp: the encrypted exception'
+      },
+      {
+        type: 'paragraph',
+        text: 'WhatsApp changes the architecture fundamentally. Messages are end-to-end encrypted (E2EE) — Meta cannot read message content on their servers. This means Tier 1 and Tier 2 text-based censorship simply does not apply.'
+      },
+      {
+        type: 'h3',
+        text: 'What IS possible on WhatsApp'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Metadata analysis: who messages whom, at what frequency, in what group sizes (not content, but pattern)',
+          'User reporting: when a user reports a message, WhatsApp can decrypt and analyze the reported message',
+          'Reactions are metadata: a 👍 reaction to a message is metadata, not message content — analyzable',
+          'Link previews: URLs are not E2EE in practice for link previews — can be checked against safe browsing databases'
+        ]
+      },
+      {
+        type: 'h3',
+        text: 'What is NOT possible (and shouldn\'t be)'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Server-side content scanning of private messages without user consent',
+          'Automatic AI censorship of WhatsApp text messages'
+        ]
+      },
+      {
+        type: 'h3',
+        text: 'The reaction system on WhatsApp'
+      },
+      {
+        type: 'paragraph',
+        text: 'WhatsApp reactions work differently: users can react with any emoji (6 default options, but expandable). The reaction is sent as a special message type referencing the original message by ID. Because the chat is E2EE, reaction processing happens client-side — the server only routes the encrypted reaction message to recipients.'
+      },
+      {
+        type: 'h3',
+        text: 'The design implication'
+      },
+      {
+        type: 'paragraph',
+        text: 'The comment/reaction system for WhatsApp is a different codebase with a different architecture. Comment/reaction features are shared at the product layer (similar UX, similar reaction emoji set) but diverge completely at the backend layer due to E2EE constraints.'
+      },
+      {
+        type: 'divider'
+      },
+      {
+        type: 'h2',
+        text: 'Full architecture'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'WRITE PATH (comment submission)\n  Client → HTTP POST /comment\n  API Gateway [auth + rate limit]\n    ↓\n  Comment Service\n    ├── Tier 1 AI check (< 80ms, synchronous)\n    │     Hash → Fast classifier → ALLOW/BLOCK/PENDING\n    ├── Write to Cassandra (status = published/pending/blocked)\n    ├── Return comment_id to client\n    └── Publish to Kafka [comment.created]\n\nASYNC CONSUMERS (from Kafka)\n  Fan-out Service → Post_id pub/sub (Redis) → WebSocket servers\n  Notification Service → Push notifications\n  Tier 2 AI Censorship → Context-aware classifier\n  Search Indexer → Elasticsearch\n\nREACTION PATH\n  Client → Reaction Service → Cassandra\n  Reaction Service → Kafka [reaction.created]\n  Reaction Debouncer → aggregate counts every 2s → fan-out\n\nREAD PATH (loading comments)\n  Client → Comment Service\n  Redis cache check (hot posts: top-50 comments)\n  Cache miss: Cassandra query [post_id, cursor]\n  Apply ranking (Facebook) or chronological (IG/WA)\n  Return comments + reaction counts\n\nWHATSAPP EXCEPTION\n  E2EE: no server-side content inspection\n  Reactions: routed as encrypted messages, client-side processing\n  Reporting: user report → targeted decryption → human review\n  Metadata: analyzable (pattern analysis, not content)'
+      },
+      {
+        type: 'divider'
+      },
+      {
+        type: 'h2',
+        text: 'The whole thing in five sentences'
+      },
+      {
+        type: 'list',
+        ordered: true,
+        items: [
+          'The write path runs Tier 1 AI censorship synchronously (hash matching + fast distilled classifier in < 80ms) before storing a comment as `published`, `blocked`, or `pending_review` in Cassandra, then publishes a Kafka event that drives async fan-out via WebSocket pub/sub, Tier 2 deep context-aware classification, notifications, and search indexing.',
+          'Real-time fan-out solves the celebrity-post problem (10M simultaneous viewers) by maintaining WebSocket connections only to active viewers (tab visible, recently interactive), routing new comments through a post_id pub/sub channel (Redis cluster) to the specific WebSocket servers holding those active connections — reducing real-time delivery to ~1-2% of total viewers at any moment.',
+          'Reactions use debounced aggregate delivery (flush reaction count deltas every 2 seconds per comment) rather than individual-reaction fan-out, because a viral comment receiving 50,000 reactions per minute would create an untenable event storm if each reaction were individually pushed to all active viewers.',
+          'The three-tier AI censorship pipeline (Tier 1: synchronous fast classifier blocking before storage; Tier 2: async context-aware model considering post text, parent comment, and author account signals; Tier 3: human review queue) handles the comment-specific challenge that identical text has very different safety classifications depending on the thread context it appears in.',
+          'WhatsApp is a fundamentally different architecture: end-to-end encryption means no server-side content inspection of messages, so AI censorship applies only to user-reported messages (targeted decryption), metadata patterns, and URL safety checks — while reactions are processed client-side as encrypted message types that the server routes without reading.'
+        ]
+      },
+      {
+        type: 'divider'
+      },
+      {
+        type: 'h2',
+        text: 'Why I wrote this'
+      },
+      {
+        type: 'paragraph',
+        text: 'This question sits at the intersection of distributed systems (fan-out at scale, WebSocket state management, Cassandra time-series modeling) and ML safety (comment-level censorship is harder than post-level because context matters so much more). The town hall analogy captures both the scale (three billion simultaneous attendees) and the moderation structure (pre-screening, real-time intervention, and after-the-fact review are all different jobs for different parts of the system). The WhatsApp exception is the most important architectural surprise — E2EE doesn\'t mean "same system with encryption on top," it means a fundamentally different system with fundamentally different constraints on what AI can and cannot do. If the debounced reaction aggregate made the fan-out problem for reactions feel different from the fan-out problem for comments, or if the cross-attention context model made "same comment, different thread = different verdict" feel implementable rather than just intuitive — that was the goal.'
+      },
+      {
+        type: 'paragraph',
+        text: 'More breakdowns on the way.'
+      }
+    ]
+  },
 ];
