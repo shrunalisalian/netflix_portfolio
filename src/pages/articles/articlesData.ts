@@ -10003,4 +10003,361 @@ WELLBEING METRICS (not engagement metrics):
       }
     ]
   },
+  {
+    slug: 'kv-cache-sharing-apple',
+    title: 'Two Research Departments, One Filing Cabinet: KV-Cache Sharing in Apple\'s Foundation Model',
+    subtitle: 'Block 1 computes the keys and values. Block 2 borrows them. The expressivity trade-off — what this costs and why it\'s worth paying — is the whole question.',
+    date: 'June 16, 2026',
+    readTime: '15 min read',
+    tags: ['KV Cache', 'Apple', 'On-Device ML', 'Memory Optimization', 'Transformers', 'Interview Prep'],
+    coverEmoji: '📚',
+    content: [
+      {
+        type: 'callout',
+        emoji: '🎯',
+        text: 'This question comes from Apple\'s ML interview pool. Understand the attention mechanism changes when KV caches are shared across layers, and quantify the expressivity trade-off.'
+      },
+      {
+        type: 'quote',
+        text: 'In the AFM-on-device architecture, we share Key-Value (KV) caches between different transformer blocks to save memory. How does this affect the attention mechanism? What is the trade-off in expressivity?'
+      },
+      {
+        type: 'divider'
+      },
+      {
+        type: 'paragraph',
+        text: 'Picture a research library where knowledge workers occupy multiple floors. On each floor, they\'re working through a problem — taking notes, cross-referencing, updating their understanding. The standard design: every floor has its own filing cabinet, with its own index (what topics the past information is organized under) and its own documents (the actual content available to read).'
+      },
+      {
+        type: 'paragraph',
+        text: 'Apple\'s KV-cache sharing changes this. Block 2 floors — 37.5% of the building — have no filing cabinets of their own. They borrow Block 1\'s final floor\'s cabinet entirely: same index, same documents. The researchers on Block 2 floors can still formulate different research questions and selectively attend to different things. But the filing cabinet they\'re searching through was organized by Block 1, not by them.'
+      },
+      {
+        type: 'paragraph',
+        text: 'This is cross-layer KV-cache sharing. The mechanism is straightforward; the trade-off is subtle.'
+      },
+      {
+        type: 'divider'
+      },
+      {
+        type: 'h2',
+        text: 'First: what the KV cache normally does'
+      },
+      {
+        type: 'paragraph',
+        text: 'In standard autoregressive generation, every new token\'s forward pass needs to attend over all previous tokens. Without caching, this means recomputing the Key and Value vectors for every previous token at every layer, every step — an O(T²) cost that becomes prohibitive for long sequences.'
+      },
+      {
+        type: 'paragraph',
+        text: 'The KV cache stores each token\'s Key and Value vectors at each layer after they\'re first computed. When generating token t+1, the model simply loads the cached K, V vectors and computes attention against them:'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Standard Layer l, generating token t+1:\n  Q_{l,t+1} = X_{l,t+1} @ W_l^Q     # fresh query for new token\n  K_{l,t+1} = X_{l,t+1} @ W_l^K     # fresh key for new token\n  V_{l,t+1} = X_{l,t+1} @ W_l^V     # fresh value for new token\n\n  # Concatenate with cached past keys/values\n  K_l = [K_{l,1}, K_{l,2}, ..., K_{l,t}, K_{l,t+1}]  # full history\n  V_l = [V_{l,1}, V_{l,2}, ..., V_{l,t}, V_{l,t+1}]\n\n  out_{l,t+1} = softmax(Q_{l,t+1} @ K_l^T / √d_k) @ V_l'
+      },
+      {
+        type: 'h3',
+        text: 'The memory cost of this standard cache'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'KV cache size = num_layers × 2 × seq_len × d_model × bytes_per_element\n\nFor AFM-on-device (~3B params, say 32 layers, d_model=2048, bfloat16):\nPer token: 32 × 2 × 2048 × 2 bytes = 262 KB per token\n\nAt 2048 token context: 32 layers × 2 × 2048 × 2048 × 2 = 536 MB\n\nOn an iPhone with tight memory budgets, 536 MB just for the KV cache is significant.'
+      },
+      {
+        type: 'paragraph',
+        text: 'This is the problem KV-cache sharing solves.'
+      },
+      {
+        type: 'divider'
+      },
+      {
+        type: 'h2',
+        text: 'Apple\'s specific architecture: Block 1 and Block 2'
+      },
+      {
+        type: 'paragraph',
+        text: 'Apple\'s AFM-on-device report describes the design precisely:'
+      },
+      {
+        type: 'h3',
+        text: 'Block 1'
+      },
+      {
+        type: 'paragraph',
+        text: 'Contains 62.5% of the total transformer layers. These layers operate exactly like standard transformer layers — each layer computes its own independent K and V projections from its input, stores them in the KV cache, and uses them for attention.'
+      },
+      {
+        type: 'h3',
+        text: 'Block 2'
+      },
+      {
+        type: 'paragraph',
+        text: 'Contains the remaining 37.5% of transformer layers. These layers have their K and V projection matrices removed entirely. They compute fresh Q vectors (independent queries from each layer\'s input), but instead of computing their own K and V, they directly reuse Block 1\'s final layer\'s KV cache.'
+      },
+      {
+        type: 'code',
+        language: 'python',
+        code: 'class Block1Layer(nn.Module):\n    """Standard transformer layer. Computes own K, V."""\n    def __init__(self, d_model, n_heads, n_kv_heads):\n        self.W_Q = nn.Linear(d_model, n_heads * d_head)\n        self.W_K = nn.Linear(d_model, n_kv_heads * d_head)  # own K\n        self.W_V = nn.Linear(d_model, n_kv_heads * d_head)  # own V\n        self.W_O = nn.Linear(n_heads * d_head, d_model)\n\n    def forward(self, x, kv_cache):\n        Q = self.W_Q(x)\n        K = self.W_K(x)   # computed from THIS layer\'s input\n        V = self.W_V(x)   # computed from THIS layer\'s input\n        kv_cache.store(K, V)\n        return self.W_O(attention(Q, K, V))\n\n\nclass Block2Layer(nn.Module):\n    """KV-sharing layer. Computes own Q only; borrows K, V from Block 1."""\n    def __init__(self, d_model, n_heads, n_kv_heads):\n        self.W_Q = nn.Linear(d_model, n_heads * d_head)  # own Q\n        # NO W_K, NO W_V — these projections are absent\n        self.W_O = nn.Linear(n_heads * d_head, d_model)\n\n    def forward(self, x, shared_kv_cache):\n        Q = self.W_Q(x)               # fresh query from THIS layer\n        K, V = shared_kv_cache.load() # borrowed from Block 1\'s final layer\n        return self.W_O(attention(Q, K, V))'
+      },
+      {
+        type: 'h3',
+        text: 'The memory saving'
+      },
+      {
+        type: 'paragraph',
+        text: 'Only Block 1 layers contribute to the KV cache. Block 2 layers reuse Block 1\'s cache — they store nothing new.'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Standard KV cache: num_layers × 2 × T × d_k × bytes\nAFM KV cache:     0.625 × num_layers × 2 × T × d_k × bytes\n\nReduction: 37.5% less KV cache memory ✓'
+      },
+      {
+        type: 'divider'
+      },
+      {
+        type: 'h2',
+        text: 'The second benefit: TTFT reduction from prefill bypass'
+      },
+      {
+        type: 'paragraph',
+        text: 'The memory saving is only half the benefit. The other half is a reduction in time-to-first-token (TTFT).'
+      },
+      {
+        type: 'paragraph',
+        text: 'During prefill (processing the input prompt before generating any tokens), every layer must process every input token to build the KV cache. In a standard model, this means all layers compute K, V for all prompt tokens. In AFM\'s design, Block 2 layers have no K, V projections. During prefill, there is literally nothing for Block 2 to cache — the KV cache for Block 2 positions is satisfied by Block 1\'s cache. This means Block 2\'s prefill stage can bypass its K, V computation entirely.'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Standard prefill cost (simplified):\n  Block 1 (62.5% layers): Q + K + V + Attention + FFN per token\n  Block 2 (37.5% layers): Q + K + V + Attention + FFN per token\n  Total: 100% of layer-compute × prompt_length\n\nAFM prefill cost:\n  Block 1: Q + K + V + Attention + FFN per token\n  Block 2: Q + Attention (lookup) + FFN per token\n           ↑ no K or V to compute\n  Savings: ~37.5% of K,V prefill compute ≈ ~37.5% TTFT reduction'
+      },
+      {
+        type: 'paragraph',
+        text: 'Apple\'s technical report confirms: ~37.5% reduction in TTFT. On iPhone 15 Pro, AFM achieves 0.6ms per prompt token before token speculation, reaching 30 tokens/second generation. The TTFT saving from KV-cache sharing is a direct contributor to this.'
+      },
+      {
+        type: 'divider'
+      },
+      {
+        type: 'h2',
+        text: 'How this affects the attention mechanism in Block 2'
+      },
+      {
+        type: 'paragraph',
+        text: 'This is the core of the interview question. What exactly is different about attention in Block 2?'
+      },
+      {
+        type: 'h3',
+        text: 'Standard attention in layer l'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Q_{l} is computed from X_{l} (this layer\'s input — includes all computation done through layers 1 to l)',
+          'K_{l} is computed from X_{l} — represents "what should be attended to" from layer l\'s perspective',
+          'V_{l} is computed from X_{l} — represents "what content to retrieve" from layer l\'s perspective',
+          'Attention attends to a contextual representation shaped by all computation up to layer l'
+        ]
+      },
+      {
+        type: 'h3',
+        text: 'KV-sharing attention in Block 2 layer l'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Q_{l} is still computed from X_{l} — fresh from this layer\'s input — independent per layer ✓',
+          'K is Block 1\'s final layer\'s K: K_{B1} — computed from layer B1\'s input, NOT layer l\'s input',
+          'V is Block 1\'s final layer\'s V: V_{B1} — same',
+          'Attention attends to a contextual representation frozen at Block 1\'s perspective'
+        ]
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Block 2 Layer l:\n  Q_l  = X_l @ W_l^Q                   # fresh: shaped by all compute up to layer l\n  K    = K_{B1_final}                   # frozen: shaped by compute up to Block 1\'s end\n  V    = V_{B1_final}                   # frozen: shaped by compute up to Block 1\'s end\n\n  out  = softmax(Q_l @ K_{B1}^T / √d_k) @ V_{B1}'
+      },
+      {
+        type: 'paragraph',
+        text: 'The Q projection in Block 2 layers is fully independent. Each Block 2 layer can learn to "ask different questions" of the shared context. But the context representation they\'re querying — the filing cabinet — is the same for all Block 2 layers.'
+      },
+      {
+        type: 'divider'
+      },
+      {
+        type: 'h2',
+        text: 'The expressivity trade-off'
+      },
+      {
+        type: 'paragraph',
+        text: 'This is the second half of the interview question. What\'s lost?'
+      },
+      {
+        type: 'h3',
+        text: 'What\'s retained'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Block 2 layers have independent Q projections — each can attend to different positions and aspects',
+          'Block 2 layers have independent FFN (feed-forward networks) — the residual stream continues to update independently',
+          'Block 2 layers have independent W_O (output projections) — the attended information is projected differently per layer',
+          'The expressive power of the model\'s residual stream is largely intact'
+        ]
+      },
+      {
+        type: 'h3',
+        text: 'What\'s lost'
+      },
+      {
+        type: 'paragraph',
+        text: 'In standard transformers, each layer\'s K and V are computed from that layer\'s activations — which incorporate all computation done in previous layers. Layer 18\'s K, V is derived from representations that have been processed by 17 layers of attention and FFN. Layer 19\'s K, V incorporates that plus one more layer.'
+      },
+      {
+        type: 'paragraph',
+        text: 'This means in standard transformers: early layers\' K, V represent relatively surface-level features (syntactic patterns, positional information), later layers\' K, V represent more abstract, semantic features (entities, relations, reasoning patterns), and each layer gets to "re-organize" the past context from its current level of abstraction.'
+      },
+      {
+        type: 'paragraph',
+        text: 'In Block 2: all Block 2 layers use K, V from Block 1\'s final layer\'s perspective, Block 2 layers operate on more abstract representations (they\'re later in the network) but their K, V were computed from less abstract representations, and they cannot compute K, V that encode the additional abstraction achieved by Block 2\'s own computation.'
+      },
+      {
+        type: 'paragraph',
+        text: 'Concretely: imagine Block 2 layers developing increasingly refined semantic understanding. A Block 2 layer in position 25 might compute Q that asks "which previous tokens instantiate the same abstract concept?" — but the K it\'s searching is organized around Block 1\'s perspective at position 20. Block 1 might not have organized concepts the same way layer 25 would.'
+      },
+      {
+        type: 'h3',
+        text: 'The expressivity reduction is bounded by the sharing ratio'
+      },
+      {
+        type: 'paragraph',
+        text: 'The more layers share one KV cache, the larger the expressivity gap. Apple\'s approach (37.5% of layers sharing the last 62.5%\'s block\'s cache) is a relatively moderate sharing ratio. More aggressive sharing — 8 layers sharing one KV cache — would reduce expressivity more substantially.'
+      },
+      {
+        type: 'divider'
+      },
+      {
+        type: 'h2',
+        text: 'Why the quality impact is small in practice'
+      },
+      {
+        type: 'paragraph',
+        text: 'If expressivity is genuinely reduced, why does Apple (and other models like Gemma 3n, YOCO, CLA) report minimal quality degradation?'
+      },
+      {
+        type: 'h3',
+        text: 'The empirical observation that makes sharing work'
+      },
+      {
+        type: 'paragraph',
+        text: 'Research has shown that KV activations in adjacent and nearby transformer layers are highly similar. The cross-layer KV cache sharing paper observes: "salient tokens (tokens with higher attention scores) tend to remain relatively stable across consecutive layers."'
+      },
+      {
+        type: 'paragraph',
+        text: 'This makes intuitive sense: a token that was important for a model to attend to in layer 15 is usually important in layer 16 as well. The K matrix (which determines relevance) doesn\'t change drastically from one layer to the next. The V matrix (which carries the content) changes somewhat — higher layers encode more abstract features — but not so much that sharing causes significant quality loss.'
+      },
+      {
+        type: 'h3',
+        text: 'The practical confirmation'
+      },
+      {
+        type: 'paragraph',
+        text: 'Apple uses this in production on hundreds of millions of iPhones. The quality is sufficient for writing assistance, notification summarization, and general intelligence tasks. The empirical trade-off favors sharing.'
+      },
+      {
+        type: 'divider'
+      },
+      {
+        type: 'h2',
+        text: 'The relationship to GQA: orthogonal techniques'
+      },
+      {
+        type: 'paragraph',
+        text: 'It\'s worth distinguishing KV-cache sharing from another related technique Apple also uses: Grouped Query Attention (GQA).'
+      },
+      {
+        type: 'h3',
+        text: 'GQA (within-layer sharing)'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Within a single layer, multiple Q heads share one K, V head',
+          'AFM uses 8 KV heads for many Q heads',
+          'Reduces the SIZE of each layer\'s KV cache entry (fewer heads to store)',
+          'All within the same layer — K, V are still computed from this layer\'s activations'
+        ]
+      },
+      {
+        type: 'h3',
+        text: 'Cross-layer KV sharing (Apple\'s Block 1/Block 2 design)'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Across multiple layers, share the same K, V entirely',
+          'Reduces the NUMBER OF LAYERS contributing to the KV cache',
+          'K, V from Block 2 are frozen at Block 1\'s perspective'
+        ]
+      },
+      {
+        type: 'h3',
+        text: 'Combined optimization'
+      },
+      {
+        type: 'paragraph',
+        text: 'These are orthogonal optimizations and are combined in AFM:'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Standard: L × n_heads × 2 × T × d_head\nWith GQA:  L × n_kv_heads × 2 × T × d_head  (n_kv_heads << n_heads)\nWith GQA + KV sharing:\n           0.625 × L × n_kv_heads × 2 × T × d_head\n\nCombined memory reduction:\n  GQA alone:       4-8× within-layer reduction (if 8 kv heads for 32 query heads)\n  KV sharing alone: 1.6× across-layer reduction (62.5% of layers store KV)\n  Combined:        ~6-12× total KV cache reduction vs. standard MHA'
+      },
+      {
+        type: 'paragraph',
+        text: 'This combined reduction is what allows AFM to operate within the memory envelope of an iPhone with room for the model weights, KV cache, and application data simultaneously.'
+      },
+      {
+        type: 'divider'
+      },
+      {
+        type: 'h2',
+        text: 'The whole thing in five sentences'
+      },
+      {
+        type: 'list',
+        ordered: true,
+        items: [
+          'In Apple\'s AFM-on-device architecture, the model is divided into Block 1 (62.5% of layers, with standard K and V projections) and Block 2 (37.5% of layers, with K and V projections removed entirely) — Block 2 layers compute fresh Q vectors from their own input but directly reuse Block 1\'s final layer\'s KV cache, reducing total KV cache memory by 37.5% and TTFT by ~37.5% (since Block 2 has nothing to compute during prefill).',
+          'The attention mechanism in Block 2 layers changes precisely as follows: Q is still computed independently from each Block 2 layer\'s activations (preserving the ability to ask different questions of the context), but K and V are fixed at Block 1\'s final layer\'s perspective — meaning all Block 2 layers attend to the same contextual representation, one shaped by computations up to Block 1\'s end, not by Block 2\'s own increasingly abstract representations.',
+          'The expressivity trade-off is this: standard transformers allow each layer\'s K, V to encode the level of abstraction that layer has reached (early layers capture surface/syntactic features, later layers capture semantic/reasoning features), while KV-sharing forces all Block 2 layers to use K, V computed from Block 1\'s perspective — they can ask different questions via Q but cannot re-organize the filing cabinet from their own more-abstracted viewpoint.',
+          'The quality impact is empirically small because adjacent layers\' KV activations are highly similar in practice (salient tokens that are important to attend to remain stable across nearby layers), and because Block 2 layers retain independent Q, FFN, and output projections — enough residual expressivity to preserve most of the model\'s capability.',
+          'KV-cache sharing is orthogonal to GQA (which shares K, V across heads within one layer) and combines multiplicatively: GQA reduces per-layer KV size by 4-8× while cross-layer sharing reduces the number of KV-contributing layers by 1.6×, giving AFM-on-device a combined 6-12× KV cache reduction vs. standard multi-head attention — sufficient to run a 3B parameter model with 30-token/second generation on an iPhone.'
+        ]
+      },
+      {
+        type: 'divider'
+      },
+      {
+        type: 'h2',
+        text: 'Why I wrote this'
+      },
+      {
+        type: 'paragraph',
+        text: 'This is the series\' first Apple question — and appropriately, it\'s the most technically precise question in the series. There\'s no analogy that makes cross-layer KV sharing "intuitive" in the way that, say, the librarian makes attention intuitive; it requires understanding the attention mechanism precisely enough to see exactly what changes when K and V are fixed from a different layer\'s perspective. The filing cabinet analogy does some work (Q = the question you ask; K = the index; V = the documents — sharing the cabinet means Block 2 floors search Block 1\'s organization, not their own), but the real insight lives in the math: Q_{l} @ K_{B1}^T / √d is a cross-layer attention where Q and K come from different stages of the residual stream. If the "37.5% reduction in both KV memory and TTFT from one architectural choice" made the efficiency gain feel concrete, or if the GQA-vs-KV-sharing distinction made the two orthogonal techniques feel clearly different rather than variations on the same idea — that was the goal.'
+      },
+      {
+        type: 'paragraph',
+        text: 'More breakdowns on the way.'
+      }
+    ]
+  },
 ];
