@@ -11663,4 +11663,122 @@ WELLBEING METRICS (not engagement metrics):
       }
     ]
   },
+  {
+    slug: 'afm-speculative-decoding-apple',
+    title: 'The Team Lead Who Reviews a Paragraph, Not a Word: Implementing Speculative Decoding for AFM',
+    subtitle: 'A fast intern drafts several sentences at once. The team lead reads the whole paragraph in one pass, accepting what\'s right.',
+    date: 'June 16, 2026',
+    readTime: '18 min read',
+    tags: ['Speculative Decoding', 'Apple', 'On-Device ML', 'Interview Prep'],
+    coverEmoji: '📝',
+    content: [
+      { type: 'paragraph', text: 'Verifying several tokens in parallel costs roughly the same as generating one token from scratch. This is speculative decoding: a fast draft model generates candidates, an expensive model verifies all in one parallel pass.' },
+      { type: 'h2', text: 'Why this matters on iPhone' },
+      { type: 'paragraph', text: 'At small batch sizes, autoregressive generation is memory-bandwidth-bound. Every token requires loading the full model from memory. Speculative decoding amortizes this cost: one AFM-3B forward pass verifies multiple AFM-500M candidates and produces multiple tokens.' },
+      { type: 'h2', text: 'The algorithm' },
+      { type: 'list', ordered: true, items: ['Draft generation: AFM-500M generates K candidates sequentially', 'Parallel verification: AFM-3B processes all K drafted tokens in one forward pass', 'Rejection sampling: each token accepted with probability β(y_i) = min(1, p_i(y_i)/q_i(y_i)), lossless by design'] },
+      { type: 'h2', text: 'Implementation' },
+      { type: 'list', ordered: false, items: ['Shared vocabulary between draft and target model', 'Dual KV cache management: truncate and rollback on rejection', 'Choose K empirically: 60-80% acceptance rates, 2-4× speedup reported', 'Hardware: verification maps to ANE\'s parallel computation strengths'] },
+      { type: 'h2', text: 'Expected speedup' },
+      { type: 'paragraph', text: 'With acceptance rate α ≈ 0.7, K = 4: E[tokens per round] ≈ 2.77. Compare to 1 token per standard AFM-3B pass. Dominant cost per round still roughly one AFM-3B operation.' },
+      { type: 'paragraph', text: 'More breakdowns on the way.' }
+    ]
+  },
+  {
+    slug: 'fastvlm-hybrid-architecture-apple',
+    title: 'Fewer, Better Postcards: How FastVLM Cuts Time-to-First-Token by 85x',
+    subtitle: 'Standard ViTs pay for high resolution twice. FastVLM\'s hybrid encoder never generates most of that cost.',
+    date: 'June 16, 2026',
+    readTime: '15 min read',
+    tags: ['Vision-Language Models', 'FastVLM', 'Apple', 'TTFT', 'Interview Prep'],
+    coverEmoji: '📸',
+    content: [
+      { type: 'paragraph', text: 'TTFT = vision_encoding_time + LLM_prefill_time. Standard ViTs worsen both as resolution increases: slower encoding, plus more visual tokens for LLM to read. FastVLM breaks this compounding cost.' },
+      { type: 'h2', text: 'The problem' },
+      { type: 'paragraph', text: 'High resolution necessary (reading text, fine details) but ViTs struggle beyond pretraining resolution. Naive scaling made FastViT less efficient than fully convolutional encoders. Solution: purpose-built hybrid architecture.' },
+      { type: 'h2', text: 'FastViTHD architecture' },
+      { type: 'paragraph', text: 'Combines convolutional layers (early high-res stages, cheap, local) with transformer blocks (later stages, after downsampling). Avoids quadratic self-attention cost at highest resolution.' },
+      { type: 'h2', text: 'The direct lever: fewer tokens' },
+      { type: 'list', ordered: false, items: ['FastViT: 4-5.2× fewer tokens than ViT-L/14', 'FastViTHD: up to 16× fewer than traditional ViT, 4× fewer than base FastViT', 'Fewer tokens = cheaper encoding + quadratically cheaper LLM prefill'] },
+      { type: 'h2', text: 'Published results' },
+      { type: 'list', ordered: false, items: ['FastViT vs ViT-L/14: 8× smaller, 20× faster', 'FastVLM vs LLaVA-OneVision-0.5B: 85× faster TTFT, better performance', 'Controlled LLaVA-1.5: 3.2× TTFT improvement'] },
+      { type: 'h2', text: 'Pareto-optimal framing' },
+      { type: 'paragraph', text: 'For any TTFT budget, FastVLM achieves higher accuracy than alternatives. Think: shift the entire accuracy-vs-latency curve, not optimize one point.' },
+      { type: 'paragraph', text: 'More breakdowns on the way.' }
+    ]
+  },
+  {
+    slug: 'ane-nchw-layout-coreml-apple',
+    title: 'The Hardware That Was Born Watching for Edges: Why ANE Wants Channels First',
+    subtitle: 'The Apple Neural Engine was built around convolutions, not matrix multiplies — and that heritage shapes every conversion.',
+    date: 'June 16, 2026',
+    readTime: '16 min read',
+    tags: ['Apple Neural Engine', 'CoreML', 'PyTorch', 'Interview Prep'],
+    coverEmoji: '⚙️',
+    content: [
+      { type: 'paragraph', text: 'The ANE\'s lineage is convolutional. Compute units distribute channels across parallel lanes. Native 4D (Batch, Channels, Height, Width) form maps efficiently. Non-convolutional ops like Linear are internally 1×1 convolutions in channels-first.' },
+      { type: 'h2', text: '64-byte alignment constraint' },
+      { type: 'paragraph', text: 'The ANE requires 64-byte alignment on the last tensor dimension. Data not filling 64 bytes gets padded. Worst case: 1 FP16 padded 32× larger, ~32× slower. Solution: put large, 32-aligned dimensions last. Channel dims commonly 32, 64, 128...' },
+      { type: 'h2', text: 'Exception: window-partitioned Vision Transformers' },
+      { type: 'paragraph', text: 'Apple\'s own research found window-partition ops benefit from NHWC (channels last). At that operation, window size is small, channel dimension is large. Principle: avoid small dimensions last. Reason per-operation, not blanket rules.' },
+      { type: 'h2', text: 'PyTorch collision' },
+      { type: 'paragraph', text: 'CNNs use (B, C, H, W) — ANE-friendly. Transformers use (B, S, C) — channels last, backwards. Apple\'s ane_transformers reshapes to 4D (B, C, 1, S) before ANE ops. Reported: 10× faster, 14× lower memory purely from layout correction.' },
+      { type: 'h2', text: 'Conversion impact' },
+      { type: 'list', ordered: false, items: ['Design layouts at authoring, not conversion', 'Warnings appear only as stride issues, not errors', 'Validate empirically: profile, identify CPU/GPU fallbacks', 'Recent tooling helps but doesn\'t replace understanding'] },
+      { type: 'paragraph', text: 'More breakdowns on the way.' }
+    ]
+  },
+  {
+    slug: 'calendar-agent-dp-privacy-apple',
+    title: 'The Assistant Who Only Ever Says "Busy" or "Free": Designing Privacy Into Calendar Agents',
+    subtitle: 'Data minimization at the API boundary does the heavy lifting. Differential privacy solves a different problem.',
+    date: 'June 16, 2026',
+    readTime: '17 min read',
+    tags: ['Privacy', 'Differential Privacy', 'Apple', 'Interview Prep'],
+    coverEmoji: '🔒',
+    content: [
+      { type: 'paragraph', text: 'An agent needs exactly one piece of information: which slots are free. Not meeting reasons, not titles, not attendees. Data minimization is deterministic — agent never sees sensitive content. Differential privacy is different: it protects individuals within population aggregates. Both matter but solve different problems.' },
+      { type: 'h2', text: 'Data minimization: deterministic guarantee' },
+      { type: 'paragraph', text: 'Design the API to expose only what\'s needed. A get_availability() tool returns only start/end/status — never titles, attendees, locations. Data never queried from underlying store. No code path by which content reaches agent.' },
+      { type: 'h2', text: 'Differential privacy: different tool' },
+      { type: 'paragraph', text: 'DP protects individuals in aggregate statistics. Adds calibrated noise to released stats. Smaller epsilon = stronger guarantee + more noise. Apple uses DP in production: QuickType, emoji trends, genmoji detection — population learning without per-user logging.' },
+      { type: 'h2', text: 'Why DP doesn\'t apply to single-user single-query' },
+      { type: 'paragraph', text: 'DP protects within populations. One user asking personal agent for free slots is access control, not population analysis. Agent needs exact correct answer, not noisy estimate. DP-style noise corrupts scheduling. Recognizing wrong fit matters as much as right application.' },
+      { type: 'h2', text: 'Where DP legitimately applies' },
+      { type: 'list', ordered: false, items: ['Aggregate usage patterns: what fraction of slots accepted, DP noise before aggregation', 'Federated learning: device gradients get DP noise before server', 'Anomaly detection: over DP-protected stats, never raw content'] },
+      { type: 'h2', text: 'Complementary: coarsening granularity' },
+      { type: 'paragraph', text: 'Round boundaries to fixed granularity (30 min). Not DP (no epsilon, no calibrated noise) — it\'s generalization. Remove residual signal without formal privacy guarantee.' },
+      { type: 'paragraph', text: 'More breakdowns on the way.' }
+    ]
+  },
+  {
+    slug: 'ios-keyboard-federated-learning-apple',
+    title: 'The Scribe Who Remembers You: iOS Keyboard Personalization with Federated Learning',
+    subtitle: 'A model fast enough for <10ms latency and small enough for <50MB RAM, with two-layer personalization never exposing what you type.',
+    date: 'June 16, 2026',
+    readTime: '18 min read',
+    tags: ['Federated Learning', 'On-Device Personalization', 'Apple', 'Privacy', 'Interview Prep'],
+    coverEmoji: '⌨️',
+    content: [
+      { type: 'paragraph', text: 'Next-word prediction: fast local personalization (contact names, phrases) never leaves device, plus federated learning (population trends) with local differential privacy noise added before transmission. Two layers requiring two different privacy mechanisms.' },
+      { type: 'h2', text: 'Architecture under <10ms and <50MB' },
+      { type: 'paragraph', text: 'Not a compressed transformer — different starting point entirely. Compact CIFG-LSTM (Coupled Input-Forget Gate, 25% fewer params than standard LSTM) with INT8 embeddings. Designed to fit constraints by construction.' },
+      { type: 'h2', text: 'RAM budget breakdown' },
+      { type: 'list', ordered: false, items: ['Embedding table (32K vocab × 96 dim INT8): 2.95 MB', 'CIFG-LSTM weights: 0.33 MB', 'n-gram backoff table: 4-6 MB', 'Personalization adapter: 1-2 MB', 'Runtime buffers: 5-8 MB', 'Total: well under 20MB, comfortable under 50MB ceiling'] },
+      { type: 'h2', text: 'Latency breakdown' },
+      { type: 'list', ordered: false, items: ['Tokenization: ~0.3ms', 'Embedding lookup: ~0.1ms', 'CIFG-LSTM forward: ~1.5ms', 'Hierarchical softmax: ~1.0ms', 'OS IPC overhead: ~2-3ms', 'Total: ~6-7ms, margin under 10ms'] },
+      { type: 'h2', text: 'Hierarchical softmax (not flat)' },
+      { type: 'paragraph', text: 'Flat softmax requires computing score for all 32K words: O(vocab_size). Hierarchical softmax organizes vocabulary into tree: O(log(vocab_size)). Meaningful latency reduction at output layer, likely bottleneck for small model.' },
+      { type: 'h2', text: 'Personalization: two layers' },
+      { type: 'h3', text: 'Layer A: purely local, on-device only' },
+      { type: 'paragraph', text: 'Contact names, personal phrases, inside jokes. Never transmitted in any form. LRU cache of personal n-gram patterns. No population-level benefit to sharing.' },
+      { type: 'h3', text: 'Layer B: federated learning for population trends' },
+      { type: 'paragraph', text: 'New slang, emoji shifts. Device trains locally on own typing history (never transmitted). Local differential privacy noise added ON DEVICE before transmission. Server never receives unnoised gradient. Secure aggregation: server only ever sees multi-device aggregates, never single device in isolation.' },
+      { type: 'h2', text: 'Federated protocol (PFL)' },
+      { type: 'list', ordered: true, items: ['Base model from public text corpora, no user data', 'Device eligibility gating (charging, WiFi, screen locked)', 'Local training entirely on-device', 'Local DP noise added before transmission', 'Secure aggregation of noised gradients', 'Global model update released to all devices'] },
+      { type: 'h2', text: 'Why this answers the constraint' },
+      { type: 'paragraph', text: '"Never sending keystrokes to the cloud" satisfied at strongest level: raw keystrokes never leave device, only noised gradient updates do. Server cannot reconstruct typed content even if fully compromised.' },
+      { type: 'paragraph', text: 'More breakdowns on the way.' }
+    ]
+  },
 ];
