@@ -8847,4 +8847,385 @@ WELLBEING METRICS (not engagement metrics):
       }
     ]
   },
+  {
+    slug: 'podcast-search-engine-meta',
+    title: 'Finding the Exact Moment in 10 Million Hours of Audio: Designing a Podcast Search Engine',
+    subtitle: 'Transcription and chunking, hybrid dense-sparse retrieval, segment-level timestamps, and the evaluation metrics that tell you if any of it actually works.',
+    date: 'June 15, 2026',
+    readTime: '16 min read',
+    tags: ['Podcast Search', 'Meta', 'ML Systems', 'Information Retrieval', 'Ranking', 'Interview Prep'],
+    coverEmoji: '🎙️',
+    content: [
+      {
+        type: 'callout',
+        emoji: '🎯',
+        text: 'This question comes from Meta\'s ML interview pool. The challenge: design a system that doesn\'t just find the right episode, but the exact moment within the episode.'
+      },
+      {
+        type: 'quote',
+        text: 'Design a podcast search engine using transcripts and metadata. Highlight indexing, ranking using embeddings, and evaluation metrics.'
+      },
+      {
+        type: 'divider'
+      },
+      {
+        type: 'paragraph',
+        text: 'A TV guide tells you which show to watch. A streaming service with chapter markers tells you which scene to watch. A podcast search engine needs to do both — but it starts with a more fundamental challenge: unlike shows with scene metadata, podcasts are just audio files.'
+      },
+      {
+        type: 'paragraph',
+        text: '"What did Sam Altman say about AGI on Lex Fridman?" isn\'t a request to find the episode. It\'s a request to find the exact moment, within a 3-hour conversation, where that specific topic came up — and to surface that moment with a playable timestamp.'
+      },
+      {
+        type: 'paragraph',
+        text: 'Every piece of this requires building something that doesn\'t ship with the audio: a transcript that\'s searchable, a chunking strategy that creates findable units smaller than an episode, a ranking system that surfaces the right moment over the right episode, and evaluation metrics that distinguish "the right episode" from "the right segment at the right timestamp."'
+      },
+      {
+        type: 'divider'
+      },
+      {
+        type: 'h2',
+        text: 'Step 1: The ingestion and transcription pipeline'
+      },
+      {
+        type: 'paragraph',
+        text: 'Podcasts are audio files attached to RSS feeds. The pipeline starts before any ML:'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: '[RSS feed / Direct upload / Platform API]\n    ↓\n[Audio normalization: sample rate, channels, loudness]\n    ↓\n[Audio storage: object store (GCS/S3)]\n    ↓\n[Transcription: Whisper large-v3 or equivalent]\n  Output:\n    - Word-level timestamps: [("The", 0.0, 0.1), ("question", 0.1, 0.3), ...]\n    - Speaker diarization: who is speaking when\n    - Confidence scores: per-word ASR confidence\n    ↓\n[Transcript post-processing]\n  - Segment by speaker turns\n  - Flag low-confidence regions for manual review\n  - Named entity recognition (names, companies, places)\n  - Ad break detection (repetitive commercial phrases)\n    ↓\n[Metadata extraction from RSS]\n  Episode title, description, host, guests,\n  publication date, categories/tags, episode number,\n  show-level metadata (total episodes, subscriber count, ratings)'
+      },
+      {
+        type: 'h3',
+        text: 'The ASR quality problem'
+      },
+      {
+        type: 'paragraph',
+        text: 'Whisper large-v3 achieves ~3–5% word error rate on clean English speech — excellent, but not perfect. The errors cluster exactly where search matters most:'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Proper nouns: "Elon Musk" → "E long musk", "CRISPR" → "crisp her"',
+          'Technical terms: "hyperparameters" → "hyper parameters", "Kubernetes" → "cube bernadese"',
+          'Accented speech: speakers with non-native accents have systematically higher WER',
+          'Crosstalk: two people speaking simultaneously produces garbled output'
+        ]
+      },
+      {
+        type: 'h3',
+        text: 'ASR error mitigations'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Custom vocabulary for the domain: inject known person names, company names, and technical terms into Whisper\'s vocabulary',
+          'Fuzzy matching in the BM25 index: allow edit-distance variants (phonetically similar spellings)',
+          'Semantic embeddings tolerate surface errors: even if "Sam Altmon" appears in the transcript, the surrounding words ("CEO", "OpenAI", "artificial intelligence") encode the right semantic meaning for vector search'
+        ]
+      },
+      {
+        type: 'divider'
+      },
+      {
+        type: 'h2',
+        text: 'Step 2: Chunking — the decision that determines search granularity'
+      },
+      {
+        type: 'paragraph',
+        text: 'An episode is too large to be a searchable unit. The specific moment Sam Altman discusses AGI is somewhere in 3 hours of content. The chunk design determines how precisely you can surface that moment.'
+      },
+      {
+        type: 'h3',
+        text: 'Option A: Fixed time windows'
+      },
+      {
+        type: 'paragraph',
+        text: 'Split every episode into 30-second, 1-minute, or 5-minute chunks regardless of content structure. Simple to implement; creates unnatural splits mid-sentence or mid-thought.'
+      },
+      {
+        type: 'h3',
+        text: 'Option B: Speaker-turn-based chunks (best baseline)'
+      },
+      {
+        type: 'paragraph',
+        text: 'Each contiguous run of speech from one speaker becomes a chunk. Natural unit — a speaker\'s thought is complete within their turn. Problems: turns can be very short ("yeah", "right", "exactly") or very long (a 20-minute uninterrupted monologue).'
+      },
+      {
+        type: 'h3',
+        text: 'Solution: merged speaker turns with min/max constraints'
+      },
+      {
+        type: 'code',
+        language: 'python',
+        code: 'def chunk_by_speaker_turns(\n    transcript: list[Word],\n    min_seconds: float = 30,\n    max_seconds: float = 180\n) -> list[Chunk]:\n    chunks = []\n    current_chunk = []\n    current_speaker = None\n    current_start = 0.0\n\n    for word in transcript:\n        speaker_changed = word.speaker != current_speaker\n        duration = word.end_time - current_start\n\n        if (speaker_changed and duration >= min_seconds) or duration >= max_seconds:\n            if current_chunk:\n                chunks.append(Chunk(\n                    text=" ".join(w.text for w in current_chunk),\n                    speaker=current_speaker,\n                    start_time=current_start,\n                    end_time=current_chunk[-1].end_time,\n                    words=current_chunk\n                ))\n            current_chunk = []\n            current_speaker = word.speaker\n            current_start = word.start_time\n\n        current_chunk.append(word)\n        if current_speaker is None:\n            current_speaker = word.speaker\n\n    return chunks'
+      },
+      {
+        type: 'h3',
+        text: 'Option C: Chapter-based chunks'
+      },
+      {
+        type: 'paragraph',
+        text: 'Many podcasts have explicit chapters (like YouTube chapters). When available, chapters are the ideal chunking unit — they represent the host\'s own segmentation of the content. Use chapters when present, fall back to speaker-turn-based when absent.'
+      },
+      {
+        type: 'h3',
+        text: 'The chunk enrichment step'
+      },
+      {
+        type: 'paragraph',
+        text: 'Before indexing, add context to each chunk that wouldn\'t be in the transcript alone:'
+      },
+      {
+        type: 'code',
+        language: 'python',
+        code: '@dataclass\nclass EnrichedChunk:\n    text: str\n    speaker: str\n    start_time: float\n    end_time: float\n    confidence: float\n\n    episode_id: str\n    episode_title: str\n    show_name: str\n    host: str\n    guests: list[str]\n    publication_date: datetime\n    chapter_title: str | None\n    named_entities: list[str]\n    topic_labels: list[str]\n    is_ad: bool\n    position_in_episode: float'
+      },
+      {
+        type: 'divider'
+      },
+      {
+        type: 'h2',
+        text: 'Step 3: The indexing architecture'
+      },
+      {
+        type: 'paragraph',
+        text: 'Podcast search needs three coordinated indexes:'
+      },
+      {
+        type: 'h3',
+        text: 'Index A: Dense vector index (semantic search)'
+      },
+      {
+        type: 'paragraph',
+        text: 'Embed each enriched chunk into a dense vector. The embedding model must capture both semantic meaning and named entity information:'
+      },
+      {
+        type: 'code',
+        language: 'python',
+        code: 'def embed_chunk(chunk: EnrichedChunk) -> np.ndarray:\n    embed_text = f"""\n    Show: {chunk.show_name}\n    Episode: {chunk.episode_title}\n    Speaker: {chunk.speaker}\n    {f"Chapter: {chunk.chapter_title}" if chunk.chapter_title else ""}\n    Entities: {", ".join(chunk.named_entities)}\n\n    {chunk.text}\n    """\n    return embedding_model.encode(embed_text)\n\nvector_index.upsert(\n    id=f"{chunk.episode_id}_{chunk.start_time}",\n    vector=embed_chunk(chunk),\n    metadata={\n        "episode_id": chunk.episode_id,\n        "show_id": chunk.show_id,\n        "start_time": chunk.start_time,\n        "end_time": chunk.end_time,\n        "speaker": chunk.speaker,\n        "publication_date": chunk.publication_date.timestamp(),\n        "is_ad": chunk.is_ad,\n    }\n)'
+      },
+      {
+        type: 'h3',
+        text: 'Index B: Sparse BM25 index (keyword search)'
+      },
+      {
+        type: 'paragraph',
+        text: 'Elasticsearch or Solr with BM25 for exact keyword matching. Critical for queries containing specific names and terms where semantic similarity might miss exact matches:'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Query: "CRISPR gene editing"\nDense search: finds "genome editing", "gene modification", "DNA splicing" ✓\nDense search: may miss exact "CRISPR" if ASR wrote "crisp her" ✗\nBM25 with fuzzy matching: catches "CRISPR", "CRISPR-Cas9", "crisp her" (edit distance) ✓'
+      },
+      {
+        type: 'h3',
+        text: 'Index C: Metadata index (structured search)'
+      },
+      {
+        type: 'paragraph',
+        text: 'Elasticsearch or a traditional RDBMS for structured filtering:'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Fields:\n  show_name: keyword\n  host: keyword + text\n  guests: keyword (multi-value)\n  categories: keyword (hierarchical)\n  publication_date: date\n  episode_duration: integer\n  episode_number: integer\n  subscriber_count: integer (show-level)\n  avg_rating: float (show-level)'
+      },
+      {
+        type: 'paragraph',
+        text: 'Metadata filtering dramatically reduces the search space before dense retrieval: "Tim Ferriss podcast in 2024" → filter to show_name = "The Tim Ferriss Show" AND publication_date ≥ 2024-01-01, then run ANN only on matching episodes.'
+      },
+      {
+        type: 'divider'
+      },
+      {
+        type: 'h2',
+        text: 'Step 4: Query understanding and hybrid retrieval'
+      },
+      {
+        type: 'h3',
+        text: 'Query type classification'
+      },
+      {
+        type: 'paragraph',
+        text: 'Before retrieval, classify the query type — it determines the retrieval strategy:'
+      },
+      {
+        type: 'code',
+        language: 'python',
+        code: 'QUERY_TYPES = {\n    "navigational":  "Lex Fridman latest episode" → show/episode lookup\n    "topical":       "how does CRISPR work podcast" → topic search\n    "entity_moment": "Joe Rogan Elon Musk AGI" → find specific moment\n    "discovery":     "best machine learning podcast" → ranking by quality\n    "transcript":    "exact quote" → verbatim match\n}'
+      },
+      {
+        type: 'h3',
+        text: 'The hybrid retrieval pipeline'
+      },
+      {
+        type: 'code',
+        language: 'python',
+        code: 'def retrieve_chunks(query: str, filters: dict = None, k: int = 100):\n    # 1. Pre-filter by metadata\n    metadata_matches = metadata_index.filter(filters or {})\n    episode_ids = {m.episode_id for m in metadata_matches}\n\n    # 2. Dense retrieval (semantic)\n    query_embedding = embedding_model.encode(query)\n    dense_results = vector_index.search(\n        query_embedding, k=k,\n        filter={"episode_id": {"$in": list(episode_ids)}}\n    )\n\n    # 3. Sparse retrieval (BM25)\n    sparse_results = bm25_index.search(\n        query=query, k=k,\n        filter={"episode_id": episode_ids},\n        fuzzy=True,\n        fields=["text", "named_entities", "show_name", "host"]\n    )\n\n    # 4. Reciprocal Rank Fusion\n    return reciprocal_rank_fusion([dense_results, sparse_results], k=k)\n\ndef reciprocal_rank_fusion(result_lists, k=60):\n    scores = defaultdict(float)\n    for results in result_lists:\n        for rank, item in enumerate(results):\n            scores[item.id] += 1 / (k + rank + 1)\n    return sorted(scores.items(), key=lambda x: -x[1])'
+      },
+      {
+        type: 'divider'
+      },
+      {
+        type: 'h2',
+        text: 'Step 5: Ranking'
+      },
+      {
+        type: 'paragraph',
+        text: 'Retrieved candidates are re-ranked using a richer feature set than retrieval similarity alone:'
+      },
+      {
+        type: 'h3',
+        text: 'Feature groups'
+      },
+      {
+        type: 'code',
+        language: 'python',
+        code: '# 1. Retrieval quality signals\nrelevance_score   = rrf_score\nsemantic_sim      = cosine_similarity(q_emb, chunk_emb)\nbm25_score        = bm25_index.score(query, chunk.text)\n\n# 2. Content quality signals\nasr_confidence    = chunk.avg_word_confidence\nchunk_completeness = ends_mid_sentence(chunk)\nis_ad             = chunk.is_ad\nspeaker_authority = known_expert_score(chunk.speaker, query_topic)\n\n# 3. Episode/show quality signals\nshow_popularity   = log(episode.total_plays + 1)\nshow_rating       = show.avg_rating / 5.0\nguest_relevance   = name_match(query_entities, episode.guests)\n\n# 4. Freshness\ndays_old          = (today - episode.publication_date).days\nfreshness         = exp(-days_old / 365)\n\n# 5. Positional signals\nposition_in_ep    = chunk.start_time / episode.total_duration\nposition_quality  = 1 - abs(position_in_ep - 0.5) * 0.3\n\nscore = weighted_sum([\n    (0.35, relevance_score),\n    (0.20, semantic_sim),\n    (0.15, bm25_score),\n    (0.10, show_popularity),\n    (0.08, freshness),\n    (0.07, speaker_authority),\n    (0.05, position_quality),\n]) * (1 - 0.8 * is_ad) * asr_confidence'
+      },
+      {
+        type: 'h3',
+        text: 'Episode-level aggregation'
+      },
+      {
+        type: 'paragraph',
+        text: 'Users see episodes in results, not raw chunks. Multiple chunks from one episode are aggregated:'
+      },
+      {
+        type: 'code',
+        language: 'python',
+        code: 'def aggregate_to_episodes(chunks: list[ScoredChunk]):\n    episode_groups = defaultdict(list)\n    for chunk in chunks:\n        episode_groups[chunk.episode_id].append(chunk)\n\n    results = []\n    for episode_id, episode_chunks in episode_groups.items():\n        episode_score = max(c.score for c in episode_chunks)\n        episode_score += 0.1 * log(len(episode_chunks))\n\n        results.append(EpisodeResult(\n            episode=episode_db.get(episode_id),\n            score=episode_score,\n            entry_points=sorted(episode_chunks, key=lambda c: -c.score)[:3]\n        ))\n\n    return sorted(results, key=lambda r: -r.score)'
+      },
+      {
+        type: 'paragraph',
+        text: 'The entry points become clickable timestamps in the search results — "jump to 1:23:45 where this topic is discussed."'
+      },
+      {
+        type: 'divider'
+      },
+      {
+        type: 'h2',
+        text: 'Evaluation metrics'
+      },
+      {
+        type: 'paragraph',
+        text: 'Three layers of evaluation: offline (on a held-out labeled dataset), online (on live traffic), and product-level.'
+      },
+      {
+        type: 'h3',
+        text: 'Offline metrics'
+      },
+      {
+        type: 'paragraph',
+        text: 'For episode-level retrieval:'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'MRR@10 (Mean Reciprocal Rank): reciprocal of the rank position of the first relevant episode',
+          'NDCG@10: accounts for graded relevance (a perfect match outscores a partial match)'
+        ]
+      },
+      {
+        type: 'paragraph',
+        text: 'For segment-level retrieval (the harder and more important metric):'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Segment Relevance@K: of K returned segments, what fraction are topically relevant?',
+          'Timestamp Precision: when a segment is relevant, is the returned start time within N seconds of where the topic actually begins? (Within 30 seconds = success)',
+          'ASR Impact on Recall: measure recall separately for ASR-accurate vs. ASR-noisy segments'
+        ]
+      },
+      {
+        type: 'code',
+        language: 'python',
+        code: 'def timestamp_precision(\n    predicted_start: float,\n    ground_truth_start: float,\n    tolerance_seconds: float = 30\n) -> float:\n    return float(abs(predicted_start - ground_truth_start) <= tolerance_seconds)\n\ndef ndcg_at_k(relevance_scores: list[float], k: int = 10) -> float:\n    dcg = sum(rel / log2(rank + 2) for rank, rel in enumerate(relevance_scores[:k]))\n    ideal = sorted(relevance_scores, reverse=True)[:k]\n    idcg = sum(rel / log2(rank + 2) for rank, rel in enumerate(ideal))\n    return dcg / idcg if idcg > 0 else 0.0'
+      },
+      {
+        type: 'h3',
+        text: 'Building the evaluation dataset'
+      },
+      {
+        type: 'paragraph',
+        text: 'Gold-standard podcast search datasets are rare. Build one through expert annotation (annotators judge query-segment relevance), click data promotion (user clicks become weak positive labels), and synthetic queries (LLM generates representative queries for known segments).'
+      },
+      {
+        type: 'h3',
+        text: 'Online metrics'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'CTR (Click-Through Rate): do users click the search results?',
+          'Dwell time on segment: did the user listen to the returned segment for >N seconds?',
+          'Skip rate: clicked but skipped within 10 seconds → likely irrelevant',
+          'Search refinement rate: how often do users rephrase after seeing results?',
+          'Session success rate: did the search session result in playlist addition or subscription?'
+        ]
+      },
+      {
+        type: 'h3',
+        text: 'The key metric hierarchy'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Primary: Segment Relevance@5 × Timestamp Precision\n  (Did we find the right moment, not just the right episode?)\n\nSecondary: MRR@10\n  (Is the first relevant result near the top?)\n\nGuardrail: Session success rate\n  (Are users finding what they\'re looking for overall?)\n\nAnti-metric: Skip rate\n  (Decreasing skip rate = results being clicked are actually useful)'
+      },
+      {
+        type: 'divider'
+      },
+      {
+        type: 'h2',
+        text: 'Full architecture'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'INGESTION\n  RSS + Audio → Whisper transcription → Speaker diarization\n  → Chunking (speaker-turn, 30s–3min, chapter-aware)\n  → NER + topic labeling + ad detection\n  → Metadata extraction from RSS\n\nTHREE INDEXES\n  Dense: vector_index (chunk_id → embedding)\n  Sparse: elasticsearch_bm25 (chunk text, fuzzy)\n  Metadata: structured_db (episode filters)\n\nQUERY PIPELINE\n  User query\n    ↓ Query type classification\n    ↓ Metadata filters extracted\n    ↓ Parallel: dense ANN + sparse BM25 (pre-filtered)\n    ↓ Reciprocal Rank Fusion\n    ↓ Feature-based re-ranking\n    ↓ Episode aggregation with top-3 entry points\n    ↓ Search results with clickable timestamps\n\nEVALUATION\n  Offline: Segment Relevance@5, NDCG@10, Timestamp Precision, MRR@10\n  Online:  CTR, Dwell time, Skip rate, Session success rate\n  A/B tests on every ranking change before deployment'
+      },
+      {
+        type: 'divider'
+      },
+      {
+        type: 'h2',
+        text: 'The whole thing in five sentences'
+      },
+      {
+        type: 'list',
+        ordered: true,
+        items: [
+          'The pipeline starts with ASR transcription (Whisper large-v3 for word-level timestamps + speaker diarization), then speaker-turn-based chunking (30-second minimum, 3-minute maximum, chapter boundaries respected when available), chunk enrichment (NER, topic labels, ad detection, position in episode), and parallel indexing into a dense vector store (semantic search), a fuzzy BM25 index (keyword search, ASR-error-tolerant), and a structured metadata index (filters).',
+          'Hybrid retrieval combines dense ANN search (semantic embeddings of query vs. enriched chunk text + metadata) and BM25 sparse retrieval (exact + fuzzy keyword matching) fused via Reciprocal Rank Fusion, with metadata pre-filtering reducing the ANN search space before the vector query runs.',
+          'Re-ranking uses a weighted feature set combining retrieval score, BM25 score, ASR confidence (low-confidence transcripts are penalized), show popularity, guest/host relevance to query entities, freshness decay, and ad status — then episode-level aggregation returns the top-3 segment entry points per episode as clickable timestamps rather than raw chunk IDs.',
+          'The evaluation stack has three tiers: offline metrics (Segment Relevance@5, Timestamp Precision within 30 seconds, NDCG@10, MRR@10) measured against an annotated gold dataset built from expert annotation and click data promotion; online metrics (CTR, dwell time on segment, skip rate, session success rate); and A/B testing of all ranking changes before deployment.',
+          'The ASR noise problem — errors concentrated on proper nouns, technical terms, and accented speech — is mitigated by three complementary mechanisms: custom vocabulary injection into Whisper for known entity names, fuzzy matching in BM25 for phonetically similar spellings, and semantic embeddings that tolerate surface-form errors because surrounding context words encode the correct meaning even when specific terms are mistranscribed.'
+        ]
+      },
+      {
+        type: 'divider'
+      },
+      {
+        type: 'h2',
+        text: 'Why I wrote this'
+      },
+      {
+        type: 'paragraph',
+        text: 'Podcast search is uniquely hard because the primary content (audio) requires building text before any search infrastructure can run — and that generated text is noisy in exactly the places search matters most (names, technical terms). The TV guide analogy felt right because it captures both what metadata provides (which show to watch) and what it fails to provide (which scene, which timestamp) — and the search engine must do both. If the segment-level entry-point design (returning three clickable timestamps per episode rather than episode-level results) made the user experience goal feel concrete, or if the Timestamp Precision metric (within 30 seconds of the actual mention) made "finding the right moment" feel measurable rather than aspirational — that was the goal.'
+      },
+      {
+        type: 'paragraph',
+        text: 'More breakdowns on the way.'
+      }
+    ]
+  },
 ];
