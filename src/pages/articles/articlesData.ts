@@ -11109,4 +11109,190 @@ WELLBEING METRICS (not engagement metrics):
       }
     ]
   },
+  {
+    slug: 'calendar-agent-dp-privacy-apple',
+    title: 'The Assistant Who Only Ever Says "Busy" or "Free": Designing Privacy Into a Calendar-Scheduling Agent',
+    subtitle: 'Data minimization at the API boundary does the heavy lifting. Differential privacy does something different and more specific — and conflating the two is the most common mistake in this design.',
+    date: 'June 16, 2026',
+    readTime: '15 min read',
+    tags: ['Differential Privacy', 'Apple', 'Privacy', 'Calendar Agent', 'Data Minimization', 'Interview Prep'],
+    coverEmoji: '📅',
+    content: [
+      {
+        type: 'callout',
+        emoji: '🎯',
+        text: 'This question comes from Apple\'s ML interview pool. Understand the distinction between data minimization (deterministic, prevents sensitive data from reaching the agent) and differential privacy (probabilistic, protects aggregate statistics about populations).'
+      },
+      {
+        type: 'quote',
+        text: 'Your agent needs to read a user\'s calendar to schedule a meeting. How do you ensure the agent only sees the free slots and not the meeting details? Discuss Differential Privacy applied to prompt context.'
+      },
+      {
+        type: 'divider'
+      },
+      {
+        type: 'paragraph',
+        text: 'A skilled executive assistant scheduling a meeting on your behalf doesn\'t need to know that 2-3pm on Thursday is blocked because you have a therapy appointment, or that Friday morning is reserved for a confidential board call about layoffs. They need to know exactly one thing: that slot is unavailable. A good assistant reports "busy" or "free" — never the reason, never the title, never who else is involved. This is the correct scope for the task.'
+      },
+      {
+        type: 'paragraph',
+        text: 'This mental model matters because two different privacy techniques address two different parts of this problem, and conflating them is a critical mistake. Data minimization at the API boundary guarantees the agent never sees meeting content in the first place — an architectural guarantee, not a probabilistic one. Differential privacy is a different tool that solves a different problem: protecting individuals within an aggregate dataset. Both matter for a privacy-conscious calendar agent, but they are not interchangeable.'
+      },
+      {
+        type: 'divider'
+      },
+      {
+        type: 'h2',
+        text: 'Part 1: Data minimization — the primary, deterministic guarantee'
+      },
+      {
+        type: 'paragraph',
+        text: 'The first and most important design decision is architectural, not statistical: the agent should never receive the full calendar event objects in its prompt context at all. This is the principle of designing the tool\'s API surface to expose only what\'s needed for the task, not the full underlying data, and letting the access-control boundary do the work rather than relying on the model to behave well after seeing sensitive content.'
+      },
+      {
+        type: 'h3',
+        text: 'The naive (wrong) design'
+      },
+      {
+        type: 'code',
+        language: 'python',
+        code: '# WRONG: agent receives full event objects\ndef get_calendar_events(date_range: DateRange) -> list[CalendarEvent]:\n    """Returns full event objects including title, attendees, location, notes."""\n    return calendar_db.query(date_range)\n\n# The agent\'s context now contains:\n# [{"title": "Therapy - Dr. Chen", "attendees": [...], "location": "..."},\n#  {"title": "Board call: Q3 layoffs", "attendees": [...]},\n#  ...]'
+      },
+      {
+        type: 'paragraph',
+        text: 'Even if the agent is instructed via system prompt to "only use this for scheduling, don\'t mention specifics," the sensitive content is now in the context window. It can leak through model errors, prompt injection, logging/debugging tools, or simply the model\'s imperfect instruction adherence. The fundamental flaw: you\'ve made the privacy guarantee depend on model behavior rather than what data the model can access.'
+      },
+      {
+        type: 'h3',
+        text: 'The correct design: a free-busy-only tool'
+      },
+      {
+        type: 'code',
+        language: 'python',
+        code: '# CORRECT: the API itself only ever returns availability, never content\ndef get_availability(date_range: DateRange) -> list[TimeBlock]:\n    """\n    Returns ONLY free/busy status. Event titles, attendees, locations,\n    and notes are never included in the return value — they are not\n    queried from the underlying event store at all for this call path.\n    """\n    busy_blocks = calendar_db.query_busy_intervals(date_range)  # status only\n    return [\n        TimeBlock(start=b.start, end=b.end, status="busy")\n        for b in busy_blocks\n    ] + compute_free_gaps(busy_blocks, date_range)\n\n# The agent\'s context now contains:\n# [{"start": "14:00", "end": "15:00", "status": "busy"},\n#  {"start": "15:00", "end": "17:00", "status": "free"},\n#  ...]'
+      },
+      {
+        type: 'paragraph',
+        text: 'If the underlying database query itself only ever selects status, start, and end — never title, attendees, or notes — then there is no code path by which event content reaches the agent\'s context, regardless of what the agent later decides to do. This guarantee composes with permission scoping on Apple platforms, mapping to App Intents and EventKit: an app can be granted a scoped capability (query free/busy) distinct from full calendar read access, enforced at the OS level.'
+      },
+      {
+        type: 'divider'
+      },
+      {
+        type: 'h2',
+        text: 'Part 2: where differential privacy actually fits — and where it doesn\'t'
+      },
+      {
+        type: 'paragraph',
+        text: 'This is where the question rewards precision, because differential privacy is frequently invoked in ways that don\'t match what it actually guarantees.'
+      },
+      {
+        type: 'h3',
+        text: 'What differential privacy formally guarantees'
+      },
+      {
+        type: 'paragraph',
+        text: 'Differential privacy is a mathematical framework for releasing aggregate statistics such that the presence or absence of any single individual\'s data has a bounded, quantifiable effect on the output. A randomized mechanism M is ε-differentially private if, for any two datasets D and D′ differing in exactly one individual\'s data, the probability of any possible output S is bounded. The smaller ε (epsilon) is, the stronger the guarantee — and the more noise must be added. This privacy budget tracks cumulative ε spent across multiple queries.'
+      },
+      {
+        type: 'paragraph',
+        text: 'Apple already uses this mechanism in production — not for single-user scenarios, but for learning aggregate patterns across the user population: improving QuickType suggestions, identifying trending Genmoji prompts, detecting commonly-used data types causing performance issues — all by adding calibrated noise before aggregation, so Apple can learn population-level trends without determining what any individual user did.'
+      },
+      {
+        type: 'h3',
+        text: 'Why this doesn\'t directly apply to hiding a single user\'s meeting details'
+      },
+      {
+        type: 'paragraph',
+        text: 'Differential privacy is fundamentally for protecting individuals within a population whose aggregate behavior is being analyzed. A single user asking their own personal scheduling agent to find a free slot is not a population-statistics problem — it\'s a single-user access-control problem, and the agent needs the exact correct free-busy answer, not a noisy estimate. If you added DP-style noise to free/busy boundaries, you\'d get a probabilistically corrupted calendar — the agent might schedule actual conflicts, or miss genuinely free slots — which defeats the entire purpose of the feature. DP trades accuracy for privacy; a scheduling agent cannot tolerate that trade.'
+      },
+      {
+        type: 'paragraph',
+        text: 'This is the key insight: knowing when a privacy technique is the wrong tool is as important as knowing how to apply it. Recognizing that differential privacy would be a mistake here — applied naively to the actual scheduling query — is what separates understanding the technique from just having heard of it.'
+      },
+      {
+        type: 'h3',
+        text: 'Where differential privacy does legitimately apply'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'LEGITIMATE DP APPLICATION POINTS in calendar-scheduling system:\n\n1. Aggregate usage pattern learning (population-level, across users):\n   "What time-of-day do users typically request scheduling?"\n   "How often does the free-slot suggestion get accepted?"\n   → Collect with DP noise added before aggregation,\n     so no individual user\'s scheduling behavior is recoverable.\n\n2. Federated learning for model improvement:\n   Each device\'s gradient update can have DP noise applied before\n   sending to aggregation server — protecting against reverse-engineering\n   any individual user\'s calendar patterns.\n\n3. Cross-user pattern detection for abuse/anomaly signals:\n   Analysis happens over DP-protected aggregate statistics,\n   never over any individual user\'s raw calendar content.'
+      },
+      {
+        type: 'h3',
+        text: 'Example: DP noise for aggregate statistics'
+      },
+      {
+        type: 'code',
+        language: 'python',
+        code: 'class DPTelemetryAggregator:\n    """\n    Differential privacy applied to AGGREGATE usage statistics\n    across the user population — not to any individual query.\n    """\n    def __init__(self, epsilon: float = 1.0):\n        self.epsilon = epsilon\n        self.sensitivity = 1.0\n\n    def add_laplace_noise(self, true_count: int) -> float:\n        """Calibrated noise: scale = sensitivity / epsilon"""\n        scale = self.sensitivity / self.epsilon\n        noise = np.random.laplace(0, scale)\n        return true_count + noise\n\n    def report_acceptance_rate(self, accepted: int, total: int) -> dict:\n        """\n        What fraction of suggested free slots get accepted?\n        Population-level signal, released with DP noise.\n        """\n        noisy_accepted = self.add_laplace_noise(accepted)\n        noisy_total = self.add_laplace_noise(total)\n        return {\n            "estimated_acceptance_rate": noisy_accepted / max(noisy_total, 1),\n            "privacy_budget_spent": self.epsilon\n        }'
+      },
+      {
+        type: 'divider'
+      },
+      {
+        type: 'h2',
+        text: 'Part 3: coarsening as a complementary technique'
+      },
+      {
+        type: 'paragraph',
+        text: 'There\'s a third technique worth naming, distinct from both pure data minimization and formal DP: deliberately coarsening the granularity of what\'s exposed, even within the free-busy-only data. This is NOT differential privacy (no formal epsilon guarantee, no calibrated noise against sensitivity bounds) — it\'s generalization or granularity reduction, which limits how precisely the agent\'s context reveals exact meeting boundaries.'
+      },
+      {
+        type: 'code',
+        language: 'python',
+        code: 'def get_coarsened_availability(date_range: DateRange,\n                              granularity_minutes=30) -> list[TimeBlock]:\n    """\n    Round free/busy boundaries to fixed time granularity.\n    This is NOT differential privacy — it\'s generalization that\n    limits precision of exact boundary knowledge.\n    """\n    busy_blocks = calendar_db.query_busy_intervals(date_range)\n    coarsened = [\n        TimeBlock(\n            start=round_to_granularity(b.start, granularity_minutes),\n            end=round_to_granularity(b.end, granularity_minutes),\n            status="busy"\n        )\n        for b in busy_blocks\n    ]\n    return merge_overlapping(coarsened)'
+      },
+      {
+        type: 'paragraph',
+        text: 'Why this matters even with free-busy-only data: a meeting running exactly 8:47am to 9:13am has an unusually specific block duration — a faint signal that could hint at something (a quick call, an unusual appointment). Rounding to fixed granularity (15 or 30 minutes) removes this residual signal while preserving enough precision for scheduling. This is a reasonable, lightweight complement to free-busy-only data minimization — but should be named accurately as coarsening/generalization, not labeled "differential privacy" just because both involve privacy-utility trade-off.'
+      },
+      {
+        type: 'divider'
+      },
+      {
+        type: 'h2',
+        text: 'The full design'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'USER REQUEST: "Schedule a meeting with Alex sometime next week"\n    ↓\n[Agent identifies need: query calendar availability]\n    ↓\n[Tool call: get_availability(date_range=next_week)]\n    │\n    │  AT THE DATA LAYER (deterministic guarantee):\n    │  - Underlying query selects ONLY start/end/status columns\n    │  - Event title, attendees, location, notes are never\n    │    fetched for this code path\n    │  - OS-level permission scope: "free/busy query" capability,\n    │    distinct from "full calendar read"\n    ↓\n[Optional: coarsen boundaries to fixed granularity]\n  (removes residual precision signal)\n    ↓\n[Agent\'s context contains ONLY availability blocks]\n    ↓\n[Agent proposes free slot]\n    ↓\n[User confirms; agent creates NEW event via separate,\n explicitly-scoped "create_event" tool]\n\nSEPARATELY, IN AGGREGATE TELEMETRY PIPELINE:\n    ↓\n[DP noise added before aggregation]\n[Aggregate statistics only]\n[Privacy budget tracked]\n[Used to improve scheduling model over time]'
+      },
+      {
+        type: 'divider'
+      },
+      {
+        type: 'h2',
+        text: 'The whole thing in five sentences'
+      },
+      {
+        type: 'list',
+        ordered: true,
+        items: [
+          'The primary, deterministic privacy guarantee for a calendar-scheduling agent is data minimization enforced at the API and database-query level: a `get_availability` tool that only ever selects and returns start/end/status fields — never event titles, attendees, locations, or notes — so there is no code path by which sensitive content can enter the agent\'s context.',
+          'Differential privacy is a different tool entirely: it provides a formal, quantifiable guarantee (bounded by privacy budget ε) that releasing an aggregate statistic doesn\'t reveal whether any single individual\'s data was included, achieved by adding calibrated noise — and it is designed for population-level analysis across many users or repeated queries, not for guaranteeing the privacy of a single user\'s single live query.',
+          'Applying DP-style noise directly to a single user\'s free/busy boundaries would be a misapplication: it intentionally trades accuracy for privacy, and a scheduling agent needs the exact correct answer to avoid actual scheduling conflicts, making this a case where recognizing the wrong fit matters as much as knowing the right one.',
+          'Differential privacy legitimately applies elsewhere in the same system: aggregate usage-pattern telemetry (e.g., what fraction of suggested time slots get accepted, computed with DP noise across the full user population) and federated learning gradient updates used to improve the scheduling model — both protecting individuals within population-level learning, exactly the problem DP was designed to solve.',
+          'A complementary but distinct technique — coarsening or generalizing free/busy boundaries to fixed time granularity — removes residual precision signal without making formal DP guarantees, and should be named accurately as generalization rather than conflated with differential privacy, since precision in naming which technique solves which part of the problem is itself part of a correct answer.'
+        ]
+      },
+      {
+        type: 'divider'
+      },
+      {
+        type: 'h2',
+        text: 'Why I wrote this'
+      },
+      {
+        type: 'paragraph',
+        text: 'This question is a corrective that tests whether you reach for a fashionable technique (differential privacy gets mentioned constantly) or correctly scope which technique solves which problem. The executive assistant analogy — "busy or free, never why" — is a guarantee real humans understand intuitively, best achieved deterministically (the assistant simply never learns the reason) rather than probabilistically (the assistant learns the reason but adds noise before repeating it back). If distinguishing data minimization (deterministic, single live query) from differential privacy (probabilistic, aggregate population statistics) felt like the most important clarification, or if the coarsening section made you notice that "privacy-utility trade-off" doesn\'t automatically mean "this is differential privacy" — that was the goal.'
+      },
+      {
+        type: 'paragraph',
+        text: 'More breakdowns on the way.'
+      }
+    ]
+  },
 ];
