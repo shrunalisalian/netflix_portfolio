@@ -11939,4 +11939,42 @@ WELLBEING METRICS (not engagement metrics):
       { type: 'paragraph', text: 'More breakdowns on the way.' }
     ]
   },
+  {
+    slug: 'video-editing-rag-phi4-azure-search-microsoft',
+    title: 'The Archive Librarian Who Watched Every Reel: Indexing Video With Phi-4-Multimodal and Azure AI Search',
+    subtitle: 'Phi-4-multimodal watches and describes. Azure AI Search instantly recalls. Two jobs, kept cleanly separate.',
+    date: 'June 16, 2026',
+    readTime: '15 min read',
+    tags: ['RAG', 'Video Indexing', 'Phi-4', 'Azure AI Search', 'Video Search', 'Microsoft', 'Interview Prep'],
+    coverEmoji: '🎬',
+    content: [
+      { type: 'paragraph', text: 'RAG system for video editing. Users search "that clip where the car explodes." Phi-4-multimodal watches and describes shots. Azure AI Search enables instant recall.' },
+      { type: 'h2', text: 'Phi-4-multimodal: watching, not remembering' },
+      { type: 'h3', text: 'Shot-based chunking' },
+      { type: 'paragraph', text: 'Run shot-boundary detection (not arbitrary time windows). Each shot is natural unit of action. Sample 4-8 frames per shot, extract audio segment.' },
+      { type: 'h3', text: 'Multiple frames as video approximation' },
+      { type: 'paragraph', text: 'Feed sampled frame sequence as multi-image input. Model trained on single/multi-image, not native video. Approximates temporal action understanding.' },
+      { type: 'h3', text: 'Audio is search differentiator' },
+      { type: 'paragraph', text: 'Speech-capable LoRA surfaces dialogue, sound cues. "Car explodes" + "male voice shouts get down" — all in one description, all searchable.' },
+      { type: 'h3', text: 'Description + structured metadata' },
+      { type: 'list', ordered: false, items: ['Generated text description', 'video_id, shot_id, timestamps', 'source_resolution, project_tag', 'Detected entities extracted from description'] },
+      { type: 'h2', text: 'Azure AI Search: instant, scalable recall' },
+      { type: 'h3', text: 'Integrated vectorization' },
+      { type: 'paragraph', text: 'Vectorizer wired into indexer skillset pipeline (chunking + embedding skills → vector profile). Embedding happens automatically at ingestion. No separate embedding service.' },
+      { type: 'h3', text: 'HNSW similarity search' },
+      { type: 'paragraph', text: 'Approximate nearest-neighbor in memory. Scales well. Fast retrieval at library growth.' },
+      { type: 'h3', text: 'Hybrid search with RRF' },
+      { type: 'paragraph', text: 'Editors query both casually ("car explodes") and exactly (shot codes, take numbers, actor names). Vector search ⊕ keyword search ⊕ Reciprocal Rank Fusion. Both query styles covered.' },
+      { type: 'h3', text: 'Semantic ranking (L2 re-rank)' },
+      { type: 'paragraph', text: 'Recover genuine relevance when casual phrasing doesn\'t lexically match descriptions. Transformer-based re-score on top of hybrid results.' },
+      { type: 'h3', text: 'Quantization at scale' },
+      { type: 'paragraph', text: 'Scalar (4×) or binary (32×) vector compression. Manage memory footprint as library grows to millions of shots. Configurable rescoring recovers precision.' },
+      { type: 'h3', text: 'Multimodal search complement' },
+      { type: 'paragraph', text: 'Editor uploads reference frame → search visually similar shots. CLIP-style text + image embedding. Different workflow from text-description path.' },
+      { type: 'h2', text: 'Query pipeline' },
+      { type: 'list', ordered: true, items: ['Editor query: "car explodes"', 'Hybrid search: embed query + full-text search in parallel', 'RRF: merge ranked result lists', 'Semantic L2 re-rank: genuine relevance', 'Optional: filter by project_tag, date, resolution', 'Results: shot matches with video_id, timestamps, thumbnails → deep link to source'] },
+      { type: 'divider' },
+      { type: 'paragraph', text: 'More breakdowns on the way.' }
+    ]
+  },
 ];
