@@ -12829,4 +12829,27 @@ WELLBEING METRICS (not engagement metrics):
       { type: 'paragraph', text: 'Parent-child chunking is a simple idea with outsized impact — it directly solves one of RAG\'s most persistent problems.' }
     ]
   },
+  {
+    slug: 'semantic-search-hardcoded-embedding-bug',
+    title: 'Bug: Semantic Search Returns the Same Results Regardless of Query',
+    subtitle: 'Why computing embeddings at module load time breaks query-aware retrieval.',
+    date: 'June 16, 2026',
+    readTime: '5 min read',
+    tags: ['Bug Fix', 'Python', 'Vector Search', 'Embeddings', 'Interview Prep'],
+    coverEmoji: '🔍',
+    content: [
+      { type: 'h2', text: 'The Problem' },
+      { type: 'paragraph', text: 'A semantic search feature always returns the exact same 5 documents regardless of what the user searches for. The embeddings look like they are generating fine in isolation, so the issue must be elsewhere.' },
+      { type: 'code', language: 'python', code: 'from embedder import embed\nfrom vector_store import VectorStore\n\nstore = VectorStore()\nQUERY_EMBEDDING = embed("default search query")  # <-- computed once at load time\n\ndef search(query: str, top_k: int = 5) -> list:\n    results = store.search(\n        embedding=QUERY_EMBEDDING,  # <-- always the same embedding\n        top_k=top_k\n    )\n    return results' },
+      { type: 'h2', text: 'The Root Cause' },
+      { type: 'paragraph', text: '`QUERY_EMBEDDING` is computed once at module load time from a hardcoded string ("default search query") and reused for every call. The `search()` function never embeds the actual user query — it always searches with the same fixed embedding, regardless of what the `query` parameter contains.' },
+      { type: 'h2', text: 'The Fix' },
+      { type: 'paragraph', text: 'Embed the query parameter inside the function:' },
+      { type: 'code', language: 'python', code: 'from embedder import embed\nfrom vector_store import VectorStore\n\nstore = VectorStore()\n\ndef search(query: str, top_k: int = 5) -> list:\n    query_embedding = embed(query)  # embed the actual query\n    results = store.search(\n        embedding=query_embedding,\n        top_k=top_k\n    )\n    return results' },
+      { type: 'h2', text: 'Why This Matters' },
+      { type: 'paragraph', text: 'This is a timing bug: code that runs at module initialization time (when the script loads) only runs once, not on every function call. Computing expensive artifacts — embeddings, database connections, API clients — at load time is a valid optimization, but only for stateless, immutable values. A query embedding must be computed at call time because it depends on the user\'s input.' },
+      { type: 'divider' },
+      { type: 'paragraph', text: 'The key principle: distinguish between initialization-time constants (things that never change, computed once for efficiency) and call-time values (things that depend on user input or request parameters).' }
+    ]
+  },
 ];
