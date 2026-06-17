@@ -12908,4 +12908,28 @@ WELLBEING METRICS (not engagement metrics):
       { type: 'paragraph', text: 'Three lessons: (1) a quality score needs actual quality measurement, not self-division, (2) edge cases (empty inputs) need explicit handling, not crashes, and (3) a flagging system must surface what it flags, not hide it.' }
     ]
   },
+  {
+    slug: 'document-search-wrong-field-indexed-bug',
+    title: 'Bug: Document Search Returns Unrelated Results',
+    subtitle: 'Why indexing by author metadata instead of content breaks semantic search.',
+    date: 'June 16, 2026',
+    readTime: '5 min read',
+    tags: ['Bug Fix', 'Python', 'Vector Search', 'Embeddings', 'Interview Prep'],
+    coverEmoji: '📄',
+    content: [
+      { type: 'h2', text: 'The Problem' },
+      { type: 'paragraph', text: 'A document search system retrieves documents but they are always completely unrelated to the query. The vector store is set up correctly and embeddings work fine in isolation.' },
+      { type: 'code', language: 'python', code: 'def index_document(doc: dict) -> None:\n    embedding = embed(doc["metadata"]["author"])  # <-- wrong field\n    store.upsert(\n        id=doc["id"],\n        embedding=embedding,\n        metadata=doc["metadata"]\n    )\n\ndef search(query: str, top_k: int = 5) -> list:\n    query_embedding = embed(query)\n    return store.search(\n        embedding=query_embedding,\n        top_k=top_k\n    )' },
+      { type: 'h2', text: 'The Root Cause' },
+      { type: 'paragraph', text: '`index_document()` embeds `doc["metadata"]["author"]` instead of the actual document content — so every document is indexed by its author\'s name, not its text. Query embeddings (of real search queries) get compared against author-name embeddings, which is why results are completely unrelated to the actual query.' },
+      { type: 'h2', text: 'The Fix' },
+      { type: 'paragraph', text: 'Embed the document\'s actual content:' },
+      { type: 'code', language: 'python', code: 'def index_document(doc: dict) -> None:\n    embedding = embed(doc["content"])  # embed the text, not the author\n    store.upsert(\n        id=doc["id"],\n        embedding=embedding,\n        metadata=doc["metadata"]\n    )\n\ndef search(query: str, top_k: int = 5) -> list:\n    query_embedding = embed(query)\n    return store.search(\n        embedding=query_embedding,\n        top_k=top_k\n    )' },
+      { type: 'paragraph', text: 'Adjust the field name to whatever key actually holds the document text — `doc["content"]`, `doc["text"]`, `doc["body"]`, etc.' },
+      { type: 'h2', text: 'Why This Matters' },
+      { type: 'paragraph', text: 'Vector search is only as good as what you index. If you index by author names, you\'re creating a system that\'s really just "find documents by the author who wrote them," not "find documents about this topic." The embedding and search code are both working correctly — the bug is in what data you\'re embedding in the first place. This is a semantic mismatch between what the indexing step does and what the search step expects.' },
+      { type: 'divider' },
+      { type: 'paragraph', text: 'The key principle: the field you embed at index time must semantically match the queries you\'ll later search with, or the whole system returns garbage regardless of how well-optimized each individual step is.' }
+    ]
+  },
 ];
