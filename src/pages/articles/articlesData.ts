@@ -1,3 +1,4 @@
+/* eslint-disable no-useless-escape */
 export type ContentBlock =
   | { type: 'h2'; text: string }
   | { type: 'h3'; text: string }
