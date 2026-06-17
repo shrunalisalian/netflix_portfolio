@@ -14053,7 +14053,7 @@ WELLBEING METRICS (not engagement metrics):
       { type: 'h2', text: 'Why This Matters' },
       { type: 'paragraph', text: 'Legal research is high-stakes — a hallucinated citation isn\'t just wrong, it\'s potentially catastrophic (sanctions, malpractice, loss of license). RAG systems are known to hallucinate, especially when parametric memory conflicts with retrieval. The difference between a safe and unsafe legal AI is not "never hallucinate" (that\'s impossible), but "catch hallucinations before users act on them." Continuous monitoring, pre-display gates, and a clear incident-response plan are table stakes.' },
       { type: 'divider' },
-      { type: 'paragraph', text: 'The key principle: for high-stakes RAG (legal, medical, financial), hallucinations aren\'t just errors — they\''re liability. Deploy continuous verification before incidents, and have a rapid incident-response playbook ready (gate + user notification + root-cause fix + rollback decision). Don\'t wait for customers to report hallucinations; catch them automatically.' }
+      { type: 'paragraph', text: "The key principle: for high-stakes RAG (legal, medical, financial), hallucinations aren't just errors — they're liability. Deploy continuous verification before incidents, and have a rapid incident-response playbook ready (gate + user notification + root-cause fix + rollback decision). Don't wait for customers to report hallucinations; catch them automatically." }
     ]
   },
   {
