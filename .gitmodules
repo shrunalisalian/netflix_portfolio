@@ -1,0 +1,3 @@
+[submodule "netflix_portfolio"]
+	path = netflix_portfolio
+	url = https://github.com/shrunalisalian/netflix_portfolio.git
