@@ -12932,4 +12932,34 @@ WELLBEING METRICS (not engagement metrics):
       { type: 'paragraph', text: 'The key principle: the field you embed at index time must semantically match the queries you\'ll later search with, or the whole system returns garbage regardless of how well-optimized each individual step is.' }
     ]
   },
+  {
+    slug: 'llm-summarizer-unrelated-content-bugs',
+    title: 'Bug: LLM Summarizer Produces Unrelated Content Randomly',
+    subtitle: 'Why high temperature and missing grounding instructions cause hallucinated summaries.',
+    date: 'June 16, 2026',
+    readTime: '7 min read',
+    tags: ['Bug Fix', 'Python', 'LLM', 'Prompt Engineering', 'Interview Prep'],
+    coverEmoji: '🎲',
+    content: [
+      { type: 'h2', text: 'The Problem' },
+      { type: 'paragraph', text: 'An LLM document summarizer occasionally produces summaries that have nothing to do with the document provided. It happens roughly 1 in 4 times and seems random.' },
+      { type: 'code', language: 'python', code: 'def summarize_document(document: str, max_length: int = 200) -> str:\n    prompt = f"""Summarize the following in {max_length} words.\n\n{document}\n\nWrite a clear summary."""\n\n    response = llm.generate(\n        prompt=prompt,\n        temperature=1.8,  # <-- way too high\n        max_tokens=500\n    )\n    return response.content' },
+      { type: 'h2', text: 'Multiple Issues' },
+      { type: 'h3', text: 'Issue 1: Temperature Too High' },
+      { type: 'paragraph', text: '`temperature=1.8` is far too high (effective range is usually 0–1, occasionally up to ~1.2 for creative tasks). At 1.8 the model\'s token sampling becomes erratic enough to wander off-topic entirely — that\'s the direct cause of the random, unrelated summaries roughly 1 in 4 times. High temperature adds randomness; for a faithfulness-sensitive task like summarization, that randomness manifests as hallucination.' },
+      { type: 'h3', text: 'Issue 2: No Grounding Instruction' },
+      { type: 'paragraph', text: 'The prompt never tells the model to stay strictly based on the provided document, so at high temperature there\'s nothing constraining it from drifting into unrelated content instead of merely hallucinated-but-related content. The model has freedom to hallucinate in any direction.' },
+      { type: 'h3', text: 'Issue 3: Max Tokens Mismatch (Minor)' },
+      { type: 'paragraph', text: '`max_tokens=500` vs. "200 words" is a minor mismatch (500 tokens ≈ 375 words), not the cause of unrelated content, but worth fixing so output length matches the actual instruction.' },
+      { type: 'h2', text: 'The Fix' },
+      { type: 'code', language: 'python', code: 'def summarize_document(document: str, max_length: int = 200) -> str:\n    prompt = f"""Summarize the following document in {max_length} words.\nBase the summary ONLY on the content below — do not introduce any\ninformation not present in the document.\n\n{document}\n\nWrite a clear, accurate summary."""\n\n    response = llm.generate(\n        prompt=prompt,\n        temperature=0.3,        # low temp for a factual/grounded task\n        max_tokens=max_length * 2  # rough token budget for the word target\n    )\n    return response.content' },
+      { type: 'h2', text: 'Why Temperature Matters for Different Tasks' },
+      { type: 'paragraph', text: 'Temperature controls how much randomness the model introduces into token selection:' },
+      { type: 'list', ordered: false, items: ['**Factual, grounded tasks** (summarization, question-answering, translation): low temperature (0.2–0.4). You want the model to stick closely to the input and avoid hallucination.', '**Creative tasks** (brainstorming, creative writing, open-ended ideation): medium-to-high temperature (0.7–1.2). You want variety and creative leaps.', '**Extremely high temperature** (>1.5): reserved for rare cases; generally a sign something else is wrong with the task design.'] },
+      { type: 'h2', text: 'Why This Matters' },
+      { type: 'paragraph', text: 'A summarizer that works 75% of the time is not actually a summarizer — it\'s a dice roll that sometimes produces useful output and sometimes produces garbage. The randomness comes from a single hyperparameter choice combined with an under-constrained prompt. Low temperature alone wouldn\'t be enough (the model could still drift); neither would a grounding instruction alone (at high temperature, it\'s ignored). Together, they give the model both incentive (the instruction) and capability (low randomness) to stay on topic.' },
+      { type: 'divider' },
+      { type: 'paragraph', text: 'The key principle: match temperature to the task — low for grounded/faithful work, higher for creative work — and always include explicit constraints for faithfulness-sensitive tasks.' }
+    ]
+  },
 ];
