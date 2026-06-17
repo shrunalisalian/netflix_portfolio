@@ -12962,4 +12962,27 @@ WELLBEING METRICS (not engagement metrics):
       { type: 'paragraph', text: 'The key principle: match temperature to the task — low for grounded/faithful work, higher for creative work — and always include explicit constraints for faithfulness-sensitive tasks.' }
     ]
   },
+  {
+    slug: 'chatbot-ignores-user-message-bug',
+    title: 'Bug: Chatbot Ignores User Message, Always Responds Generically',
+    subtitle: 'Why passing the system prompt as the user message breaks context-aware responses.',
+    date: 'June 16, 2026',
+    readTime: '5 min read',
+    tags: ['Bug Fix', 'Python', 'LLM', 'Chatbot', 'Interview Prep'],
+    coverEmoji: '💬',
+    content: [
+      { type: 'h2', text: 'The Problem' },
+      { type: 'paragraph', text: 'A chatbot always responds with a generic "How can I help you today?" regardless of what the user asks. The developer swears the prompt is set up correctly.' },
+      { type: 'code', language: 'python', code: 'from llm_client import LLMClient\n\nllm = LLMClient()\nSYSTEM_PROMPT = "You are a helpful customer service assistant."\n\ndef get_response(user_message: str) -> str:\n    response = llm.chat(\n        system=SYSTEM_PROMPT,\n        message=SYSTEM_PROMPT  # <-- wrong: passing system prompt as user message\n    )\n    return response.content' },
+      { type: 'h2', text: 'The Root Cause' },
+      { type: 'paragraph', text: '`message=SYSTEM_PROMPT` — the user\'s actual message is never passed in at all. The function sends the system prompt as both the system message *and* the user message, so the model only ever sees "You are a helpful customer service assistant" twice and responds generically because there\'s no actual user query to respond to.' },
+      { type: 'h2', text: 'The Fix' },
+      { type: 'paragraph', text: 'Pass the actual user message to the message parameter:' },
+      { type: 'code', language: 'python', code: 'def get_response(user_message: str) -> str:\n    response = llm.chat(\n        system=SYSTEM_PROMPT,\n        message=user_message  # pass the actual user message\n    )\n    return response.content' },
+      { type: 'h2', text: 'Why This Matters' },
+      { type: 'paragraph', text: 'The system prompt defines the model\'s role and behavior; the user message is the actual question or request. Confusing the two means the model never receives the actual query — it only knows its instructions, so it responds with a generic greeting rather than addressing what the user asked. The function signature declares `user_message` as a parameter, but it\'s never actually used, making the bug especially easy to miss on code review.' },
+      { type: 'divider' },
+      { type: 'paragraph', text: 'The key principle: system prompt and user message are two distinct inputs with distinct purposes — never conflate them.' }
+    ]
+  },
 ];
