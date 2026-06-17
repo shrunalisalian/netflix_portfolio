@@ -13047,4 +13047,41 @@ WELLBEING METRICS (not engagement metrics):
       { type: 'paragraph', text: 'The key principle: a cache that doesn\'t hit is worse than no cache — it adds overhead with no benefit. Make sure keys are normalized, TTL logic is correct, and the overhead of cache maintenance doesn\'t exceed the savings from cache hits.' }
     ]
   },
+  {
+    slug: 'credit-scoring-model-psi-drift-diagnosis',
+    title: 'Diagnosing Model Drift: When to Investigate vs. Retrain',
+    subtitle: 'PSI shift + rising predicted default rate without observable actuals — a framework for diagnosis and safe retraining.',
+    date: 'June 16, 2026',
+    readTime: '12 min read',
+    tags: ['ML Ops', 'Model Monitoring', 'PSI', 'Drift Detection', 'Credit Scoring', 'Interview Prep'],
+    coverEmoji: '📊',
+    content: [
+      { type: 'h2', text: 'The Situation' },
+      { type: 'paragraph', text: 'A credit scoring model deployed 8 months ago shows troubling signs: Population Stability Index (PSI) of 0.31 on monthly_income (>0.25 signals significant shift), average predicted probability of default has nearly doubled from 4.2% to 7.8%, and the actual default rate with a 90-day lag is not yet observable for recent predictions.' },
+      { type: 'h2', text: 'Diagnosis: What\'s Likely Happening' },
+      { type: 'paragraph', text: 'PSI of 0.31 plus predicted PD nearly doubling indicates real input distribution drift — either a genuine population/macro shift (e.g., economic downturn, new acquisition channel skewing income mix) or a data pipeline issue upstream of that feature (schema change, unit change, currency change, missing-value handling change).' },
+      { type: 'paragraph', text: 'The critical uncertainty: since actual defaults aren\'t observable yet due to the 90-day lag, you only have leading indicators. You don\'t yet know if the higher predicted risk is *correct* (the population is genuinely riskier) or an artifact of broken/shifted inputs.' },
+      { type: 'h2', text: 'Investigate First, Don\'t Retrain Immediately' },
+      { type: 'paragraph', text: 'Retraining now would bake in whatever\'s causing the shift — good or bad — without knowing which it is. You also can\'t validate a retrained model\'s actual performance yet since labels aren\'t mature. The safer approach: root-cause first, then decide.' },
+      { type: 'h3', text: 'Investigation Checklist' },
+      { type: 'list', ordered: false, items: ['**Data pipeline audit**: Check monthly_income for schema/unit/source changes in the past 8 months. A currency conversion bug, schema migration, or calculation change would directly explain the shift.', '**Cohort/channel analysis**: Segment PSI and predicted PD by acquisition channel, customer cohort, or other dimensions. If the shift is isolated to one channel (e.g., a new partnership), that\'s population mix shift, not a model problem. If it\'s broad, the model itself may be degrading.', '**Macro plausibility check**: Cross-check against external economic indicators. Did unemployment rise, lending standards tighten, or macroeconomic conditions deteriorate? If yes, a genuine population shift is plausible and the model may be correct to flag higher risk.', '**Multi-feature PSI**: Calculate PSI for other features, not just monthly_income. If only one feature drifted, the issue is likely in that feature\'s pipeline. If many features drifted together, it\'s a genuine population shift.', '**Proxy signal instead of waiting**: Pull an earlier leading signal (e.g., 30-day delinquency) available with a shorter lag, rather than waiting the full 90 days for default labels. This can validate whether higher predicted risk correlates with actual early risk signals.'] },
+      { type: 'h2', text: 'If Retraining Is Warranted: The Full Process' },
+      { type: 'h3', text: 'Step 1: Fix Pipeline Issues and Assemble Fresh Data' },
+      { type: 'paragraph', text: 'If investigation reveals a pipeline issue, fix it first. Assemble recent, representative training data — typically 12-18 months of history — ensuring data quality and that labels are mature (90+ days old for a default model).' },
+      { type: 'h3', text: 'Step 2: Retrain with Proper Time-Based Splits' },
+      { type: 'paragraph', text: 'Use time-based train/val/test splits, not random splits. Example: train on months 1-12, validate on months 13-15, test on months 16-18. This prevents leakage and reflects how the model will be evaluated in production.' },
+      { type: 'h3', text: 'Step 3: Offline Validation Against Multiple Dimensions' },
+      { type: 'list', ordered: false, items: ['**Discrimination (AUC, KS statistic)**: Does the new model separate defaulters from non-defaulters as well as or better than the old one?', '**Calibration (predicted vs. actual by decile)**: Are predicted probabilities aligned with actual default rates? A model with lower AUC but better calibration may be safer for downstream decisions.', '**Stability (PSI vs. prior model)**: If the new model\'s predictions on historical data have high PSI vs. the old model, it\'s substantially different — ensure the change is intentional and justified.', '**Fairness metrics**: Check for adverse impact by protected attributes. Lending models face regulatory scrutiny on fair lending.'] },
+      { type: 'h3', text: 'Step 4: Shadow/Champion-Challenger Deployment' },
+      { type: 'paragraph', text: 'Don\'t cut over to the new model immediately. Run it in shadow mode alongside production for 2-4 weeks: make predictions with both models on live traffic, compare their output distributions and performance, but keep decisions based on the old model. This surface any unexpected behavior in production conditions before it affects customers.' },
+      { type: 'h3', text: 'Step 5: Model Risk and Compliance Review' },
+      { type: 'paragraph', text: 'Credit models face regulatory oversight. Ensure documentation of: what changed, why it changed, validation results, any disparate impact analysis, and an adverse-action explanation framework (why was someone denied, in plain language). Secure sign-off from model risk, compliance, and business teams.' },
+      { type: 'h3', text: 'Step 6: Gradual Rollout with Monitoring' },
+      { type: 'paragraph', text: 'Don\'t flip 100% at once. Roll out in stages (25% → 50% → 100%) over 1-2 weeks, monitoring actual outcomes (default rates by decision, approval/denial breakdown) and comparing against the champion model. Maintain a rollback plan if new-model performance diverges materially from shadow predictions.' },
+      { type: 'h2', text: 'Why This Matters' },
+      { type: 'paragraph', text: 'In high-stakes domains like credit, moving fast can mean denying loans to people based on a broken pipeline, or accepting risk a reretrained model wasn\'t actually ready for. The cost of investigating first is a delay; the cost of retraining wrong can be regulatory action, discrimination lawsuits, or serious credit losses. PSI and predicted PD are *signals*, not *diagnoses* — they tell you something changed, but not what or whether it\'s correct.' },
+      { type: 'divider' },
+      { type: 'paragraph', text: 'The key principle: in model-driven systems handling sensitive decisions, investigate drift before retraining, validate extensively before deployment, and deploy gradually with a rollback plan.' }
+    ]
+  },
 ];
