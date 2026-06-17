@@ -12878,4 +12878,34 @@ WELLBEING METRICS (not engagement metrics):
       { type: 'paragraph', text: 'The key principle: `max_tokens` should be a reasonable upper bound on the task\'s output, not a constraint that forces truncation.' }
     ]
   },
+  {
+    slug: 'qa-pipeline-quality-scoring-bugs',
+    title: 'Bug: Automated QA Pipeline Flags Nothing - Multiple Issues',
+    subtitle: 'Three bugs preventing a quality-control pipeline from catching low-quality responses.',
+    date: 'June 16, 2026',
+    readTime: '7 min read',
+    tags: ['Bug Fix', 'Python', 'QA', 'Quality Control', 'Interview Prep'],
+    coverEmoji: '🚩',
+    content: [
+      { type: 'h2', text: 'The Problem' },
+      { type: 'paragraph', text: 'An automated QA pipeline is supposed to flag low-quality LLM responses before they reach users. Instead, it flags nothing at all — every single response scores 1.0 regardless of quality.' },
+      { type: 'code', language: 'python', code: 'def score_response(question: str, answer: str) -> dict:\n    score = len(answer) / len(answer)  # <-- always 1.0\n\n    return {\n        "score": score,\n        "passed": score > 0.5,\n        "length": len(answer)\n    }\n\ndef review_batch(qa_pairs: list) -> list:\n    results = []\n    for pair in qa_pairs:\n        score = score_response(\n            question=pair["question"],\n            answer=pair["answer"]\n        )\n        if score["passed"]:\n            results.append(pair)\n    return results' },
+      { type: 'h2', text: 'Multiple Bugs' },
+      { type: 'h3', text: 'Bug 1: Self-Division (Trivial Math)' },
+      { type: 'paragraph', text: '`score = len(answer) / len(answer)` is always 1.0 (anything divided by itself). This doesn\'t measure quality at all and completely ignores the `question` parameter. No matter how bad the answer is, the score is always perfect.' },
+      { type: 'h3', text: 'Bug 2: Division by Zero on Empty Answers' },
+      { type: 'paragraph', text: 'If an answer is empty, `len(answer) / len(answer)` becomes `0 / 0`, causing a `ZeroDivisionError`. The function crashes rather than gracefully handling edge cases.' },
+      { type: 'h3', text: 'Bug 3: Silent Filtering Instead of Flagging' },
+      { type: 'paragraph', text: '`review_batch()` only returns pairs where `score["passed"]` is True — it silently drops failures with no visibility into what was filtered or why. This defeats the stated purpose: flag low-quality responses, not hide them.' },
+      { type: 'h2', text: 'The Fixes' },
+      { type: 'h3', text: 'Fix score_response()' },
+      { type: 'code', language: 'python', code: 'def score_response(question: str, answer: str) -> dict:\n    if not answer.strip():\n        score = 0.0  # handle empty answer gracefully\n    else:\n        # placeholder for a real quality signal — e.g. LLM-as-judge,\n        # relevance/groundedness check against `question`, etc.\n        score = compute_quality_score(question, answer)\n\n    return {\n        "score": score,\n        "passed": score > 0.5,\n        "length": len(answer)\n    }' },
+      { type: 'h3', text: 'Fix review_batch()' },
+      { type: 'code', language: 'python', code: 'def review_batch(qa_pairs: list) -> list:\n    results = []\n    for pair in qa_pairs:\n        result = score_response(\n            question=pair["question"],\n            answer=pair["answer"]\n        )\n        # Return ALL pairs with their scores and flagged status\n        results.append({**pair, **result, "flagged": not result["passed"]})\n    return results' },
+      { type: 'h2', text: 'Why This Matters' },
+      { type: 'paragraph', text: 'A QA pipeline that "flags nothing" is worse than no QA pipeline at all — it creates false confidence that quality has been verified when nothing was actually checked. The self-division bug is comical (X/X is mathematically guaranteed to be 1.0), but it highlights a broader pattern: placeholder code that looks syntactically valid but has zero semantic meaning. The silent filtering is the most insidious issue — low-quality responses disappear with no trace, making it impossible to understand what the system is actually doing or debug why it\'s failing.' },
+      { type: 'divider' },
+      { type: 'paragraph', text: 'Three lessons: (1) a quality score needs actual quality measurement, not self-division, (2) edge cases (empty inputs) need explicit handling, not crashes, and (3) a flagging system must surface what it flags, not hide it.' }
+    ]
+  },
 ];
