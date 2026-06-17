@@ -12747,4 +12747,61 @@ WELLBEING METRICS (not engagement metrics):
       { type: 'paragraph', text: 'More breakdowns on the way.' }
     ]
   },
+  {
+    slug: 'content-credentials-provenance',
+    title: 'The Art Authenticator\'s Two Tools: Designing an End-to-End Content Credentials System',
+    subtitle: 'How C2PA Content Credentials use hard and soft bindings to create tamper-evident, durable provenance across a content\'s full lifecycle.',
+    date: 'June 16, 2026',
+    readTime: '17 min read',
+    tags: ['System Design', 'Interview Prep', 'Provenance', 'Content Credentials', 'C2PA', 'Adobe'],
+    coverEmoji: '📜',
+    content: [
+      { type: 'callout', emoji: '🔐', text: 'Interview question from Adobe: "Design a content provenance system that attaches and verifies Content Credentials end-to-end."' },
+      { type: 'h2', text: 'The manifest: assertions, not raw metadata' },
+      { type: 'paragraph', text: 'A Content Credential — formally a C2PA Manifest — is a structured set of assertions: statements about the asset\'s origin (when and how it was created), its edit history (what tools performed what modifications), and explicit AI-authorship disclosure where applicable. C2PA defines a standard assertion vocabulary but allows custom assertions too, and it deliberately interoperates with existing metadata formats — IPTC, XMP, EXIF — by encapsulating them as assertions within the manifest, rather than replacing them outright.' },
+      { type: 'paragraph', text: 'The reason this interoperability matters: traditional EXIF and IPTC metadata has no cryptographic binding to the actual content at all. Anyone can edit those fields with freely available tools, and the file itself has no way of knowing its own metadata was changed. C2PA\'s contribution is making metadata tamper-evident and cryptographically verifiable for the first time, by wrapping it inside a signed structure rather than leaving it as plain, freely-editable fields.' },
+      { type: 'h2', text: 'Hard binding vs. soft binding' },
+      { type: 'paragraph', text: 'This design decision does the most real work in this question, mirroring how fine art authentication actually works.' },
+      { type: 'h3', text: 'Hard binding: the cryptographic certificate' },
+      { type: 'paragraph', text: 'A SHA-256 hash computed over the asset\'s actual bytes. Any change to the file — however small — produces a different hash, immediately breaking the match between the manifest and the asset. A manifest may contain at most one hard binding. This proves "this exact, unmodified file is the one this manifest describes" — maximally precise, and correspondingly brittle: it breaks on any change, including innocuous ones like recompression or resizing.' },
+      { type: 'h3', text: 'Soft binding: the survivable signature' },
+      { type: 'paragraph', text: 'Computed not from the asset\'s raw bytes but from its perceptual content — using techniques like perceptual hashing or invisible watermarking specifically designed to survive minor edits, recompression, and transcoding. A manifest may contain zero or more soft bindings. This tool identifies derived assets and renditions — the same underlying content after a platform has re-encoded it, resized it, or stripped its embedded metadata. Soft binding provides durability at the cost of reduced security guarantees, since a perceptual match is inherently approximate.' },
+      { type: 'code', language: 'text', code: 'Hard binding:  SHA-256 over raw bytes\n               → exact, breaks on ANY modification\n               → proves "this precise file, unaltered"\n\nSoft binding:  perceptual hash / invisible watermark\n               → approximate, survives minor edits/transcoding\n               → proves "this is derived from / the same\n                  underlying content as" something credentialed' },
+      { type: 'h2', text: 'The chain across a content lifecycle' },
+      { type: 'paragraph', text: 'A single asset passes through multiple stages — captured by a camera, edited in one application, edited again in another, published to a platform — and each stage can append its own signed claim, a tamper-evident structure referencing a set of assertions and bearing the digital signature of whoever (or whatever tool) performed that stage. This produces an accumulating chain of provenance across the asset\'s actual history, rather than a single static record fixed at creation. Each new claim references and incorporates what came before, so a verifier examining the final published asset can walk the entire chain back to capture.' },
+      { type: 'h2', text: 'The trust model and revocation' },
+      { type: 'paragraph', text: 'Signing identity is established through X.509 digital certificates, and a verifier checks a signing certificate against the official C2PA Trust List — the registry of certificate authorities and implementations recognized as legitimate signers within the ecosystem. This registry needs revocation capability: the Nikon Z6 III shipped with C2PA support, but had it suspended after a signing vulnerability led to full certificate revocation in September 2025.' },
+      { type: 'paragraph', text: 'A subtler design point: revocation needs to be forward-looking, not retroactive. C2PA manifests remain validatable indefinitely even after the credentials used to sign them are later expired or revoked, using trusted timestamps to establish that a given signature was valid at the time it was made — so a legitimately-signed asset from before a compromise is discovered doesn\'t suddenly become unverifiable.' },
+      { type: 'h2', text: 'Durability: surviving metadata stripping' },
+      { type: 'paragraph', text: 'Embedded manifests routinely get stripped during normal content distribution — a social platform\'s re-encoding pipeline, a screenshot, a download-and-reupload cycle. This is where soft binding does its second job: a soft-binding fingerprint can be used to query a cloud-hosted manifest lookup service, recovering the original Content Credential even when the embedded copy is long gone from the file itself.' },
+      { type: 'h2', text: 'An honest limitation' },
+      { type: 'paragraph', text: 'C2PA\'s documentation is explicit about this: Content Credentials verify whether provenance data is intact and unaltered, not whether the underlying claims within it are true. A manifest correctly proves that a specific signer asserted a specific set of facts and that those assertions haven\'t been tampered with — it doesn\'t independently verify that the signer\'s original claims were accurate. The absence of a Content Credential is not evidence that content is fake — it\'s only evidence that no provenance information was attached or has survived, which remains common.' },
+      { type: 'h2', text: 'The whole thing in five sentences' },
+      { type: 'list', ordered: true, items: ['A Content Credential is a structured manifest of assertions about an asset\'s origin, edit history, and AI authorship, interoperating with existing EXIF/IPTC/XMP metadata by wrapping it in a cryptographically signed structure — the actual innovation over traditional metadata, which has no binding to the content at all.', 'Hard binding (a SHA-256 hash over the asset\'s raw bytes) provides exact, brittle tamper-evidence that breaks on any modification, while soft binding (perceptual hash or invisible watermark) provides robust but approximate durability that survives minor edits and transcoding — a deliberate security-versus-durability trade-off, with both tools needed for different jobs.', 'A content\'s full lifecycle accumulates a chain of signed claims — capture, each subsequent edit, final publication — with each new claim referencing the prior chain, letting a verifier walk all the way back to the original capture.', 'Trust is established through X.509 certificates checked against the official C2PA Trust List, with revocation capability essential for handling compromised signers while trusted timestamps ensure that a legitimately-signed asset from before a compromise remains validly verifiable.', 'Durability against real-world metadata stripping relies on soft-binding fingerprints matched against a cloud-hosted manifest lookup service, and a responsible system treats both an absent credential and an unverified claim honestly — neither implying fabrication nor implying clean authenticity.'] },
+      { type: 'divider' },
+      { type: 'paragraph', text: 'More breakdowns on the way.' }
+    ]
+  },
+  {
+    slug: 'stateless-chatbot-bug-fix',
+    title: 'Bug: Stateless Chatbot Losing Conversation History',
+    subtitle: 'Why initializing state inside a function resets it on every call, and how to fix conversation persistence.',
+    date: 'June 16, 2026',
+    readTime: '5 min read',
+    tags: ['Bug Fix', 'Python', 'State Management', 'Chatbot', 'Interview Prep'],
+    coverEmoji: '🐛',
+    content: [
+      { type: 'h2', text: 'The Problem' },
+      { type: 'paragraph', text: 'The chatbot forgets prior turns because `messages = []` is initialized inside the `chat()` function. Every call starts with a fresh, empty list — there is no persistence of conversation history between turns.' },
+      { type: 'code', language: 'python', code: 'def chat(user_message: str) -> str:\n    messages = []  # <-- reset on every single call\n    messages.append({"role": "user", "content": user_message})\n    response = llm.chat(messages=messages)\n    ...' },
+      { type: 'h2', text: 'The Fix' },
+      { type: 'paragraph', text: 'Move `messages` outside the function so it persists across calls:' },
+      { type: 'code', language: 'python', code: 'from llm_client import LLMClient\n\nllm = LLMClient()\nmessages = []  # persists across turns\n\ndef chat(user_message: str) -> str:\n    messages.append({"role": "user", "content": user_message})\n\n    response = llm.chat(messages=messages)\n    messages.append({"role": "assistant", "content": response.content})\n\n    return response.content' },
+      { type: 'h2', text: 'Production Note: Multi-User Scoping' },
+      { type: 'paragraph', text: 'A single global `messages` list works for a quick script, but in a real multi-user app it will leak and mix conversations across users. Scope history per session instead:' },
+      { type: 'code', language: 'python', code: 'sessions: dict[str, list] = {}\n\ndef chat(session_id: str, user_message: str) -> str:\n    messages = sessions.setdefault(session_id, [])\n    messages.append({"role": "user", "content": user_message})\n\n    response = llm.chat(messages=messages)\n    messages.append({"role": "assistant", "content": response.content})\n\n    return response.content' },
+      { type: 'divider' },
+      { type: 'paragraph', text: 'The key principle: state initialization scope determines persistence — initialize inside a loop/function and it resets every iteration/call; initialize outside and it persists for the entire program lifetime.' }
+    ]
+  },
 ];
