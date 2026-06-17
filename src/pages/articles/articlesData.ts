@@ -13013,4 +13013,38 @@ WELLBEING METRICS (not engagement metrics):
       { type: 'paragraph', text: 'The key principle: every tool an agent might need must be in the available tools list, and every tool result must be explicitly linked to its call via `tool_call_id`.' }
     ]
   },
+  {
+    slug: 'rag-cache-slower-than-no-cache-bug',
+    title: 'Bug: Caching Layer Makes Performance Worse, Costs Don\'t Drop',
+    subtitle: 'Why useless loops, exact-match keys, and broken TTL logic defeat a caching layer.',
+    date: 'June 16, 2026',
+    readTime: '8 min read',
+    tags: ['Bug Fix', 'Python', 'Caching', 'RAG', 'Performance', 'Interview Prep'],
+    coverEmoji: '⚡',
+    content: [
+      { type: 'h2', text: 'The Problem' },
+      { type: 'paragraph', text: 'An engineer added a caching layer to a RAG system to speed up repeated queries and reduce LLM costs. After deployment, response time got worse, not better, and costs did not go down at all.' },
+      { type: 'code', language: 'python', code: 'cache = {}\n\ndef get_answer(query: str) -> str:\n    if query in cache:\n        cached = cache[query]\n        if time.time() - cached["timestamp"] > 0:  # <-- always true\n            return cached["answer"]\n\n    docs = store.search(query, top_k=5)\n    context = "\\n".join([d.content for d in docs])\n    answer = llm.generate(prompt=f"Context:\\n{context}\\n\\nQuestion: {query}\\nAnswer:")\n\n    cache[query] = {\n        "answer": answer.content,\n        "timestamp": time.time()\n    }\n\n    for key in list(cache.keys()):  # <-- useless loop\n        cache[key] = cache[key]\n\n    return answer.content' },
+      { type: 'h2', text: 'Multiple Bugs' },
+      { type: 'h3', text: 'Bug 1: Useless O(n) Loop on Every Cache Miss' },
+      { type: 'paragraph', text: '`for key in list(cache.keys()): cache[key] = cache[key]` does nothing — it reassigns each value to itself — but iterates the *entire* cache on every uncached query. As the cache grows, this overhead grows too, adding latency with zero benefit. This loop runs on every LLM call, making the system slower than if there were no cache at all.' },
+      { type: 'h3', text: 'Bug 2: Cache Only Matches Exact Strings' },
+      { type: 'paragraph', text: '`if query in cache` requires byte-for-byte identical queries, with no normalization for case, whitespace, or phrasing variations. Real users rarely repeat the exact same string — they ask "What is machine learning?" then later "what is machine learning" or "what\'s machine learning." The cache misses almost every time, so costs never drop.' },
+      { type: 'h3', text: 'Bug 3: The TTL Check Is a No-Op' },
+      { type: 'paragraph', text: '`time.time() - cached["timestamp"] > 0` is true the instant *anything* is cached (elapsed time is always positive). This was clearly meant to implement a cache expiry window but checks in the wrong direction — it always passes, so the condition doesn\'t actually gate anything meaningfully.' },
+      { type: 'h2', text: 'The Fixes' },
+      { type: 'h3', text: 'Fix 1: Remove the Pointless Loop' },
+      { type: 'paragraph', text: 'Delete the entire loop. It serves no purpose.' },
+      { type: 'h3', text: 'Fix 2: Normalize Cache Keys' },
+      { type: 'code', language: 'python', code: 'key = query.strip().lower()  # basic normalization\n\nif key in cache and time.time() - cache[key]["timestamp"] < CACHE_TTL:\n    return cache[key]["answer"]' },
+      { type: 'h3', text: 'Fix 3: Fix the TTL Comparison' },
+      { type: 'code', language: 'python', code: 'CACHE_TTL = 3600  # 1 hour\n\nif key in cache and time.time() - cache[key]["timestamp"] < CACHE_TTL:\n    return cache[key]["answer"]' },
+      { type: 'h2', text: 'Complete Fixed Function' },
+      { type: 'code', language: 'python', code: 'CACHE_TTL = 3600\n\ndef get_answer(query: str) -> str:\n    key = query.strip().lower()  # normalize\n\n    if key in cache and time.time() - cache[key]["timestamp"] < CACHE_TTL:\n        return cache[key]["answer"]\n\n    docs = store.search(query, top_k=5)\n    context = "\\n".join(d.content for d in docs)\n\n    answer = llm.generate(\n        prompt=f"Context:\\n{context}\\n\\nQuestion: {query}\\nAnswer:"\n    )\n\n    cache[key] = {"answer": answer.content, "timestamp": time.time()}\n    return answer.content' },
+      { type: 'h2', text: 'Beyond Exact-Match Caching' },
+      { type: 'paragraph', text: 'Even with normalization, this cache still misses on paraphrased queries. For real cost savings in a RAG system, consider semantic (embedding-similarity) caching: compute the query\'s embedding, search for similar cached query embeddings, and return the cached answer if a sufficiently-similar query was recently answered. This catches "What is machine learning?" and "What does machine learning mean?" as the same query, which exact-match never will.' },
+      { type: 'divider' },
+      { type: 'paragraph', text: 'The key principle: a cache that doesn\'t hit is worse than no cache — it adds overhead with no benefit. Make sure keys are normalized, TTL logic is correct, and the overhead of cache maintenance doesn\'t exceed the savings from cache hits.' }
+    ]
+  },
 ];
