@@ -12852,4 +12852,30 @@ WELLBEING METRICS (not engagement metrics):
       { type: 'paragraph', text: 'The key principle: distinguish between initialization-time constants (things that never change, computed once for efficiency) and call-time values (things that depend on user input or request parameters).' }
     ]
   },
+  {
+    slug: 'llm-summarization-cutoff-bug',
+    title: 'Bug: LLM Summarization Tool Cuts Off Mid-Sentence',
+    subtitle: 'Why low max_tokens limits cause incomplete generations, and how to size them correctly.',
+    date: 'June 16, 2026',
+    readTime: '5 min read',
+    tags: ['Bug Fix', 'Python', 'LLM', 'Token Limits', 'Interview Prep'],
+    coverEmoji: '✂️',
+    content: [
+      { type: 'h2', text: 'The Problem' },
+      { type: 'paragraph', text: 'An LLM summarization tool works but always cuts off in the middle of a sentence. Summaries are never complete, and users are frustrated.' },
+      { type: 'code', language: 'python', code: 'from llm_client import LLMClient\n\nllm = LLMClient()\n\ndef summarize(text: str) -> str:\n    response = llm.generate(\n        prompt=f"Summarize this text clearly:\\n\\n{text}",\n        max_tokens=10  # <-- way too restrictive\n    )\n    return response.content' },
+      { type: 'h2', text: 'The Root Cause' },
+      { type: 'paragraph', text: '`max_tokens=10` caps the response at 10 tokens — barely a few words — so generation gets cut off mid-sentence every time, regardless of how good the prompt is. An LLM generating at max capacity has no choice but to truncate when it hits the token limit, even if the sentence is incomplete.' },
+      { type: 'h2', text: 'The Fix: Static Approach' },
+      { type: 'paragraph', text: 'Raise `max_tokens` to a value that actually fits a complete summary:' },
+      { type: 'code', language: 'python', code: 'from llm_client import LLMClient\n\nllm = LLMClient()\n\ndef summarize(text: str) -> str:\n    response = llm.generate(\n        prompt=f"Summarize this text clearly:\\n\\n{text}",\n        max_tokens=300  # enough room for a complete summary\n    )\n    return response.content' },
+      { type: 'h2', text: 'The Fix: Dynamic Scaling' },
+      { type: 'paragraph', text: 'If summary length should scale with input length, compute `max_tokens` dynamically rather than using a fixed value:' },
+      { type: 'code', language: 'python', code: 'def summarize(text: str) -> str:\n    # Scale max_tokens to input size, with bounds\n    max_tokens = min(500, max(100, len(text) // 4))\n    \n    response = llm.generate(\n        prompt=f"Summarize this text clearly:\\n\\n{text}",\n        max_tokens=max_tokens\n    )\n    return response.content' },
+      { type: 'h2', text: 'Why This Matters' },
+      { type: 'paragraph', text: '`max_tokens` is a hard limit — the LLM stops generating the moment it hits it, whether or not the thought is complete. Setting it too low trades quality for brevity, but the "brevity" is often just incompleteness, not actual summarization. Set it high enough to complete the task, then let the model naturally decide when to stop (or apply a separate stopping criterion if you want stricter length control).' },
+      { type: 'divider' },
+      { type: 'paragraph', text: 'The key principle: `max_tokens` should be a reasonable upper bound on the task\'s output, not a constraint that forces truncation.' }
+    ]
+  },
 ];
