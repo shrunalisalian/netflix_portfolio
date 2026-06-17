@@ -13212,4 +13212,41 @@ WELLBEING METRICS (not engagement metrics):
       { type: 'paragraph', text: 'The key principle: offline metrics are necessary but not sufficient. Shadow validates technical correctness, canary validates business impact. Always canary before expanding, and always measure the business metric that matters, not just a proxy that seemed correlated in historical data.' }
     ]
   },
+  {
+    slug: 'ml-serving-architecture-batch-vs-realtime',
+    title: 'Batch vs. Real-Time ML Serving: Architecture Patterns and When to Choose Each',
+    subtitle: 'People-You-May-Know recommendations vs. fraud detection — two case studies in latency, freshness, and system design trade-offs.',
+    date: 'June 16, 2026',
+    readTime: '13 min read',
+    tags: ['ML Systems', 'Serving', 'Architecture', 'Interview Prep', 'System Design'],
+    coverEmoji: '🏗️',
+    content: [
+      { type: 'h2', text: 'The Decision Framework' },
+      { type: 'paragraph', text: 'Batch serving: pre-compute results offline, store them, serve lookups at request time. Real-time serving: compute results inline when a request arrives. The choice depends on three factors: freshness requirements, computational cost, and whether the decision gates a time-sensitive action.' },
+      { type: 'h2', text: 'Case 1: People You May Know (Batch + Light Real-Time Layer)' },
+      { type: 'h3', text: 'Why Batch?' },
+      { type: 'paragraph', text: 'Candidate generation (graph traversal over 2nd/3rd-degree connections, embedding similarity search) is computationally expensive. The connection graph changes slowly relative to user request rate. Recommendations don\'t need sub-second freshness — showing candidates from an hour ago is fine; showing nothing because the system is slow is not.' },
+      { type: 'h3', text: 'Architecture' },
+      { type: 'list', ordered: true, items: ['**Offline batch job** (runs Spark/graph processing a few times daily): traverse the social graph, compute embedding similarities, generate candidate pools, score by relevance/ranking, produce per-user recommendation lists', '**Storage layer** (Redis/DynamoDB): store precomputed candidates keyed by user ID, with TTL to refresh periodically', '**Online layer** (at feed-load time): fast lookup of precomputed candidates + light real-time filtering (remove already-connected users, dismissed users, privacy-blocklisted accounts) + rankings adjustments based on current context (time of day, recent activity)', '**Fallback**: if lookup fails or cache miss, fall back to a simpler heuristic (mutual friends, recent joiners) rather than triggering expensive recomputation'] },
+      { type: 'h3', text: 'Latency SLA' },
+      { type: 'paragraph', text: '~100–150ms p99 for this component within the overall feed load — not safety-critical, just needs to not bottleneck the page load itself.' },
+      { type: 'h3', text: 'Trade-offs' },
+      { type: 'list', ordered: false, items: ['**Pro**: Batch computations can be arbitrarily expensive and sophisticated — graph algorithms, large model inference, extensive ranking. Offline, resources aren\'t constrained.', '**Pro**: Serving is a simple cache lookup — highly predictable latency.', '**Con**: Fresh data requires waiting for the next batch run. Recent friends won\'t appear until the next job.', '**Con**: Cache misses or stale data require fallbacks.'] },
+      { type: 'h2', text: 'Case 2: Fraud Detection (Real-Time, Hard Requirement)' },
+      { type: 'h3', text: 'Why Real-Time?' },
+      { type: 'paragraph', text: 'The model\'s decision (approve/decline) gates the transaction itself — there is no "batch" version. The score must exist before authorization completes. Freshness is critical because fraud patterns evolve in real time, and the risk profile of a transaction changes with every preceding transaction on the account.' },
+      { type: 'h3', text: 'Architecture' },
+      { type: 'list', ordered: true, items: ['**Streaming feature computation** (Kafka/Flink): continuously ingest transaction streams, maintain real-time aggregates (velocity: transactions in last hour, last day; merchant risk profile; device/location anomalies; account behavior baseline)', '**Feature store** (low-latency KV store): store aggregates keyed by account/device/merchant, updated in real time from the stream', '**Synchronous scoring** (inline in authorization path): at transaction time, assemble features (fresh aggregates + static features) and score with a lightweight, optimized model (gradient-boosted tree or quantized neural network)', '**Timeout fallback**: define a fallback policy if the model doesn\'t respond within the latency budget — e.g., apply a simple rule-based check (velocity thresholds, blocked countries) or a fail-closed policy (decline high-risk-profile accounts).', '**Feedback loop**: log actual fraud labels (confirmed fraudulent transactions) and use them to retrain/recalibrate the model offline, updating deployed model weights daily or weekly'] },
+      { type: 'h3', text: 'Latency SLA' },
+      { type: 'paragraph', text: 'p99 < 20–50ms for the model scoring step. This is one component of the issuer/network\'s overall authorization budget (typically a few hundred ms end-to-end), so the fraud model itself needs to consume only a small slice.' },
+      { type: 'h3', text: 'Trade-offs' },
+      { type: 'list', ordered: false, items: ['**Pro**: Captures real-time fraud patterns and account behavior. Decisions are based on the freshest data.', '**Pro**: No stale cache; every decision is current.', '**Con**: Tight latency budgets constrain model complexity — can\'t use expensive ensemble, large transformers, or multi-stage ranking.', '**Con**: Feature engineering and aggregation pipelines must be rock-solid; bugs in real-time feature computation directly harm fraud decisions.', '**Con**: Operational complexity — streaming infrastructure, feature store, model versioning, monitoring.'] },
+      { type: 'h2', text: 'Side-by-Side Comparison' },
+      { type: 'code', language: 'text', code: '                        PYMK (Batch)         Fraud (Real-Time)\n────────────────────────────────────────────────────────────\nFreshness need:         Hours (OK)          Seconds/milliseconds (critical)\nCompute cost:           Very high (OK)      Light/fast (required)\nLatency SLA:            100–150ms           20–50ms\nFailure mode:           Stale recs          Declined txn / false positive\nScale driver:           Batch job resources Streaming throughput + query QPS\nStorage:                Pre-computed cache  Real-time feature aggregates\nModel complexity:       High (ensembles OK) Low (GBT, quantized NN)\n────────────────────────────────────────────────────────────' },
+      { type: 'h2', text: 'Why This Matters' },
+      { type: 'paragraph', text: 'Choosing batch vs. real-time is a fundamental architecture decision that cascades through data pipelines, storage systems, model complexity, and operational burden. Batch is powerful but slow; real-time is responsive but constraining. The right choice depends on what the system needs to do and when it needs to do it by. Trying to run fraud detection on a batch system means transactions sit waiting for the next job run — a non-starter. Trying to run PYMK in real-time means recomputing expensive graph traversals on every feed load — wasteful and slow. Understanding the constraint and choosing the right architecture from the start saves enormous downstream pain.' },
+      { type: 'divider' },
+      { type: 'paragraph', text: 'The key principle: match the serving paradigm to the freshness requirement, compute budget, and latency SLA — don\'t fight the constraint by choosing the wrong architecture.' }
+    ]
+  },
 ];
