@@ -12985,4 +12985,32 @@ WELLBEING METRICS (not engagement metrics):
       { type: 'paragraph', text: 'The key principle: system prompt and user message are two distinct inputs with distinct purposes — never conflate them.' }
     ]
   },
+  {
+    slug: 'agent-stuck-calling-same-tool-bug',
+    title: 'Bug: AI Agent Repeatedly Calls Same Tool, Never Progresses',
+    subtitle: 'Why missing tools and unlinked tool results cause infinite loops in multi-tool agents.',
+    date: 'June 16, 2026',
+    readTime: '7 min read',
+    tags: ['Bug Fix', 'Python', 'Agents', 'Tools', 'LLM', 'Interview Prep'],
+    coverEmoji: '🔄',
+    content: [
+      { type: 'h2', text: 'The Problem' },
+      { type: 'paragraph', text: 'A simple two-tool agent is supposed to look up a user account then check their balance. In production it keeps calling the account lookup tool repeatedly and never moves on. It runs until it times out every single time.' },
+      { type: 'code', language: 'python', code: 'from llm_client import LLMClient\nfrom tools import lookup_account, check_balance\n\nllm = LLMClient()\nTOOLS = [lookup_account, lookup_account]  # <-- check_balance is missing\n\ndef run_agent(user_id: str) -> str:\n    messages = [\n        {"role": "system", "content": "Look up the user account then check their balance."},\n        {"role": "user", "content": f"Get balance for user {user_id}"}\n    ]\n\n    for _ in range(10):\n        response = llm.chat(messages=messages, tools=TOOLS)\n\n        if response.tool_calls:\n            for tool_call in response.tool_calls:\n                result = execute_tool(tool_call)\n                messages.append({\n                    "role": "tool",\n                    "content": str(result)  # <-- missing tool_call_id\n                })\n        else:\n            return response.content\n\n    return "Operation timed out"' },
+      { type: 'h2', text: 'Multiple Bugs' },
+      { type: 'h3', text: 'Bug 1: Missing Tool in List' },
+      { type: 'paragraph', text: '`TOOLS = [lookup_account, lookup_account]` — `check_balance` was never added to the tool list. The agent literally only has `lookup_account` available (twice), so it can never call `check_balance` and just keeps calling the only tool it has. The agent is trapped: the task requires two tools, but only one is available.' },
+      { type: 'h3', text: 'Bug 2: Tool Result Missing tool_call_id' },
+      { type: 'paragraph', text: 'Appending `{"role": "tool", "content": ...}` without linking it to `tool_call.id` means the model can\'t reliably tell which call was fulfilled. This can cause it to re-issue the same call, especially if it doesn\'t see a clear connection between its request and the result.' },
+      { type: 'h2', text: 'The Fixes' },
+      { type: 'h3', text: 'Fix 1: Add the Missing Tool' },
+      { type: 'code', language: 'python', code: 'TOOLS = [lookup_account, check_balance]' },
+      { type: 'h3', text: 'Fix 2: Link Tool Results to Their Calls' },
+      { type: 'code', language: 'python', code: 'if response.tool_calls:\n    for tool_call in response.tool_calls:\n        result = execute_tool(tool_call)\n        messages.append({\n            "role": "tool",\n            "tool_call_id": tool_call.id,  # link result to the specific call\n            "content": str(result)\n        })' },
+      { type: 'h2', text: 'Why This Matters' },
+      { type: 'paragraph', text: 'An agent that gets stuck in an infinite loop calling the same tool is a classic symptom of either (1) a missing tool from the available list, or (2) tool results not being properly linked back to their requests, so the agent never gets confirmation that a call was fulfilled. The first bug is obvious in code review; the second is subtler but equally critical — without `tool_call_id`, the message history becomes ambiguous about which result corresponds to which call, and the model may lose track of what it\'s already accomplished.' },
+      { type: 'divider' },
+      { type: 'paragraph', text: 'The key principle: every tool an agent might need must be in the available tools list, and every tool result must be explicitly linked to its call via `tool_call_id`.' }
+    ]
+  },
 ];
