@@ -12804,4 +12804,29 @@ WELLBEING METRICS (not engagement metrics):
       { type: 'paragraph', text: 'The key principle: state initialization scope determines persistence — initialize inside a loop/function and it resets every iteration/call; initialize outside and it persists for the entire program lifetime.' }
     ]
   },
+  {
+    slug: 'parent-child-chunking-rag',
+    title: 'Parent-Child Chunking: Solving RAG\'s Precision-vs-Context Tradeoff',
+    subtitle: 'How indexing two granularities of the same document gives you both precise retrieval and rich generation context.',
+    date: 'June 16, 2026',
+    readTime: '6 min read',
+    tags: ['RAG', 'Retrieval', 'Chunking', 'Interview Prep', 'ML'],
+    coverEmoji: '📚',
+    content: [
+      { type: 'h2', text: 'What is Parent-Child Chunking?' },
+      { type: 'paragraph', text: 'Parent-child chunking indexes two granularities of the same document together: small "child" chunks (e.g., 1-2 sentences) for precise vector search, each linked to a larger "parent" chunk (e.g., the full paragraph or section it came from).' },
+      { type: 'h2', text: 'Why It Helps' },
+      { type: 'h3', text: 'Search Precision' },
+      { type: 'paragraph', text: 'Small chunks embed more narrowly, so a query matches the *specific* relevant sentence rather than getting diluted by surrounding unrelated text in a large chunk. This precision means you\'re retrieving exactly the content that answers the query, not a bloated window that includes noise.' },
+      { type: 'h3', text: 'Generation Context' },
+      { type: 'paragraph', text: 'Once a child chunk matches, you retrieve its *parent* (not just the tiny child) to hand the LLM — giving it enough surrounding context to actually answer well, instead of an isolated sentence fragment that the model might misinterpret without its surrounding paragraph.' },
+      { type: 'h2', text: 'The Classic RAG Tradeoff' },
+      { type: 'paragraph', text: 'RAG systems face a fundamental tension: small chunks retrieve precisely but lack context; large chunks have context but retrieve poorly because embeddings get fuzzy and averaged across too much irrelevant content.' },
+      { type: 'code', language: 'text', code: 'Small chunks:\n  ✓ Precise vector matching\n  ✗ Isolated context, poor LLM grounding\n\nLarge chunks:\n  ✓ Rich surrounding context\n  ✗ Fuzzy embeddings, diluted relevance\n\nParent-child:\n  ✓ Precise retrieval (small child embedding)\n  ✓ Rich context (full parent passed to LLM)\n  ✓ Both, without compromise' },
+      { type: 'h2', text: 'The Pattern' },
+      { type: 'paragraph', text: 'At index time, split documents into both granularities and maintain the parent-child relationship. At retrieval time, perform vector search only on child chunks, but when returning results to the LLM, return the full parent chunk that contains the matched child. This two-step approach gets you precise retrieval without sacrificing context — the embedding space operates at fine granularity, but the actual generation grounding operates at full-paragraph scope.' },
+      { type: 'divider' },
+      { type: 'paragraph', text: 'Parent-child chunking is a simple idea with outsized impact — it directly solves one of RAG\'s most persistent problems.' }
+    ]
+  },
 ];
