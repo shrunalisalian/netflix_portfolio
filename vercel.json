@@ -1,4 +1,5 @@
 {
-  "buildCommand": "cd netflix_portfolio && npm run build",
-  "outputDirectory": "netflix_portfolio/build"
+  "buildCommand": "cd netflix_portfolio && npm install && npm run build",
+  "outputDirectory": "netflix_portfolio/build",
+  "installCommand": "cd netflix_portfolio && npm install"
 }
