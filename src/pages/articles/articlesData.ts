@@ -15530,4 +15530,36 @@ WELLBEING METRICS (not engagement metrics):
       { type: 'paragraph', text: 'NMS is the bridge between overlapping model predictions and clean distinct detections. Simple but absolutely critical for production object detection.' }
     ]
   },
+  {
+    slug: 'audio-denoising-meeting-assistant',
+    title: 'Audio Denoising for Real-World Meeting Assistants',
+    subtitle: 'Handling noise across conference rooms, remote calls, and outdoor environments.',
+    date: 'June 21, 2026',
+    readTime: '14 min read',
+    tags: ['Audio Processing', 'Speech Recognition', 'System Design'],
+    coverEmoji: '🎤',
+    content: [
+      { type: 'h2', text: 'The Meeting Assistant Problem' },
+      { type: 'paragraph', text: 'Your system transcribes, summarizes, and extracts action items from meetings in various environments: noisy conference rooms, poor-quality remote calls, outdoor patios. Raw audio is messy.' },
+      { type: 'h2', text: 'Why Denoising Matters' },
+      { type: 'list', ordered: false, items: ['Speech recognition: noise makes WER jump from 5% to 30%+', 'Speaker identification: noise masks voice signatures', 'Action items: garbled audio means missed requirements', 'User satisfaction: expectations for accurate transcripts'] },
+      { type: 'h2', text: 'Noise Types by Environment' },
+      { type: 'h3', text: 'Conference Rooms' },
+      { type: 'list', ordered: false, items: ['HVAC (60-80 dB, 100-500 Hz)', 'Side conversations (competing speakers)', 'Keyboard/mouse clicks', 'Phone ringtones', 'Projector fan', 'Echo/reverb'] },
+      { type: 'h3', text: 'Remote Calls' },
+      { type: 'list', ordered: false, items: ['Network artifacts (compression, packet loss)', 'Background from participants', 'Echo if cancellation fails', 'Microphone noise', 'Codec artifacts'] },
+      { type: 'h3', text: 'Outdoor' },
+      { type: 'list', ordered: false, items: ['Traffic (70-90 dB, non-stationary)', 'Wind (50-100+ dB)', 'Birds/nature (unpredictable)', 'Crowd noise', 'Motorcycles/mowers', 'Airplanes'] },
+      { type: 'h2', text: 'Impact on ML Tasks' },
+      { type: 'code', language: 'text', code: "ASR:\n  Clean (25 dB SNR): 5% WER → usable\n  Noisy (15 dB SNR): 15-20% WER → frustrating\n  Extreme (5 dB SNR): 30-50% WER → unusable\n\nSpeaker Diarization:\n  Clean: 90%+ accuracy\n  Noisy: 50-70%\n  Extreme: fails" },
+      { type: 'h2', text: 'Why Simple Solutions Fail' },
+      { type: 'list', ordered: false, items: ['Spectral subtraction: leaves musical noise, assumes stationary noise', 'Fixed thresholds: speech varies 20-60 dB, can\'t separate', 'Static profiles: noise changes per environment/time'] },
+      { type: 'h2', text: 'System Design Considerations' },
+      { type: 'list', ordered: false, items: ['Environment-aware models', 'Preserve speaker identity', 'Latency vs quality (real-time buffering)', 'Adaptive denoising (SNR changes)', 'End-to-end metrics (ASR WER, speaker accuracy)'] },
+      { type: 'h2', text: 'Key Takeaway' },
+      { type: 'divider' },
+      { type: 'paragraph', text: 'Real-world audio denoising is hard: noise and speech overlap everywhere. Effective solutions must be environment-aware, preserve speaker identity, and optimize for downstream tasks.' }
+    ]
+  },
+
 ];
