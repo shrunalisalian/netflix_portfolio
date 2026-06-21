@@ -22466,5 +22466,145 @@ WELLBEING METRICS (not engagement metrics):
       }
     ]
   },
+  {
+    slug: 'rlhf-alignment-human-values',
+    title: 'RLHF: Aligning LLMs to Human Values Through Reinforcement Learning from Human Feedback',
+    subtitle: 'Use human preferences to train models to generate helpful, harmless, honest responses.',
+    date: 'June 21, 2026',
+    readTime: '8 min read',
+    tags: ['LLMs', 'Alignment', 'RLHF', 'Interview Prep'],
+    coverEmoji: '🎯',
+    content: [
+      {
+        type: 'callout',
+        emoji: '👥',
+        text: 'RLHF solves misalignment: Pre-trained LLMs optimize for next-token prediction, not human preferences. Example: "Write Python malware" - LLM complies (in training data). Solution: RLHF. Collect human preferences (A vs B responses), train reward model to score responses, use RL to maximize reward. Result: Model prioritizes helpful, honest, harmless outputs over raw probability.'
+      },
+      {
+        type: 'h2',
+        text: 'The Alignment Problem'
+      },
+      {
+        type: 'paragraph',
+        text: 'Pretraining objective: Minimize next-token prediction loss on internet text. Problem: Internet has everything (good and bad). Model learns all patterns equally. Result: Without post-hoc alignment, model might generate toxic, harmful, dishonest content if it appears probable.'
+      },
+      {
+        type: 'h2',
+        text: 'RLHF Pipeline'
+      },
+      {
+        type: 'list',
+        ordered: true,
+        items: [
+          'Step 1 (SFT): Fine-tune pretrained LLM on high-quality QA pairs (supervised)',
+          'Step 2 (Reward): Collect human preferences (A vs B). Train reward model to predict "which response is better?"',
+          'Step 3 (RL): Use reward model as signal. Fine-tune SFT model with policy gradient (PPO) to maximize reward',
+          'Step 4 (Iterate): Generate new outputs from RL model, collect more human feedback, retrain reward model'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Step 1: Supervised Fine-Tuning (SFT)'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Collect high-quality (prompt, response) pairs (e.g., 10k-100k)',
+          'Fine-tune pretrained model on these pairs (next-token loss)',
+          'Result: Model learns instruction-following (basic alignment)',
+          'Limitation: Imbalanced (only positive examples), mode-averaged'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Step 2: Reward Model Training'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Generate k candidate responses per prompt (SFT model)',
+          'Collect human preferences: Rank or compare responses',
+          'Example: "Response A is better than B" (clear winner)',
+          'Train reward model: Predict human preference score',
+          'Input: (prompt, response). Output: Scalar reward (0-1 or unbounded)'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Step 3: Reinforcement Learning (Policy Gradient)'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Objective: Maximize E[reward(response)] for generated responses',
+          'Algorithm: PPO (Proximal Policy Optimization)',
+          'Loss: Policy gradient - maximize log P(response) * reward',
+          'Constraint: KL penalty to stay close to SFT model (avoid divergence)',
+          'Result: Model learns to generate high-reward responses'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Why RLHF Works'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Learns from preferences: Models what humans actually value (not just patterns)',
+          'Reward signal: Clear objective (high reward = good response)',
+          'Distributed feedback: Works on diverse behaviors (honesty, harmlessness, helpfulness)',
+          'Iterative: Loop improves model + reward as coverage increases'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Challenges'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Reward model accuracy: Errors propagate (RL optimizes wrong objective)',
+          'Reward hacking: Model finds edge cases that maximize reward but seem wrong',
+          'Training instability: RL can diverge (KL penalty helps, but tuning required)',
+          'Human annotation cost: Expensive to collect preferences (1000s needed)',
+          'Distributional shift: Reward model trained on SFT outputs, sees OOD RL outputs'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Alternatives to RLHF'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'DPO (Direct Preference Optimization): Skip reward model, directly optimize preferences',
+          'IPO: Inverse Probability Optimization, simpler variant',
+          'Rejection sampling: Generate k responses, pick best by heuristic (no RL)',
+          'Supervised preference learning: Learn ranking directly (no RL)'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Interview Tips'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'RLHF: SFT -> collect preferences -> reward model -> RL fine-tuning',
+          'Why: SFT alone averages preferences, RLHF learns what humans prefer',
+          'Reward model: Predicts human preference for (prompt, response)',
+          'RL objective: Maximize reward while staying close to SFT model',
+          'Trade-off: Higher quality (alignment) but complex, expensive, unstable'
+        ]
+      }
+    ]
+  },
 
 ];
