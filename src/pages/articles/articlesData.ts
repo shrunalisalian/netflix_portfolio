@@ -1,4 +1,4 @@
-/* eslint-disable no-useless-escape */
+/* eslint-disable no-useless-escape, no-template-curly-in-string */
 export type ContentBlock =
   | { type: 'h2'; text: string }
   | { type: 'h3'; text: string }
