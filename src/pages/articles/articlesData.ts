@@ -20715,5 +20715,117 @@ WELLBEING METRICS (not engagement metrics):
       }
     ]
   },
+  {
+    slug: 'sft-vs-alignment-llm-training',
+    title: 'SFT vs. Alignment: Training Pipelines for Helpful, Harmless LLMs',
+    subtitle: 'Supervised Fine-Tuning vs. RLHF and alternatives for post-training alignment.',
+    date: 'June 21, 2026',
+    readTime: '8 min read',
+    tags: ['LLMs', 'Training', 'Alignment', 'Interview Prep'],
+    coverEmoji: '🎯',
+    content: [
+      {
+        type: 'callout',
+        emoji: '📚',
+        text: 'Two paths after pretraining: (1) SFT: Supervised fine-tune on high-quality QA pairs (GPT-3.5 approach). (2) Alignment: SFT + RLHF to match human preferences (ChatGPT approach). SFT trains on best demonstrations. RLHF trains model to maximize human-preferred outputs. Trade-off: SFT simpler, faster (1-2 days). RLHF complex, slower (2-4 weeks) but better quality.'
+      },
+      {
+        type: 'h2',
+        text: 'Supervised Fine-Tuning (SFT)'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Collect high-quality examples: (prompt, response) pairs',
+          'Train next-token prediction loss on responses only',
+          'Dataset size: 10k-100k examples typical',
+          'Training time: 1-2 days on 8x A100',
+          'Result: Model learns to follow instructions on supervised tasks'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Limitation of SFT Alone'
+      },
+      {
+        type: 'paragraph',
+        text: 'SFT teaches pattern matching on curated data. Problem: (1) Doesn\'t optimize for human preferences (what users actually prefer). (2) Mode collapse: Averages over multiple valid responses instead of picking best. (3) Lacks robustness: Fails on out-of-distribution queries.'
+      },
+      {
+        type: 'h2',
+        text: 'Reinforcement Learning from Human Feedback (RLHF)'
+      },
+      {
+        type: 'list',
+        ordered: true,
+        items: [
+          'Start with SFT model',
+          'Collect human preferences: For each prompt, humans rank 4+ model outputs',
+          'Train reward model: Predict human preference score for (prompt, response) pairs',
+          'RL phase: Use reward model as signal, fine-tune SFT model with policy gradient (PPO) to maximize reward',
+          'Repeat: Collect more human feedback on PPO outputs, retrain reward model'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'RLHF Challenges'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Reward model accuracy: If misaligned, RL optimizes wrong objective',
+          'Reward hacking: Model finds edge cases that maximize reward but are wrong',
+          'Distributional shift: Reward model trained on SFT outputs, sees OOD RL outputs',
+          'Compute cost: RL training on 8x A100 for 2-4 weeks',
+          'Human annotation cost: Expensive to collect sufficient preferences'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Alternatives to RLHF'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'DPO (Direct Preference Optimization): No reward model, directly optimize preference pairs',
+          'IPO (Inverse Probability Optimization): Simpler variant of DPO',
+          'Rejection sampling: Generate k outputs, pick best by reward heuristic (no RL)',
+          'Best-of-N: Similar to rejection sampling, empirically strong'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Comparison'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'SFT: Fast, stable, but lower quality',
+          'RLHF: Higher quality, but complex, expensive, unstable',
+          'DPO: Simpler than RLHF, comparable quality, lower compute',
+          'Best-of-N: Simple baseline, requires multiple outputs'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Interview Tips'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'SFT: Train on high-quality (prompt, response) pairs',
+          'RLHF: SFT + collect preferences + train reward model + RL',
+          'Problem SFT solves: Instruction-following',
+          'Problem RLHF solves: Aligning to human preferences',
+          'Trade-off: SFT simpler vs. RLHF better quality but complex'
+        ]
+      }
+    ]
+  },
 
 ];
