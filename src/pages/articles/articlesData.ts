@@ -17844,5 +17844,292 @@ WELLBEING METRICS (not engagement metrics):
       }
     ]
   },
+  {
+    slug: 'multilingual-content-moderation-system',
+    title: 'Real-Time Content Moderation: Flagging Harmful Subtitles, Dubbing Errors, and Cultural Offenses Across 30 Languages',
+    subtitle: 'Building LLM-based moderation at scale—multilingual toxicity detection, context-aware flagging, culturally sensitive review.',
+    date: 'June 21, 2026',
+    readTime: '10 min read',
+    tags: ['Content Moderation', 'LLMs', 'Multilingual NLP', 'System Design', 'Interview Prep'],
+    coverEmoji: '🚨',
+    content: [
+      {
+        type: 'callout',
+        emoji: '🎯',
+        text: 'Netflix moderation at scale: billions of subtitle/dub combinations across 30 languages require detecting harm (hate speech, violence), dubbing errors (lip-sync, mistranslation), cultural offenses (context-dependent, language-specific) in real-time. Challenge: LLMs understand context but are slow; rules are fast but miss nuance. Solution: multi-stage pipeline combining fast rules plus LLM verification plus human review.'
+      },
+      {
+        type: 'h2',
+        text: 'The Scale Problem'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Netflix Scale:\n  Titles: 10k plus\n  Languages: 30 plus\n  Subtitle segments: 100M plus daily\n  What needs moderation:\n  1. Harmful content: hate speech, violence, sexual, self-harm\n  2. Dubbing errors: lip-sync, mistranslations, audio quality\n  3. Cultural offenses: language-specific slurs, sacred references\n  Challenge: Offensive depends on language, culture, age-rating'
+      },
+      {
+        type: 'h2',
+        text: 'Multi-Stage Pipeline'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Stage 1: Fast Rule-Based Filtering\n  Regex, blacklists, pattern matching\n  Latency: less than 100ms\n  Catches: 90 percent of content (PASS)\n  Output: FLAG_LOW, FLAG_HIGH, PASS\n\nStage 2: LLM Verification (Flagged Only)\n  Input: Text plus context plus language plus scene info\n  Model: Multilingual LLM\n  Output: Toxicity score, category, confidence\n  Latency: 3-5s per segment\n\nStage 3: Human Expert Review (Tier 3)\n  For cultural and contextual issues\n  Native speakers, cultural experts\n  Output: Approve, rewrite, remove\n\nStage 4: Dubbing-Specific Checks\n  Lip-sync analysis, back-translation, audio quality\n  Parallel with LLM verification'
+      },
+      {
+        type: 'h2',
+        text: 'Component 1: Rule-Based Filtering'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Blacklist per language (fast, cached)',
+          'Regex patterns: hate speech, explicit content, URLs',
+          'Length and density checks: excessive caps, repeated chars',
+          'Privacy checks: phone numbers, emails, addresses',
+          'Latency: less than 100ms per segment (fast!)'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Component 2: Multilingual LLM'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Prompt Design:\n  Language: {language}\n  Audience rating: {rating}\n  Text: {subtitle}\n  Context: {prev_line} to {curr_line} to {next_line}\n  Scene: {description}\n  \n  Task: Classify toxicity\n  - Level: None, Low, Medium, High\n  - Category: Hate speech, Violence, Sexual, Cultural, Dubbing error\n  - Explanation: Why flagged\n  - Action: Approve, Rewrite, Remove\n  - Confidence: 0-100 percent\n  \n  Key: Consider language nuance, cultural context,\n  character intent, narrative justification'
+      },
+      {
+        type: 'h2',
+        text: 'Component 3: Dubbing Detection'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Checks:\n  1. Lip-Sync: If duration mismatch greater than 500ms, flag\n  2. Mistranslation: Back-translate dub to original, compare\n  3. Tone Consistency: LLM checks if dub tone matches character\n  4. Audio Quality: Noise, volume, voice continuity'
+      },
+      {
+        type: 'h2',
+        text: 'Component 4: Human Review Tiers'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Tier 1 (Auto-Moderate, greater than 95 percent confidence):\n  Clear hate speech, explicit violence, obvious errors\n  Action: Auto-approve or auto-reject\n\nTier 2 (LLM-Only, 70-95 percent confidence):\n  Context-dependent toxicity, sarcasm, ambiguous cases\n  Dashboard shows flag plus LLM explanation\n\nTier 3 (Human Expert, less than 70 percent confidence):\n  Cultural sensitivity, sacred references, edge cases\n  Native speakers plus cultural experts\n  Provide context: scene, character, audience\n  Decision used for LLM retraining'
+      },
+      {
+        type: 'h2',
+        text: 'Scaling Performance'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Processing 1M segments per day:\n  Latency Budget:\n  - Rule-based: less than 100ms (90 percent)\n  - LLM: 3-5s (10 percent flagged)\n  - Average: approximately 300ms per segment\n  \n  Strategy:\n  1. Batch LLM calls (100 segments per batch, 5s per batch)\n  2. Parallel processing (multiple LLM instances)\n  3. Priority queues (HIGH flags first)\n  4. Cache decisions (same text, same decision)\n  5. Sample 1 percent of PASS for validation'
+      },
+      {
+        type: 'h2',
+        text: 'False Positives and Negatives'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'False Positive (Safe to Flagged):\n  Example: This is sick (positive slang)\n  Impact: User frustration, rejected valid content\n  Mitigation: Confidence threshold greater than 95 percent, human review\n\nFalse Negative (Harmful to Passed):\n  Example: Subtle hate speech in sarcasm\n  Impact: Harmful content released\n  Mitigation: Ensemble LLMs, 1 percent PASS sampling, user reports\n\nMetrics:\n  - FP rate: Target less than 1 percent\n  - FN rate: Target less than 5 percent\n  - Appeal rate: Monitor user appeals'
+      },
+      {
+        type: 'h2',
+        text: 'Example Workflow'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Upload: 50 Spanish subtitle segments plus Spanish dub\n\nFast Filtering:\n  Segment 1: Hola amigos, PASS\n  Segment 15: Ese grupo es basura, FLAG_LOW\n  Segment 27: Mátalo (villain to minion), FLAG_HIGH\n  Segment 45: Dub 2s, subtitle 4s, FLAG_HIGH (lip-sync)\n\nLLM Verification:\n  Segment 15:\n    Context: Hero dismissing villain\n    LLM: Low toxicity, narrative justified, APPROVE\n  \n  Segment 27:\n    Context: Villain to minion\n    LLM: Medium toxicity, character-appropriate, APPROVE\n  \n  Segment 45:\n    LLM: Dubbing error, duration mismatch, FLAG\n\nResult:\n  - 48 segments: APPROVED\n  - 1 segment: Flagged for re-dubbing'
+      },
+      {
+        type: 'h2',
+        text: 'Challenges'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Cultural context: Offensive is deeply cultural. Solution: native speakers.',
+          'Sarcasm and irony: LLMs struggle. Solution: context plus ensemble.',
+          'Evolving slang: Language changes fast. Solution: quarterly retraining.',
+          'Edge cases: Ambiguous intent. Solution: human review tier.'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Interview Tips'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Architecture: Multi-stage pipeline (fast rules, LLM, human)',
+          'Scale: Batch processing plus parallelization for 1M daily',
+          'Tradeoff: Speed (90 percent rules) versus accuracy (10 percent LLM)',
+          'Multilingual: Use multilingual LLM, provide language hints',
+          'Metrics: FP less than 1 percent, FN less than 5 percent',
+          'Dubbing: Lip-sync, back-translation, tone consistency',
+          'Cultural: Native speakers for Tier 3 review'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Key Takeaway'
+      },
+      {
+        type: 'divider' },
+      {
+        type: 'paragraph',
+        text: 'Content moderation at Netflix scale requires multi-stage pipeline: fast rule-based filtering (less than 100ms, catches 90 percent), LLM verification for flagged items (multilingual, context-aware, 3-5s), human expert review for cultural and contextual issues. Dubbing error detection via lip-sync, back-translation, tone consistency. Feedback loop: appeals drive retraining. Key insight: automate what you can (obvious cases), verify with LLM (flagged items), review with humans (cultural sensitivity). Balance precision (few false positives) with recall (catch most harms). Multilingual requires native speakers for each language.'
+      }
+    ]
+  },
+  {
+    slug: 'alexa-llm-backend-interruptions',
+    title: 'Redesigning Alexa with LLM Backend: Conversational, Fast, Accurate Responses During Interruptions',
+    subtitle: 'Building low-latency voice AI that handles mid-sentence interruptions, streaming responses, contextual understanding.',
+    date: 'June 21, 2026',
+    readTime: '10 min read',
+    tags: ['Voice AI', 'LLMs', 'Real-time Systems', 'System Design', 'Interview Prep'],
+    coverEmoji: '🎤',
+    content: [
+      {
+        type: 'callout',
+        emoji: '🎯',
+        text: 'Current Alexa: Task-oriented, rule-based, latency less than 500ms. Redesigned with LLM: Conversational, context-aware, but LLM adds latency (2-5s). Challenge: keep conversational feel while meeting latency budget when user interrupts mid-sentence. Solution: streaming responses, on-device models, parallel processing, smart buffering.'
+      },
+      {
+        type: 'h2',
+        text: 'The Latency Problem'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Current Alexa (Task-Oriented):\n  1. Audio capture (10ms)\n  2. Wake word detection (50ms)\n  3. Speech-to-text (500ms)\n  4. Intent classification (50ms, rule-based)\n  5. Skill execution (100ms)\n  6. Text-to-speech (200ms)\n  Total: approximately 900ms\n\nLLM-Powered Alexa (Conversational):\n  1. Audio capture (10ms)\n  2. Wake word detection (50ms)\n  3. Speech-to-text (500ms, streaming)\n  4. LLM processing (2-5s)\n  5. Text-to-speech (200ms)\n  Total: 2.7-5.7s (too slow!)\n\nUser Expectation: Response within 500ms-1s\nProblem: LLM inference adds 2-5s latency'
+      },
+      {
+        type: 'h2',
+        text: 'Solution 1: Streaming Responses'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Key Insight: Don\'t wait for full LLM response\n  Start speaking as LLM generates tokens\n\nTraditional:\n  User asks, LLM generates full response (2-5s wait), Alexa speaks\n  User feels: Slow, laggy\n\nStreaming:\n  User asks, LLM starts generating\n  After 100ms (3-5 tokens), start TTS plus playback\n  LLM continues generating while Alexa speaks\n  User feels: Quick response, natural flow\n\nLatency:\n  Time to first audio: 500ms (STT) plus 100ms (LLM tokens) plus 200ms (TTS) equals 800ms\n  versus 2.7s without streaming\n\nImplementation:\n  1. LLM streaming API\n  2. Queue system for tokens as they arrive\n  3. TTS buffer (keep 1-2s audio ahead)\n  4. Audio player streams TTS output\n  5. Handle interruptions mid-stream'
+      },
+      {
+        type: 'h2',
+        text: 'Solution 2: Handling Interruptions'
+      },
+      {
+        type: 'h3',
+        text: 'Detecting Interruption'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Challenge: User speaks while Alexa is speaking or processing\n\nDetection Methods:\n  1. Audio Level Detection\n     Monitor microphone during LLM and TTS\n     If speech detected: likely interruption\n     Latency: less than 50ms\n  \n  2. STT Confidence Drop\n     Streaming STT detects new speech start\n     New transcription appearing means user interrupted\n     Latency: 100-200ms\n  \n  3. Speech Boundary Detection\n     End-of-speech model detects user stop\n     If new speech after previous end: interruption\n\nRecommendation: Combine methods 1 plus 2 (fast plus accurate)'
+      },
+      {
+        type: 'h3',
+        text: 'Interruption Response'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'User: Play music\n  Alexa (0.8s): Playing... [TTS starts]\n  User (1.2s): Wait, jazz! [interrupts]\n\nActions on Interruption:\n  1. Stop Current Audio\n     Cancel TTS stream immediately\n     Stop LLM generation\n  \n  2. Buffer New Audio\n     Audio continues to STT\n     Collect full new utterance\n  \n  3. Wait for End-of-Speech\n     Detect when user finishes\n     Latency: 500-800ms\n  \n  4. Start New LLM Call\n     Use new complete transcription\n     Context: Include previous turn\n     Example: User wanted music, now wants jazz\n  \n  5. Stream New Response\n     Start TTS when LLM tokens arrive\n     No waiting for full response\n\nLatency from Interruption to New Response:\n  Detection (100ms) plus audio buffer (500ms) plus STT (500ms) plus LLM (100ms to first token) plus TTS (200ms) equals 1.4s'
+      },
+      {
+        type: 'h2',
+        text: 'Solution 3: On-Device Models'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Cloud LLM:\n  User speech, API call, Cloud LLM, response, audio\n  Latency: 2-5s\n  Risk: Network outage, latency spike\n\nOn-Device LLM:\n  Small model (Phi-2, TinyLlama) locally\n  Latency: 500ms-1s per response\n  Fallback to cloud if needed\n\nHybrid Approach (Recommended):\n  1. Classify Intent On-Device (Fast)\n     Is this simple request (weather, time, smart home)?\n     Latency: less than 100ms\n  \n  2. Route Decision\n     Simple queries: Use on-device plus local data\n       What time is it? Instant\n       Turn off lights? Execute locally\n     Complex queries: Stream from cloud LLM\n       Tell me a story\n       Explain quantum physics\n       Conversational chat\n  \n  3. On-Device Processing\n     Simple requests: No LLM needed, instant response\n     Complex: Start cloud LLM while device thinks\n     Result: Faster perceived response'
+      },
+      {
+        type: 'h2',
+        text: 'Solution 4: Context Management'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Key: Maintain conversation context efficiently\n\nContext Storage (In RAM on device):\n  Last 5-10 turns of conversation\n  Keep small for low latency plus memory usage\n\nExample:\n  Turn 1: What songs does Taylor Swift have?\n  Turn 2: She has Lover, Folklore, Evermore...\n  Turn 3: Play Lover\n  LLM Context: Previous turns help understand Lover means album\n\nInterruption Context:\n  Previous: play music\n  Interruption: wait, jazz\n  LLM sees: User initially asked for music, now clarifies jazz\n  Result: Alexa plays jazz, not random music\n\nPrompt Structure:\n  Previous conversation: {last 2-3 turns}\n  Current user request: {new transcription}\n  Context: In device and home mode\n  Respond naturally and conversationally'
+      },
+      {
+        type: 'h2',
+        text: 'Architecture: End-to-End'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'On-Device (Always Running):\n  - Wake word detector (low-power)\n  - Microphone buffer (capture audio)\n  - Intent classifier (fast, local)\n  - Conversation context (RAM)\n  - TTS synthesis (streaming)\n\nCloud (Streaming):\n  - Speech-to-text (streaming)\n  - LLM inference (streaming tokens)\n  - Knowledge and data access\n  - Persistent storage\n\nParallel Processing:\n  STT plus LLM both streaming simultaneously\n  As STT transcribes, pipe to LLM\n  As LLM generates, pipe to TTS\n  Result: Pipelined, minimal latency\n\nInterruption Handling:\n  Audio level monitor on device\n  Detects interruption, cancels TTS\n  New STT call starts\n  Previous LLM call discarded\n  Context updated with interruption note\n  New LLM call with updated context'
+      },
+      {
+        type: 'h2',
+        text: 'Optimized Latency Budget'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'User speaks: Play jazz music\n\n0-500ms: Audio capture plus STT streaming\n  STT: Play jazz music\n\n500-600ms: Intent classification (local)\n  Route to cloud LLM (complex) or local skill (simple)\n\n600-700ms: LLM starts streaming\n  First tokens arrive from cloud LLM\n  Let me play some great jazz music for you\n\n700-900ms: TTS starts generating audio\n  Let me play starts playing\n  LLM continues generating\n\n900ms plus: User hears response\n  First audio words: Let me play\n  Continues streaming as LLM generates\n\nTime to first audio: approximately 700-900ms (acceptable!)\nFull response time: 2-3s but user does not wait for it'
+      },
+      {
+        type: 'h2',
+        text: 'Mid-Sentence Interruption Timeline'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'T=0s: User says play music\nT=0.8s: Alexa responds Let me play [TTS starts]\nT=1.2s: User interrupts wait, jazz!\n\nT=1.2s: Interruption detected\n  Microphone detects voice spike\n  TTS stream stops\n  LLM generation stops\n  New audio buffer starts\n\nT=1.5s: User finishes jazz\n  End-of-speech detected\n  New full transcription: wait, jazz\n\nT=1.6s: Context updated\n  Previous: play music\n  New request: wait, jazz\n  Combined context sent to LLM\n\nT=1.7s: LLM starts generating new response\n  Sure, I will play jazz instead\n\nT=2.0s: User hears new response\n  Sure, I will play jazz\n  Action: Play jazz music\n\nTotal from interruption to new response: 0.8s'
+      },
+      {
+        type: 'h2',
+        text: 'Edge Cases'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Audio Overlap: User speaks while Alexa speaks. Solution: End-of-speech detection, interrupt immediately.',
+          'Network Latency: Cloud LLM slow. Solution: On-device fallback, route simple queries locally.',
+          'False Interruptions: Noise detected as speech. Solution: Confidence thresholds, voice recognition.',
+          'Context Loss: Too much context slows LLM. Solution: Keep 5-10 turns, summarize older context.',
+          'User Expectations: LLM quality plus rule-based speed. Solution: Hybrid (simple is fast, complex is streaming).'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Interview Tips'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Problem: LLM latency conflicts with voice AI speed.',
+          'Solution: Streaming responses (start speaking before full LLM output).',
+          'Interruptions: Detect with audio level plus STT, cancel, start fresh.',
+          'Hybrid: Route simple queries locally (fast), complex to cloud (streaming).',
+          'Context: Keep 5-10 turns, include interruption notes, send to LLM.',
+          'Latency budget: Target approximately 800ms to first audio.',
+          'Real example: User mid-sentence, detect, buffer, new response in 0.8s.'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Key Takeaway'
+      },
+      {
+        type: 'divider' },
+      {
+        type: 'paragraph',
+        text: 'Redesigning Alexa with LLM backend requires: streaming responses (start TTS after first 100ms LLM tokens, not waiting for full output), interrupt detection via audio level plus STT monitoring with immediate cancellation, hybrid routing (simple queries locally, complex cloud with streaming), context management (keep 5-10 turns in RAM, include interruption notes), latency budget (target 800ms to first audio via parallel streaming pipeline). Key insight: streaming is critical—user does not wait for full response, just first sentence. Interruptions require audio monitoring plus fast context switching. On-device fallback for reliability and speed.'
+      }
+    ]
+  },
 
 ];
