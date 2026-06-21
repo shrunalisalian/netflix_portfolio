@@ -22751,5 +22751,144 @@ WELLBEING METRICS (not engagement metrics):
       }
     ]
   },
+  {
+    slug: 'flash-attention-transformer-optimization',
+    title: 'Flash Attention: I/O-Aware Optimization for Efficient Transformer Attention',
+    subtitle: 'Reduce memory bandwidth bottleneck in attention computation via block-wise processing.',
+    date: 'June 21, 2026',
+    readTime: '7 min read',
+    tags: ['Transformers', 'Optimization', 'GPU', 'Interview Prep'],
+    coverEmoji: '⚡',
+    content: [
+      {
+        type: 'callout',
+        emoji: '🚀',
+        text: 'Flash Attention insight: Standard attention is memory-bound, not compute-bound. Problem: Computing attention(Q, K, V) requires materializing N x N attention matrix (expensive). For 4k sequence length, 16M entries. Solution: Block-wise computation (tiling). Compute attention blocks sequentially, keep results in fast memory (SRAM), write back to HBM. Result: 2-4x faster, same accuracy, less memory usage.'
+      },
+      {
+        type: 'h2',
+        text: 'Standard Attention Bottleneck'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Computation: O(N^2 d) for N tokens, d dimensions',
+          'Memory: O(N^2) for attention matrix (materializes full N x N)',
+          'Example: 4k sequence, 128 dims. Attention matrix: 16M floats = 64MB',
+          'Problem: HBM bandwidth (900 GB/s GPU) cannot keep up with FLOPS'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Why Memory Bandwidth is the Bottleneck'
+      },
+      {
+        type: 'paragraph',
+        text: 'GPU FLOPS: 312 TFLOPS (A100). Attention FLOPS: 2 x N^2 x d. With 4k sequence: 4B FLOPS. HBM bandwidth: 900 GB/s = 225B floats/sec. Time to move data: 64MB / 225B/s = 280 microseconds. Compute time: 4B / 312T = 13 microseconds. Result: Waiting for data dominates (20x slower than compute).'
+      },
+      {
+        type: 'h2',
+        text: 'Flash Attention Solution: Tiling'
+      },
+      {
+        type: 'list',
+        ordered: true,
+        items: [
+          'Divide Q, K, V into blocks (e.g., 128 tokens per block)',
+          'Load one Q block and all K, V into fast SRAM',
+          'Compute attention for this Q block (reuses K, V in fast memory)',
+          'Write output back to HBM',
+          'Repeat for next Q block',
+          'Key: Reuse K, V across multiple Q blocks (amortize memory reads)'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Memory Hierarchy Optimization'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'SRAM (fast): 20 MB, 20 TB/s bandwidth (GPU on-chip)',
+          'HBM (slow): 40 GB, 900 GB/s bandwidth (main GPU memory)',
+          'Flash Attention: Keep Q block, K, V in SRAM, process efficiently',
+          'Result: Minimize HBM transfers, maximize compute with fast memory access'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Complexity Analysis'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Standard: O(N^2 d) FLOPS, O(N^2) memory reads',
+          'Flash Attention: O(N^2 d) FLOPS (same), O(Nd) memory reads (block-wise)',
+          'Speedup: (N^2) / (Nd) = N times fewer memory accesses',
+          'For N=4096: 4096x fewer transfers (in theory)'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Key Innovation: Numerically Safe Tiling'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Naive tiling: Compute softmax per block breaks (softmax not decomposable)',
+          'Flash Attention: Use online softmax algorithm (numerically stable)',
+          'Recomputes max/sum incrementally as blocks processed',
+          'Result: Correct attention without materializing full matrix'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Real-World Speedups'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Sequence length 2k: 2-3x faster than standard',
+          'Sequence length 4k: 3-4x faster',
+          'Sequence length 16k: 4-5x faster',
+          'GPU: A100 gets most benefit (high memory bandwidth limit)'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Challenges and Trade-offs'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Implementation complexity: Requires custom CUDA kernels',
+          'GPU-specific: Different hardware needs tuning',
+          'Block size tuning: Trade latency vs. memory efficiency',
+          'Backward pass: Gradient computation also needs I/O optimization'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Interview Tips'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Problem: Attention is memory-bound, not compute-bound',
+          'Solution: Block-wise tiling to reduce HBM transfers',
+          'Key: Reuse K, V across Q blocks (amortize reads)',
+          'Speedup: 2-5x faster, same accuracy',
+          'Trade-off: Implementation complexity vs. efficiency gain'
+        ]
+      }
+    ]
+  },
 
 ];
