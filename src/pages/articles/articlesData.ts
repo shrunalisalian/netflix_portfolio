@@ -21955,5 +21955,140 @@ WELLBEING METRICS (not engagement metrics):
       }
     ]
   },
+  {
+    slug: 'tree-of-thoughts-tot-framework',
+    title: 'Tree of Thoughts (ToT): Systematic Exploration of LLM Reasoning Paths with BFS/DFS',
+    subtitle: 'Treat LLM generation as tree search to find optimal solutions via intermediate states.',
+    date: 'June 21, 2026',
+    readTime: '8 min read',
+    tags: ['LLMs', 'Reasoning', 'Search Algorithms', 'Interview Prep'],
+    coverEmoji: '🌳',
+    content: [
+      {
+        type: 'callout',
+        emoji: '🔍',
+        text: 'ToT insight: LLM generation is greedy (pick best next token). Problem: Local optima, dead ends. Solution: Treat reasoning as tree search. Root = problem. Nodes = intermediate thoughts. Edges = generation steps. Explore multiple paths via BFS (breadth-first, parallel branches) or DFS (depth-first, deep reasoning). Backtrack when stuck. Result: Better solutions than greedy decoding, especially for complex reasoning tasks.'
+      },
+      {
+        type: 'h2',
+        text: 'Problem: Greedy Generation Fails on Complex Tasks'
+      },
+      {
+        type: 'paragraph',
+        text: 'Task: Multi-step math problem. Greedy decoding: Pick most probable next token at each step. Problem: Hits dead end (contradictory reasoning) at step 8, cannot backtrack. Solution: Explore multiple paths, prune bad branches, find global optimum.'
+      },
+      {
+        type: 'h2',
+        text: 'Tree of Thoughts Framework'
+      },
+      {
+        type: 'list',
+        ordered: true,
+        items: [
+          'Root: Problem statement',
+          'Nodes: Intermediate thoughts (partial solution, reasoning step)',
+          'Edges: Generation steps (LLM generates next thought)',
+          'Leaf: Final answer or terminal state',
+          'Search: Explore tree to find best path from root to leaf'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'BFS (Breadth-First Search) Strategy'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Generate k candidate next thoughts at each node',
+          'Evaluate all k branches in parallel (rank by quality)',
+          'Keep top-b branches (prune bad ones)',
+          'Expand from all top-b nodes at next level',
+          'Benefit: Explores diverse paths, parallelizable. Cost: Wide tree, many LLM calls'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'DFS (Depth-First Search) Strategy'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Generate k candidate next thoughts at current node',
+          'Pick best, recursively go deep until terminal state',
+          'If stuck (backtrack signal), try next best at parent node',
+          'Continue until solution found or all paths exhausted',
+          'Benefit: Deeper reasoning, fewer tokens. Cost: May miss solutions in shallow branches'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Example: Math Problem via ToT'
+      },
+      {
+        type: 'paragraph',
+        text: 'Problem: "Find x where 2x + 3 = 11". BFS: Try 3 approaches at once (algebra, trial-and-error, graphical). Evaluate each, keep best. DFS: Pick algebraic approach, go deep (subtract 3, divide by 2), reach x=4, verify.'
+      },
+      {
+        type: 'h2',
+        text: 'Evaluator Function'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Score each thought node: Is it promising?',
+          'Heuristics: Reasoning coherence, progress toward goal, novelty',
+          'Can use LLM itself: "Rate this reasoning 1-10"',
+          'Prune low-scoring branches early'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Challenges'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Computational cost: Many LLM calls (k branches x depth levels)',
+          'Evaluator quality: Poor scoring hurts pruning decisions',
+          'Backtracking: When to give up on a branch?',
+          'Exponential blowup: Tree size grows fast (k^depth)',
+          'Latency: Sequential DFS slow, BFS requires parallel inference'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Optimizations'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Adaptive k: Increase branches when stuck, decrease when confident',
+          'Early stopping: Stop if top-b branches converge to same answer',
+          'Beam search hybrid: Limit beam width to control tree size',
+          'Cached evaluations: Reuse scores across similar states'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Interview Tips'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'ToT: Tree search over LLM-generated thoughts instead of greedy decoding',
+          'BFS: Parallel exploration of k branches, prune worst, keep best-b',
+          'DFS: Deep reasoning along single path, backtrack if stuck',
+          'Evaluator: Score thoughts to guide pruning decisions',
+          'Trade-off: Higher quality (exploration) vs. cost (more LLM calls)'
+        ]
+      }
+    ]
+  },
 
 ];
