@@ -20610,5 +20610,110 @@ WELLBEING METRICS (not engagement metrics):
       }
     ]
   },
+  {
+    slug: 'meeting-transcription-system-design',
+    title: 'Building a Real-Time Meeting Transcription System: ASR, Diarization, and Scalability',
+    subtitle: 'Architecture for transcribing multi-speaker meetings at scale with speaker attribution.',
+    date: 'June 21, 2026',
+    readTime: '8 min read',
+    tags: ['Speech-to-Text', 'System Design', 'Audio Processing', 'Interview Prep'],
+    coverEmoji: '📝',
+    content: [
+      {
+        type: 'callout',
+        emoji: '🎙️',
+        text: 'Meeting transcription pipeline: (1) Stream audio chunks. (2) VAD filters silence. (3) ASR model transcribes speech to text. (4) Speaker diarization groups by speaker. (5) Format output: Speaker A: text. Challenge: Real-time latency (< 5s delay). Multi-speaker overlap. Ambient noise. Solution: Streaming ASR, speaker embeddings for diarization.'
+      },
+      {
+        type: 'h2',
+        text: 'Pipeline Components'
+      },
+      {
+        type: 'list',
+        ordered: true,
+        items: [
+          'Audio ingestion: Stream 16kHz mono PCM audio in 400ms chunks',
+          'Voice Activity Detection (VAD): Skip silence, process only speech regions',
+          'Automatic Speech Recognition (ASR): Transcribe audio to text (offline or streaming)',
+          'Speaker Diarization: Assign speaker labels to speech segments',
+          'Formatting: Merge results with timestamps and speaker names'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Component 1: Automatic Speech Recognition (ASR)'
+      },
+      {
+        type: 'paragraph',
+        text: 'Input: Audio chunks. Output: Hypothesis text and confidence. Models: Whisper (OpenAI, multilingual), Wav2Vec2 (Meta, offline), Conformer (Google streaming). Latency: Streaming models like Conformer output partial hypotheses every 100ms. Offline models batch process but higher latency (1-2s).'
+      },
+      {
+        type: 'h2',
+        text: 'Component 2: Speaker Diarization'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Goal: Who spoke when?',
+          'Method 1: Clustering speaker embeddings (x-vectors, speaker-embeddings)',
+          'Method 2: End-to-end: Permutation Invariant Training (PIT) on speaker overlaps',
+          'Input: Audio. Output: Speaker labels 0, 1, 2 for each frame.',
+          'Latency: Post-processing on full meeting or sliding window'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'System Architecture: Streaming vs. Batch'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Streaming: Process 400ms audio chunks immediately (5s latency typical)',
+          'Batch: Collect full meeting, process offline (higher quality, high latency)',
+          'Hybrid: Stream ASR, post-process with speaker diarization after meeting ends'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Scaling Challenges'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Real-time processing: GPU availability for streaming ASR inference',
+          'Cost: 1000 concurrent users x 1 GPU per stream = 1000 GPUs minimum',
+          'Solution: Batch inference with multiplexing (pack 8-10 streams per GPU)',
+          'Speaker diarization: Computationally expensive, offload to post-processing',
+          'Quality degradation: Real-time models less accurate than offline models'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Example Output'
+      },
+      {
+        type: 'paragraph',
+        text: '[00:00-00:12] Speaker A: Good morning everyone. [00:12-00:18] Speaker B: Hi, thanks for joining. [00:18-00:35] Speaker A: Let us discuss the Q2 roadmap.'
+      },
+      {
+        type: 'h2',
+        text: 'Interview Tips'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Pipeline: VAD -> ASR -> Speaker Diarization -> Format',
+          'Streaming vs. batch: Real-time needs lower latency, offline higher quality',
+          'Key challenge: Scale (1000s concurrent users)',
+          'Cost optimization: Batch inference, multiplex streams on GPU',
+          'Quality trade-off: Streaming ASR less accurate than offline models'
+        ]
+      }
+    ]
+  },
 
 ];
