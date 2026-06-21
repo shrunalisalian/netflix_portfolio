@@ -21152,5 +21152,116 @@ WELLBEING METRICS (not engagement metrics):
       }
     ]
   },
+  {
+    slug: 'visual-similarity-search-image-retrieval',
+    title: 'Visual Similarity Search: Building Image Retrieval Systems at Scale',
+    subtitle: 'Learn image embeddings for retrieval, search, and recommendation.',
+    date: 'June 21, 2026',
+    readTime: '7 min read',
+    tags: ['Computer Vision', 'Search', 'System Design', 'Interview Prep'],
+    coverEmoji: '🖼️',
+    content: [
+      {
+        type: 'callout',
+        emoji: '🔍',
+        text: 'Visual search: Given query image, find similar images from corpus. Use case: E-commerce (find similar products), social (reverse image search). Pipeline: (1) Encoder converts images to vectors (embeddings). (2) Index vectors in vector DB. (3) Query time: encode query image, retrieve nearest neighbors by cosine similarity. Embedding quality crucial: use pretrained models (ResNet-50, ViT) or contrastive learning (SimCLR).'
+      },
+      {
+        type: 'h2',
+        text: 'Problem: Image Retrieval at Scale'
+      },
+      {
+        type: 'paragraph',
+        text: 'E-commerce: 100M product images. User uploads photo of shoes, find similar. Naive: Compare to all 100M images (too slow). Solution: Dense embeddings (512D vector per image) + approximate nearest neighbor search (500x speedup).'
+      },
+      {
+        type: 'h2',
+        text: 'Step 1: Image Encoding'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Pretrained models: ResNet-50 (ImageNet), ViT (Vision Transformer)',
+          'Remove classification head, use penultimate layer as embedding',
+          'Output: 512-2048 dimensional vector per image',
+          'Quality: Pretrained models already capture visual concepts',
+          'Option: Fine-tune on domain data (e-commerce, fashion) for better specificity'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Step 2: Indexing'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Store embeddings in vector DB (Pinecone, Milvus, Weaviate)',
+          'Use HNSW or IVF indexing for fast retrieval',
+          'For 100M images: 100M x 512 floats = 200GB (compressed)',
+          'Query time: Retrieve top-k similar images in 100-500ms'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Step 3: Query and Retrieval'
+      },
+      {
+        type: 'list',
+        ordered: true,
+        items: [
+          'User uploads query image',
+          'Encode with same model -> 512D vector',
+          'Query vector DB for top-k nearest neighbors (by cosine similarity)',
+          'Return results ranked by similarity score',
+          'Option: Re-rank with learned ranker for better results'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Improving Quality: Contrastive Learning'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Supervised: Use triplet loss (anchor, positive, negative)',
+          'Self-supervised: SimCLR, MoCo (learn embeddings without labels)',
+          'Result: More discriminative embeddings, better retrieval recall',
+          'Trade-off: Requires labeled data or contrastive learning setup'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Scaling Challenges'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Indexing latency: 100M images x encoding = ~3 GPU days',
+          'Query latency: Must be sub-second for user experience',
+          'Memory: 100M embeddings x 512 floats = 200GB (fit in distributed vector DB)',
+          'Updates: Add/remove images efficiently (insert into index)'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Interview Tips'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Pipeline: Encoder -> Index -> Query -> Retrieve',
+          'Encoder: Pretrained ResNet/ViT, fine-tune on domain data',
+          'Indexing: Vector DB with HNSW/IVF for fast retrieval',
+          'Quality: Contrastive learning for better embeddings',
+          'Trade-off: Accuracy (re-rank) vs. latency (fast retrieval)'
+        ]
+      }
+    ]
+  },
 
 ];
