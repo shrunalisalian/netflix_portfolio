@@ -16027,5 +16027,38 @@ WELLBEING METRICS (not engagement metrics):
       { type: 'paragraph', text: 'CNNs use local filters with weight sharing to exploit spatial structure in images. FC networks have no spatial awareness and require exponentially more parameters. For images, CNNs are orders of magnitude more efficient and effective. FC networks still work but are wasteful and prone to overfitting.' }
     ]
   },
+  {
+    slug: 'decoding-large-language-models',
+    title: 'Decoding in Large Language Models (LLMs)',
+    subtitle: 'Understanding how LLMs generate text and the strategies that control output quality.',
+    date: 'June 21, 2026',
+    readTime: '6 min read',
+    tags: ['LLMs', 'NLP', 'Inference', 'Interview Prep'],
+    coverEmoji: '🔤',
+    content: [
+      { type: 'h2', text: 'What is Decoding?' },
+      { type: 'paragraph', text: 'Decoding is the process of generating text from a trained LLM. Given input tokens, the model predicts one token at a time by computing probabilities over the vocabulary. Decoding strategies control *how* we select the next token—deterministic vs. random, focused vs. diverse.' },
+      { type: 'h2', text: 'The Generation Loop' },
+      { type: 'code', language: 'text', code: 'Input: "The weather is"\n\nStep 1: Model outputs probabilities\n  sunny: 0.40, rainy: 0.30, cloudy: 0.20, snowing: 0.10\n\nStep 2: Apply decoding strategy to pick next token\n  Greedy: pick "sunny" (highest prob)\n  Sampling: randomly pick from distribution\n  Beam search: keep top-k sequences in progress\n\nStep 3: Append selected token and repeat\n  "The weather is sunny"\n\nStep 4: Continue until [END] token or max length reached' },
+      { type: 'h2', text: 'Decoding Strategies' },
+      { type: 'h3', text: 'Greedy Decoding' },
+      { type: 'code', language: 'text', code: 'Algorithm: Always pick argmax (highest probability token)\n\nPros:\n  - Fast (single forward pass per token)\n  - Deterministic (same output every time)\n  - Simple to implement\n\nCons:\n  - Often suboptimal (locally greedy, not globally optimal)\n  - Can get stuck in repetition loops\n  - Less diverse outputs\n\nUse case: When speed matters, output stability needed' },
+      { type: 'h3', text: 'Temperature Sampling' },
+      { type: 'code', language: 'text', code: 'Temperature (T) controls randomness:\n\nLow T (e.g., 0.3):\n  Probabilities sharpened: [0.5, 0.3, 0.2] becomes [0.7, 0.2, 0.1]\n  More deterministic, focused on top choices\n  Good for factual tasks\n\nHigh T (e.g., 1.5):\n  Probabilities flattened: [0.5, 0.3, 0.2] becomes [0.4, 0.35, 0.25]\n  More random, creative outputs\n  Good for creative writing\n\nT=0: Same as greedy\nT=1: Original model probabilities' },
+      { type: 'h3', text: 'Top-K Sampling' },
+      { type: 'paragraph', text: 'Only sample from top K most likely tokens. Ignores tail of very unlikely tokens. Reduces nonsense outputs while preserving diversity. K=50 is common. Good balance between quality and creativity.' },
+      { type: 'h3', text: 'Beam Search' },
+      { type: 'code', language: 'text', code: 'Algorithm: Keep top-B partial sequences, expand all, keep top-B again\n\nExample with B=2:\n  Step 1: Start with "" (empty)\n  Step 2: Expand: ["The", "A"] (top 2 tokens)\n  Step 3: Expand both: ["The cat", "The dog", "A cat", "A dog"]\n         Keep top 2 by cumulative prob: ["The cat", "The dog"]\n  Step 4: Continue expanding...\n\nPros:\n  - Finds better global sequences than greedy\n  - Deterministic\n  - Good for translation, summarization\n\nCons:\n  - Slower (B times more computation)\n  - Can over-prefer common, repetitive phrases\n  - Beam size B is a hyperparameter' },
+      { type: 'h3', text: 'Nucleus (Top-P) Sampling' },
+      { type: 'paragraph', text: 'Keep sampling until cumulative probability reaches P (e.g., 0.9). Adaptive: includes more tokens for uncertain predictions, fewer for confident ones. Often better than top-K for balancing diversity and quality. Combines benefits of temperature + top-K.' },
+      { type: 'h2', text: 'Comparison Table' },
+      { type: 'code', language: 'text', code: 'Strategy          Speed    Diversity  Quality    Use Case\n--------------------------------------------------------------\nGreedy            Fast     Low        Okay       Production, speed-critical\nTemperature       Fast     Medium     Medium     Balanced generation\nTop-K Sampling    Fast     Medium     Good       Creative + controlled\nTop-P (Nucleus)   Fast     Medium     Good       Recommended baseline\nBeam Search       Slow     Low        Better     Translation, high-quality\nBeam + Sampling   Slower   Medium     Best       Quality + diversity (expensive)' },
+      { type: 'h2', text: 'Interview Tips' },
+      { type: 'list', ordered: false, items: ['Greedy = local optimal, not global. Explain why it can fail (e.g., "The movie was really bad" → "bad" highest prob at each step)', 'Temperature controls exploration. High T for creativity, low T for facts', 'Beam search is the practical way to improve over greedy (slower but better quality)', 'Top-P is often better than top-K because it\'s adaptive to model confidence'] },
+      { type: 'h2', text: 'Key Takeaway' },
+      { type: 'divider' },
+      { type: 'paragraph', text: 'Decoding is how LLMs generate text from probability distributions. Greedy is fast but suboptimal. Beam search finds better sequences but slower. Temperature and top-K/top-P control the diversity-quality tradeoff. No universally best strategy—choice depends on use case (speed, quality, creativity required).' }
+    ]
+  },
 
 ];
