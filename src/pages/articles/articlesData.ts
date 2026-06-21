@@ -22090,5 +22090,124 @@ WELLBEING METRICS (not engagement metrics):
       }
     ]
   },
+  {
+    slug: 'pytorch-dataset-dataloader',
+    title: 'PyTorch Dataset and DataLoader: Data Pipeline Abstraction for Model Training',
+    subtitle: 'Understand how Dataset defines data and DataLoader batches it for efficient training.',
+    date: 'June 21, 2026',
+    readTime: '6 min read',
+    tags: ['PyTorch', 'Deep Learning', 'Data Pipeline', 'Interview Prep'],
+    coverEmoji: '🔗',
+    content: [
+      {
+        type: 'callout',
+        emoji: '⚙️',
+        text: 'Two-layer abstraction: (1) Dataset: Maps index to (input, label) pair. Define __len__ and __getitem__. (2) DataLoader: Wraps Dataset, batches data, shuffles, parallelizes. Interaction during training: For each epoch, DataLoader iterates Dataset, yields mini-batches to model. Result: Clean separation of data definition from batching logic.'
+      },
+      {
+        type: 'h2',
+        text: 'Dataset Layer'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '__init__: Load metadata (file paths, labels)',
+          '__len__: Return total samples',
+          '__getitem__(idx): Return (input, label) for sample idx',
+          'Example: ImageDataset loads image path, reads PIL Image, returns tensor'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'DataLoader Layer'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Wraps Dataset with batching logic',
+          'batch_size: How many samples per batch',
+          'shuffle: Randomize order each epoch',
+          'num_workers: Parallel processes for data loading',
+          'collate_fn: Combine samples into batch'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Interaction During Training'
+      },
+      {
+        type: 'list',
+        ordered: true,
+        items: [
+          'Epoch begins: DataLoader creates shuffled order (if shuffle=True)',
+          'Iteration: DataLoader calls Dataset.__getitem__ for batch indices',
+          'Parallel loading: num_workers processes fetch data in parallel',
+          'Batching: collate_fn stacks samples into tensor batch',
+          'GPU transfer: Batch moved to device, fed to model',
+          'Backprop: Loss computed, gradients updated',
+          'Repeat for all batches until epoch ends'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Why Separate Dataset from DataLoader?'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Modularity: Define data logic (Dataset) independent of batching',
+          'Flexibility: Swap batching strategy without changing data code',
+          'Reuse: Same Dataset across train/val/test with different DataLoaders',
+          'Optimization: DataLoader handles parallelization, pinning memory'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Key Parameters'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'batch_size: Larger (32-512) trains faster, needs more memory',
+          'num_workers: More workers (4-8) faster loading, uses more CPU/memory',
+          'pin_memory: True speeds GPU transfer, requires host memory',
+          'drop_last: True discards incomplete final batch (cleaner)'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Common Issues'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'DataLoader slower than GPU: Increase num_workers, batch_size',
+          'Out of memory: Reduce batch_size or num_workers',
+          'Inconsistent order: Set shuffle=False if reproducibility needed',
+          'Random seed: Set seed for reproducible shuffling'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Interview Tips'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Dataset: Implements __len__, __getitem__ for individual sample access',
+          'DataLoader: Batches, shuffles, parallelizes Dataset samples',
+          'Flow: DataLoader -> batch indices -> Dataset.__getitem__ x batch_size -> collate -> GPU',
+          'Why separate: Modularity, reusability, optimization',
+          'Tuning: Increase num_workers if DataLoader is bottleneck'
+        ]
+      }
+    ]
+  },
 
 ];
