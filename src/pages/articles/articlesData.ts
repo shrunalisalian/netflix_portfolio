@@ -22348,5 +22348,123 @@ WELLBEING METRICS (not engagement metrics):
       }
     ]
   },
+  {
+    slug: 'react-pattern-llm-agents',
+    title: 'ReAct: Reasoning and Acting Pattern for LLM-Based Agents',
+    subtitle: 'Interleave thought (reasoning) and action (tool use) for goal-directed agent behavior.',
+    date: 'June 21, 2026',
+    readTime: '6 min read',
+    tags: ['LLM Agents', 'Reasoning', 'Tool Use', 'Interview Prep'],
+    coverEmoji: '🤖',
+    content: [
+      {
+        type: 'callout',
+        emoji: '🧠',
+        text: 'ReAct insight: Traditional agents struggle with reasoning before action. Solution: Interleave explicit thoughts with tool calls. Thought: "I need current stock price." Action: Call get_stock_price() tool. Observation: "AAPL $150". Thought: "Now I can answer." Action: Return result. Pattern: Thought -> Action -> Observation -> Thought -> Action. Result: Transparent reasoning, recoverable from mistakes, interpretable agent behavior.'
+      },
+      {
+        type: 'h2',
+        text: 'Problem: Chain-of-Thought is Passive'
+      },
+      {
+        type: 'paragraph',
+        text: 'CoT: "Let me think... The capital of France is Paris." Works for reasoning. Problem: Cannot call tools (search, calculate). ReAct: "Let me think... I need to search. ACTION: search(France capital). OBSERVATION: Paris. So the answer is Paris." Active, tool-aware reasoning.'
+      },
+      {
+        type: 'h2',
+        text: 'ReAct Loop'
+      },
+      {
+        type: 'list',
+        ordered: true,
+        items: [
+          'Thought: LLM reasons about task, decides next action',
+          'Action: LLM calls tool (search, calculator, API)',
+          'Observation: Tool returns result',
+          'Repeat: Use observation to refine thought, take next action',
+          'Stop: When goal achieved or max steps reached'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Example: Question Answering'
+      },
+      {
+        type: 'paragraph',
+        text: 'Q: "Who won the 2024 Olympics 100m sprint?" Thought: "I need current info." Action: search("2024 Olympics 100m winner"). Observation: "Kishane Thompson won." Thought: "Got answer." Action: Return "Kishane Thompson".'
+      },
+      {
+        type: 'h2',
+        text: 'Why ReAct is Useful'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Transparency: Explicit thoughts show reasoning (interpretable)',
+          'Flexibility: Mix reasoning with tools (search, math, APIs)',
+          'Error recovery: Mistakes visible, can adjust next action',
+          'Complex tasks: Multi-step problems decomposed naturally',
+          'Human-in-loop: Easy to interrupt and modify reasoning'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'ReAct vs. Other Patterns'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Chain-of-Thought (CoT): Reasoning only, no actions',
+          'Tool-use: Actions only, minimal reasoning',
+          'ReAct: Reasoning AND actions, interleaved'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Challenges'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'LLM hallucination: Imagines tool outputs instead of waiting',
+          'Excessive steps: Infinite loops if agent stuck',
+          'Latency: Each action-observation round adds latency',
+          'Tool errors: How to handle failed tool calls?'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Solutions'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Strict parsing: Force format "Thought: ... Action: ... Observation: ..."',
+          'Max steps: Limit iterations to prevent infinite loops',
+          'Parallel actions: Execute multiple actions concurrently',
+          'Error handling: Define fallback actions for failures'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Interview Tips'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'ReAct: Interleave reasoning (Thought) and actions (Tool calls)',
+          'Flow: Thought -> Action -> Observation -> repeat',
+          'Advantage: Transparent, interpretable, recoverable',
+          'Use case: QA, research, task completion with tools',
+          'Trade-off: Latency (multiple rounds) vs. reasoning quality'
+        ]
+      }
+    ]
+  },
 
 ];
