@@ -22209,5 +22209,144 @@ WELLBEING METRICS (not engagement metrics):
       }
     ]
   },
+  {
+    slug: 'diffusion-model-forward-reverse-process',
+    title: 'Diffusion Models: Forward and Reverse Processes in Generative Modeling',
+    subtitle: 'Learn how noise is added and removed to transform data into generated samples.',
+    date: 'June 21, 2026',
+    readTime: '7 min read',
+    tags: ['Generative Models', 'Diffusion', 'Deep Learning', 'Interview Prep'],
+    coverEmoji: '🌀',
+    content: [
+      {
+        type: 'callout',
+        emoji: '🔄',
+        text: 'Diffusion model insight: (1) Forward process: Gradually add noise to image over T steps. Real image -> pure noise. Tractable, deterministic (no learning needed). (2) Reverse process: Learn to denoise. Start with noise, predict and remove noise at each step, recover image. Problem: Reverse is complex, cannot analytically invert forward. Solution: Train neural network to predict noise at each step. Result: Stochastic process that transforms noise back to data.'
+      },
+      {
+        type: 'h2',
+        text: 'Forward Diffusion Process'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Start: Real image x_0 (from dataset)',
+          'Step t: Add Gaussian noise: x_t = sqrt(alpha_t) * x_{t-1} + sqrt(1 - alpha_t) * epsilon',
+          'epsilon: Random normal noise N(0, I)',
+          'alpha_t: Decay schedule, decreases over time (controls noise level)',
+          'End: x_T is pure Gaussian noise (no info about original image)'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Key Property: Closed Form'
+      },
+      {
+        type: 'paragraph',
+        text: 'Can jump directly to any step t without iterating. x_t = sqrt(bar_alpha_t) * x_0 + sqrt(1 - bar_alpha_t) * epsilon. Result: Efficient training (sample random t, compute x_t directly).'
+      },
+      {
+        type: 'h2',
+        text: 'Reverse Diffusion Process'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Start: Pure noise x_T (sample from N(0, I))',
+          'Step t: Denoise to x_{t-1}',
+          'Problem: Cannot invert forward analytically (non-linear with randomness)',
+          'Solution: Learn q(x_{t-1} | x_t) with neural network',
+          'Network predicts mean and variance of denoising step'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Why Neural Network is Needed'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Forward is deterministic (given x_0, alpha schedule, epsilon)',
+          'Reverse is probabilistic (given x_t, need to find original x_0)',
+          'Infinite solutions: Many (x_0, noise) pairs lead to same x_t',
+          'Network learns: Likely x_0 given x_t (amortized inference)',
+          'Training: Minimize difference between predicted and actual noise added'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Training the Denoising Network'
+      },
+      {
+        type: 'list',
+        ordered: true,
+        items: [
+          'Sample random image x_0 from dataset',
+          'Sample random time step t in 1...T',
+          'Sample random noise epsilon',
+          'Compute x_t using closed form (forward)',
+          'Network predicts epsilon given (x_t, t)',
+          'Loss: MSE between predicted and actual noise',
+          'Backprop: Update network weights'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Generation Process'
+      },
+      {
+        type: 'list',
+        ordered: true,
+        items: [
+          'Sample x_T from N(0, I)',
+          'For t = T down to 1:',
+          '  Network predicts noise epsilon_t given (x_t, t)',
+          '  Compute x_{t-1} = (x_t - sqrt(1-bar_alpha_t)*epsilon_t) / sqrt(bar_alpha_t)',
+          '  Add small random noise',
+          'Return x_0 (generated image)'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Noise Schedule (alpha_t)'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Linear schedule: alpha_t decreases linearly',
+          'Cosine schedule: Smoother decay, better quality',
+          'Guides diffusion speed: Slow early (preserve structure), fast late (add noise)',
+          'Critical hyperparameter: Affects generation quality'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Comparison: Why Not Just Noise Prediction?'
+      },
+      {
+        type: 'paragraph',
+        text: 'Network could predict x_0 directly instead of noise. Empirically, noise prediction works better (lower variance target). Noise prediction: Target is always N(0,1), stable. x_0 prediction: Target varies with x_t, noisier training signal.'
+      },
+      {
+        type: 'h2',
+        text: 'Interview Tips'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Forward: Deterministic noise addition over T steps, tractable',
+          'Reverse: Learned denoising, stochastic, complex',
+          'Why network: Cannot analytically invert forward, need learned amortized inference',
+          'Training: Predict noise epsilon, MSE loss',
+          'Generation: Iterative denoising T steps from pure noise to image'
+        ]
+      }
+    ]
+  },
 
 ];
