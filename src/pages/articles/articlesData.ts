@@ -15560,6 +15560,39 @@ WELLBEING METRICS (not engagement metrics):
       { type: 'divider' },
       { type: 'paragraph', text: 'Real-world audio denoising is hard: noise and speech overlap everywhere. Effective solutions must be environment-aware, preserve speaker identity, and optimize for downstream tasks.' }
     ]
+   },
+  {
+    slug: 'text-quality-classification-llm-training',
+    title: 'Defining High-Quality Text for LLM Training',
+    subtitle: 'Framework for classifying quality across multiple dimensions.',
+    date: 'June 21, 2026',
+    readTime: '16 min read',
+    tags: ['Data Quality', 'LLM Training', 'Classification'],
+    coverEmoji: '📚',
+    content: [
+      { type: 'h2', text: 'The Core Problem' },
+      { type: 'paragraph', text: 'Bad training data produces bad models. Need automatic classification to filter billions of documents.' },
+      { type: 'h2', text: 'Six Dimensions of Quality' },
+      { type: 'h3', text: '1. Linguistic Quality' },
+      { type: 'list', ordered: false, items: ['Correct grammar, spelling, coherent structure'] },
+      { type: 'h3', text: '2. Factual Accuracy' },
+      { type: 'list', ordered: false, items: ['Wikipedia, scientific papers high quality', 'Unattributed claims low quality'] },
+      { type: 'h3', text: '3. Authenticity' },
+      { type: 'list', ordered: false, items: ['Original content, not duplicated', 'No keyword stuffing, no gibberish'] },
+      { type: 'h3', text: '4. Diversity' },
+      { type: 'list', ordered: false, items: ['Multiple domains: books, code, news, papers'] },
+      { type: 'h3', text: '5. Safety' },
+      { type: 'list', ordered: false, items: ['No hate speech, illegal content, or PII'] },
+      { type: 'h3', text: '6. Length & Completeness' },
+      { type: 'list', ordered: false, items: ['Too short (<100 tokens): low value', 'Appropriate (100-100k): good signal'] },
+      { type: 'h2', text: 'Classification Strategies' },
+      { type: 'list', ordered: false, items: ['Rule-based: fast negatives', 'ML classifier: learned patterns', 'Ensemble: combine both'] },
+      { type: 'h2', text: 'Trade-Offs' },
+      { type: 'list', ordered: false, items: ['Precision vs recall: strict vs loose', 'Automatic vs manual review'] },
+      { type: 'h2', text: 'Key Takeaway' },
+      { type: 'divider' },
+      { type: 'paragraph', text: 'Quality is multidimensional. Combine rule-based filters with learned classifiers. Validate on downstream task performance, not surface metrics.' }
+    ]
   },
 
 ];
