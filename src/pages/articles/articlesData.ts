@@ -21040,5 +21040,117 @@ WELLBEING METRICS (not engagement metrics):
       }
     ]
   },
+  {
+    slug: 'retrieval-augmented-generation-rag',
+    title: 'Retrieval-Augmented Generation (RAG): Augmenting LLMs with External Knowledge',
+    subtitle: 'Architecture for grounded, fact-based LLM responses using vector databases.',
+    date: 'June 21, 2026',
+    readTime: '8 min read',
+    tags: ['LLMs', 'Retrieval', 'System Design', 'Interview Prep'],
+    coverEmoji: '📚',
+    content: [
+      {
+        type: 'callout',
+        emoji: '🔍',
+        text: 'RAG problem: LLMs hallucinate facts they don\'t know. Solution: Retrieve relevant documents, augment prompt with retrieved context, then generate answer grounded in facts. Pipeline: (1) User query. (2) Retrieve top-k similar documents from vector DB. (3) Augment prompt with retrieved docs. (4) LLM generates answer. Result: Factual, verifiable, citable answers instead of hallucinations.'
+      },
+      {
+        type: 'h2',
+        text: 'The Hallucination Problem'
+      },
+      {
+        type: 'paragraph',
+        text: 'Query: "What is the latest Netflix earnings?" LLM (trained on 2023 data): Confidently generates wrong numbers. User trusts and shares misinformation. RAG solution: Retrieve latest earnings from vector DB, include in prompt, LLM grounds answer in retrieved facts.'
+      },
+      {
+        type: 'h2',
+        text: 'RAG Pipeline'
+      },
+      {
+        type: 'list',
+        ordered: true,
+        items: [
+          'Document ingestion: Convert docs (PDFs, web pages) to text',
+          'Chunking: Split into 500-word chunks (balance context and retrieval precision)',
+          'Embedding: Convert chunks to vectors (OpenAI embeddings, Jina)',
+          'Indexing: Store vectors in vector DB (Pinecone, Weaviate, Milvus)',
+          'Query time: Embed user query, retrieve top-k chunks by cosine similarity',
+          'Prompt augmentation: Format chunks as context, append to system prompt',
+          'Generation: LLM generates answer grounded in retrieved context'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Key Design Decisions'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Chunk size: Too small loses context, too large hurts retrieval precision. Default 512 tokens.',
+          'Overlap: Use 20-50% overlap between chunks to avoid cutting mid-sentence',
+          'Top-k: Retrieve 3-5 chunks usually sufficient (diminishing returns beyond)',
+          'Embeddings: OpenAI ($1 per 1M tokens), free models (BERT) less quality',
+          'Prompt format: Clearly separate retrieved facts from instructions'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'RAG Quality Metrics'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Retrieval recall: Of relevant documents, how many retrieved?',
+          'Precision: Of retrieved documents, how many relevant?',
+          'Answer accuracy: Does LLM answer match ground truth, grounded in facts?',
+          'Citation quality: Can user verify answer from retrieved docs?'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Advanced RAG: Re-ranking and Refinement'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Re-ranking: Retrieve top-20, re-rank with learned ranker (improves precision)',
+          'Iterative refinement: Ask follow-up questions if initial retrieved docs insufficient',
+          'Hybrid search: Combine dense (vector) + sparse (keyword) retrieval'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Scaling Considerations'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Corpus size: 1M documents typical for enterprise (millions on cloud)',
+          'Embedding cost: 1M docs x 512 tokens = 512M tokens = $500 one-time',
+          'Query latency: Vector DB retrieval 50-200ms, embedding 100ms, LLM generation 2-5s',
+          'Total: 2-6s end-to-end (acceptable for most applications)'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Interview Tips'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Problem: LLMs hallucinate facts, need grounding',
+          'Solution: Retrieve relevant docs, augment prompt, LLM generates grounded answer',
+          'Pipeline: Embed docs -> Index -> Query -> Retrieve -> Augment -> Generate',
+          'Key design: Chunk size (512 tokens), top-k (3-5), embeddings model',
+          'Trade-off: Latency (2-6s) vs. accuracy (grounded, verifiable answers)'
+        ]
+      }
+    ]
+  },
 
 ];
