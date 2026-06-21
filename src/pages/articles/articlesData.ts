@@ -21263,5 +21263,115 @@ WELLBEING METRICS (not engagement metrics):
       }
     ]
   },
+  {
+    slug: 'dynamic-rag-adaptive-retrieval',
+    title: 'Dynamic RAG: Adaptive Retrieval Based on Confidence and Query Complexity',
+    subtitle: 'Retrieve more documents when LLM is uncertain, skip when confident.',
+    date: 'June 21, 2026',
+    readTime: '6 min read',
+    tags: ['LLMs', 'Retrieval', 'Optimization', 'Interview Prep'],
+    coverEmoji: '🔄',
+    content: [
+      {
+        type: 'callout',
+        emoji: '💡',
+        text: 'Dynamic RAG insight: Not all queries need retrieval. Simple factual questions (capital of France) require lookup. Open-ended questions may not. Approach: Query LLM twice. (1) Without retrieval. (2) Check confidence. If low, retrieve top-k docs and regenerate with context. Result: 30-40% latency reduction vs. always retrieving, same answer quality.'
+      },
+      {
+        type: 'h2',
+        text: 'Problem: Over-Retrieval'
+      },
+      {
+        type: 'paragraph',
+        text: 'Standard RAG retrieves for every query. Cost: 200-500ms retrieval + 2-5s generation = 2.5-5.5s. Many queries don\'t need retrieval: "What is the capital of France?" (model already knows). Dynamic RAG detects when retrieval helps.'
+      },
+      {
+        type: 'h2',
+        text: 'Approach 1: Confidence-Based Gating'
+      },
+      {
+        type: 'list',
+        ordered: true,
+        items: [
+          'Generate answer without retrieval',
+          'Compute confidence score (log probabilities, entropy)',
+          'If confidence > threshold: return answer directly (fast)',
+          'If confidence < threshold: retrieve top-k, regenerate with context',
+          'Trade-off: Calibrate threshold for desired precision-latency balance'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Approach 2: Query Classification'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Classify query: Factual lookup (needs retrieval) vs. reasoning (may not)',
+          'Use fast classifier (small model or heuristics)',
+          'Route: Factual -> Retrieve, Reasoning -> Direct generation',
+          'Advantage: Faster decision than generating full answer',
+          'Limitation: Misclassification hurts quality'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Approach 3: Adaptive Top-k'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Always retrieve, but vary top-k based on query type',
+          'Simple: top-1 (fast). Complex: top-5 (higher quality).',
+          'Example: "Capital of France" retrieves 1 doc, "Explain climate change" retrieves 5',
+          'Trade-off: Always incurs retrieval cost, but adaptive k saves latency'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Measuring Confidence'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Log probability: Sum of log P(token) / num_tokens (lower variance = more confident)',
+          'Entropy: Measure uncertainty in token distribution (high entropy = low confidence)',
+          'Perplexity: exp(-log_prob) (lower = more confident)',
+          'Threshold: Calibrate on validation set to maximize accuracy'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Results'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Latency: 30-40% reduction (many queries skip retrieval)',
+          'Quality: Same (only retrieves when needed)',
+          'Cost: Proportional to retrieval fraction (lower spend)'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Interview Tips'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Problem: Over-retrieval (all queries retrieve even if not needed)',
+          'Solution: Confidence-based gating (retrieve only when uncertain)',
+          'Confidence metric: Log probability, entropy, or perplexity',
+          'Trade-off: Latency reduction vs. occasional low-confidence misses',
+          'Real-world: Used in production to reduce latency and cost'
+        ]
+      }
+    ]
+  },
 
 ];
