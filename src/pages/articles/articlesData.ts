@@ -20827,5 +20827,102 @@ WELLBEING METRICS (not engagement metrics):
       }
     ]
   },
+  {
+    slug: 'multi-query-attention-kv-cache',
+    title: 'Multi-Query Attention: Accelerating LLM Inference by Sharing Key-Value Caches',
+    subtitle: 'Reduce KV cache memory and improve throughput in autoregressive generation.',
+    date: 'June 21, 2026',
+    readTime: '7 min read',
+    tags: ['Transformers', 'Inference Optimization', 'Architecture', 'Interview Prep'],
+    coverEmoji: '⚡',
+    content: [
+      {
+        type: 'callout',
+        emoji: '🎯',
+        text: 'Standard attention: h query heads x d head dim. Each query head has own key and value projections. Memory: O(2hsd) for KV cache (h heads, s sequence length, d dims). Problem: Large models with 96 heads waste memory replicating keys/values. Multi-Query: All query heads share single K, V projection. Reduces KV cache by 96x. Trade-off: Slight quality drop but 10-30% throughput gain in generation.'
+      },
+      {
+        type: 'h2',
+        text: 'Standard Multi-Head Attention'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Query: (batch, seq, d) -> (batch, h, seq, d/h) via h heads',
+          'Key: (batch, seq, d) -> (batch, h, seq, d/h) via h heads',
+          'Value: (batch, seq, d) -> (batch, h, seq, d/h) via h heads',
+          'Attention: softmax(Q K^T / sqrt(d/h)) V for each head',
+          'KV cache: Store K, V from all past tokens (memory: O(2hsd))'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Multi-Query Attention (MQA)'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Query: h heads as usual (h projections)',
+          'Key: Single shared projection for ALL heads (1 projection instead of h)',
+          'Value: Single shared projection for ALL heads (1 projection instead of h)',
+          'Attention: Each query head computes with same K, V: softmax(Q_i K^T / sqrt(d/h)) V',
+          'KV cache: O(2sd) instead of O(2hsd) - reduce by factor of h'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Memory Savings Example'
+      },
+      {
+        type: 'paragraph',
+        text: 'GPT-3 (175B params): 96 attention heads, 128 dim per head. Sequence length 2048. Standard: 2 x 96 x 2048 x 128 = 50GB KV cache for batch size 1. MQA: 2 x 2048 x 128 = 512MB. Reduction: 98x! Enable larger batch sizes, higher throughput.'
+      },
+      {
+        type: 'h2',
+        text: 'Quality vs. Speed Trade-off'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Standard MHA: Higher quality (more expressive, each head has own KV)',
+          'MQA: Slightly lower quality (shared KV limits expressiveness)',
+          'Empirical: MQA loses 1-3% on downstream tasks (acceptable for inference speedup)',
+          'Throughput gain: 10-30% faster generation due to reduced memory bandwidth'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Grouped Query Attention (GQA)'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Middle ground: Partition h query heads into g groups, share KV within each group',
+          'g=1: Multi-Query. g=h: Standard attention.',
+          'Example: 96 heads, g=8 -> 8 groups of 12 heads each, 8 KV projections',
+          'Quality-speed trade-off: Tune g between 1 and h for desired balance'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Interview Tips'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Standard: h separate K, V projections. MQA: 1 shared.',
+          'KV cache: O(2hsd) -> O(2sd), 96x reduction for GPT-3-scale',
+          'Problem solved: Memory bandwidth bottleneck in autoregressive generation',
+          'Trade-off: Small quality loss, large throughput gain',
+          'Real-world: Used in Llama-2, PaLM 2 for faster inference'
+        ]
+      }
+    ]
+  },
 
 ];
