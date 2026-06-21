@@ -21829,5 +21829,131 @@ WELLBEING METRICS (not engagement metrics):
       }
     ]
   },
+  {
+    slug: 'mixture-of-experts-moe-architecture',
+    title: 'Mixture-of-Experts (MoE) in LLMs: Scaling Efficiently with DeepSeek R1 and Beyond',
+    subtitle: 'Replace dense layers with sparse expert routing for 10x more parameters, same cost.',
+    date: 'June 21, 2026',
+    readTime: '8 min read',
+    tags: ['LLMs', 'Architecture', 'Scaling', 'Interview Prep'],
+    coverEmoji: '🧠',
+    content: [
+      {
+        type: 'callout',
+        emoji: '⚡',
+        text: 'MoE insight: Instead of all tokens using all weights, route each token to subset of experts (specialists). Example: 16 experts, each token uses top-2 experts. Result: 16x parameters but same compute per token. GPT-4 dense: 1.76T params. MoE equivalent: 16x more experts, 2-10x compute savings. DeepSeek R1: 671B total params, only 37B active per token (55x sparsity).'
+      },
+      {
+        type: 'h2',
+        text: 'Standard Dense Architecture'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Every token passes through all layers (feed-forward networks)',
+          'GPT-3: 175B params, all activated for every token',
+          'Compute: O(tokens x model_size)',
+          'Problem: Scaling to 10T params is expensive (10x inference cost)'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Mixture-of-Experts Architecture'
+      },
+      {
+        type: 'list',
+        ordered: true,
+        items: [
+          'Replace dense feed-forward with N experts (small neural networks)',
+          'Router network: Maps token to top-k experts (learned via gating)',
+          'Token routes to k experts (e.g., k=2 out of 16 experts)',
+          'Combine expert outputs: Weighted sum based on router scores',
+          'Result: Sparse computation - only k/N of experts active'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Mathematical Formulation'
+      },
+      {
+        type: 'paragraph',
+        text: 'Output = sum(gate_i * expert_i(x)) where gate_i is routing weight, expert_i is specialist network. Router learns which experts to activate. Constraint: sum(gate_i) = 1 (normalization).'
+      },
+      {
+        type: 'h2',
+        text: 'DeepSeek R1 MoE Design'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Total params: 671B (encoder + decoder)',
+          'Active params per token: 37B (topological pruning)',
+          'Sparsity: 671B / 37B = 18x (dense equivalent)',
+          'Expert count: 256 experts with top-k routing (k=1 or k=2)',
+          'Efficiency: Similar inference cost to 37B dense model but 671B capacity'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Benefits of MoE'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Model capacity: 10-100x more parameters without proportional compute increase',
+          'Specialization: Experts learn different skills (syntax, semantics, reasoning)',
+          'Efficiency: Sparse activation (only k experts per token)',
+          'Scaling: Train 10T param models with current hardware'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Challenges of MoE'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Load balancing: Experts may receive uneven token loads (some experts overloaded)',
+          'Communication overhead: Sparse routing adds latency (distributed systems)',
+          'Training instability: Router gradients can diverge, experts collapse',
+          'Inference latency: k expert lookups slower than dense layers (memory access pattern)',
+          'Quality: Sometimes underperforms dense baseline despite more params'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Solutions to Challenges'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Load balancing loss: Auxiliary loss encouraging uniform expert usage',
+          'Expert dropout: Drop some experts during training for robustness',
+          'Switch transformers: Simplified routing (top-1 instead of top-k)',
+          'Local experts: Use expert sharing to reduce communication'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Interview Tips'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'MoE: Route each token to top-k experts instead of using all weights',
+          'Benefit: 10-100x capacity, similar inference cost',
+          'DeepSeek R1: 671B total, 37B active per token (18x sparsity)',
+          'Challenge: Load balancing, training instability, communication overhead',
+          'Trade-off: More capacity but added complexity vs. dense model simplicity'
+        ]
+      }
+    ]
+  },
 
 ];
