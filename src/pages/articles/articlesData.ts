@@ -16060,5 +16060,1789 @@ WELLBEING METRICS (not engagement metrics):
       { type: 'paragraph', text: 'Decoding is how LLMs generate text from probability distributions. Greedy is fast but suboptimal. Beam search finds better sequences but slower. Temperature and top-K/top-P control the diversity-quality tradeoff. No universally best strategy—choice depends on use case (speed, quality, creativity required).' }
     ]
   },
+  {
+    slug: 'image-deduplication-pipeline',
+    title: 'Building an Efficient Image Deduplication Pipeline',
+    subtitle: 'Designing a scalable system to find and remove duplicate images at scale.',
+    date: 'June 21, 2026',
+    readTime: '8 min read',
+    tags: ['System Design', 'ML Systems', 'Computer Vision', 'Interview Prep'],
+    coverEmoji: '🖼️',
+    content: [
+      { type: 'h2', text: 'Problem Statement' },
+      { type: 'paragraph', text: 'Find and deduplicate millions of images efficiently. Images may be identical, slightly modified (cropped, compressed, rotated), or near-duplicates. System must scale to petabyte-scale datasets with fast detection and low false positives.' },
+      { type: 'h2', text: 'High-Level Architecture' },
+      { type: 'code', language: 'text', code: 'Input Images\n    ↓\n┌─────────────────────────────────────┐\n│ 1. Image Ingestion & Preprocessing  │ (normalization, format conversion)\n└─────────────────────────────────────┘\n    ↓\n┌─────────────────────────────────────┐\n│ 2. Feature Extraction               │ (hashing, embeddings)\n└─────────────────────────────────────┘\n    ↓\n┌─────────────────────────────────────┐\n│ 3. Indexing & Storage               │ (hashes/embeddings in searchable DB)\n└─────────────────────────────────────┘\n    ↓\n┌─────────────────────────────────────┐\n│ 4. Similarity Computation           │ (find candidate matches)\n└─────────────────────────────────────┘\n    ↓\n┌─────────────────────────────────────┐\n│ 5. Deduplication & Clustering       │ (group duplicates, decide keep/delete)\n└─────────────────────────────────────┘\n    ↓\n Output: Deduplicated set + Similarity scores' },
+      { type: 'h2', text: 'Component Details' },
+      { type: 'h3', text: '1. Image Ingestion & Preprocessing' },
+      { type: 'list', ordered: false, items: ['Normalize formats (convert to standard format like PNG/JPG)', 'Standardize sizes (resize to consistent dimensions or avoid it for flexibility)', 'Handle corrupted/unreadable images (skip, log, alert)', 'Remove obvious duplicates early (exact byte-level match via MD5/SHA256)'] },
+      { type: 'h3', text: 'Key Consideration: Early Filtering' },
+      { type: 'paragraph', text: 'Exact hash match (MD5/SHA256) catches identical images instantly with zero false positives. Should be first step—eliminates 30-50% of duplicates before expensive feature extraction.' },
+      { type: 'h3', text: '2. Feature Extraction (The Core)' },
+      { type: 'h3', text: 'Option A: Perceptual Hashing' },
+      { type: 'code', language: 'text', code: 'pHash (Perceptual Hash):\n  1. Resize to 32×32 pixels\n  2. Compute average pixel value\n  3. Generate 1024-bit hash based on pixel > avg\n  4. Hamming distance ≤ 5-10 = duplicate\n\nPros: Fast (milliseconds), small storage (128 bytes)\nCons: Limited robustness (fails on heavy crops/rotations)\nUse: Detect exact/near-exact duplicates' },
+      { type: 'h3', text: 'Option B: Deep Learning Embeddings (Recommended)' },
+      { type: 'code', language: 'text', code: 'Use pre-trained ResNet/EfficientNet:\n  1. Pass image through model → 2048-dim embedding\n  2. Normalize to unit length (L2 norm)\n  3. Store in vector database (Faiss, Pinecone, Milvus)\n  4. Cosine similarity ≥ 0.95 = duplicate\n\nPros: Robust to crops, compression, rotations; learned features\nCons: Slower (100ms), larger storage (8KB per image)\nUse: Find semantic duplicates, handle transformations' },
+      { type: 'h3', text: 'Hybrid Approach (Recommended for Production)' },
+      { type: 'code', language: 'text', code: 'Stage 1 (Fast): pHash for exact/near-exact (Hamming dist < 10)\nStage 2 (Thorough): If pHash doesn\'t match, compute embedding\nStage 3 (Semantic): High-dim similarity search in vector DB\n\nResult: Catch 95% of duplicates with fast hashes, use embeddings for hard cases' },
+      { type: 'h3', text: '3. Indexing & Storage' },
+      { type: 'list', ordered: false, items: ['For pHash: Simple key-value store (hash → image_ids)', 'For embeddings: Vector database (Faiss for in-memory, Milvus/Pinecone for distributed)', 'Dimensionality reduction: Use LSH (Locality-Sensitive Hashing) for fast approximate search', 'Caching: Store frequently accessed embeddings in Redis'] },
+      { type: 'h3', text: '4. Similarity Computation' },
+      { type: 'code', language: 'text', code: 'For each new image, find candidates:\n\nMethod 1: Brute Force\n  - Compute distance to all existing embeddings\n  - Time: O(n*d) where n=num images, d=embedding dim\n  - Only viable for <1M images\n\nMethod 2: Approximate Nearest Neighbors (ANN) - RECOMMENDED\n  - Use Faiss/HNSW/Annoy for sublinear search\n  - Find top-k candidates in O(log n) time\n  - Trade-off: Speed for slight accuracy loss (99%+ recall)\n  - Handles billions of images' },
+      { type: 'h3', text: '5. Deduplication & Clustering' },
+      { type: 'code', language: 'text', code: 'Union-Find (Disjoint Set Union):\n  For each duplicate pair (A, B):\n    union(A, B)\n  Result: Connected components = duplicate groups\n\nKeeping Policy:\n  - Keep highest resolution image\n  - Keep by metadata (newest, best quality)\n  - Keep by hash (deterministic, reproducible)\n\nOutput: List of images to delete, grouped by cluster' },
+      { type: 'h2', text: 'Performance Considerations' },
+      { type: 'h3', text: 'Scalability Bottlenecks' },
+      { type: 'list', ordered: false, items: ['Feature extraction: GPU batch processing (ResNet can do 500 imgs/sec on V100)', 'ANN indexing: Distributed Faiss or dedicated vector DB (Milvus clusters)', 'Similarity search: Parallelize across multiple shards by image hash', 'Storage: 8KB per embedding × 1B images = 8TB (acceptable)'] },
+      { type: 'h3', text: 'Accuracy Considerations' },
+      { type: 'code', language: 'text', code: 'False Positives (marking different images as duplicates):\n  - Risk: Accidentally delete unique images\n  - Mitigation: Use high similarity threshold (0.95+), manual review for marginal cases\n  - Cost: High (user complaints, lost data)\n\nFalse Negatives (missing actual duplicates):\n  - Risk: Duplicates remain in dataset\n  - Mitigation: Lower threshold, multi-stage pipeline, human audit\n  - Cost: Lower (just inefficiency)' },
+      { type: 'h2', text: 'Real-World Considerations' },
+      { type: 'list', ordered: false, items: ['Handle edge cases: corrupted images, animated GIFs, vector graphics, screenshots', 'Update strategy: Incremental updates vs. full recomputation (hybrid better)', 'Explainability: Store which images matched and why (for debugging)', 'Cost: GPU inference (~1-5 cents per 1K images), vector DB storage (~1-10 cents per 1M images)'] },
+      { type: 'h2', text: 'Key Takeaway' },
+      { type: 'divider' },
+      { type: 'paragraph', text: 'Image deduplication requires multi-stage pipeline: exact hashing (fast), perceptual hashing (medium), and deep embeddings with ANN (thorough). Hybrid approach recommended: 90% duplicates caught by hashing, 9% by embeddings, 1% require manual review. Use vector databases for scalability. Key tradeoff: speed vs. accuracy—choose similarity threshold based on acceptable false positive rate.' }
+    ]
+  },
+  {
+    slug: 'voice-activity-detection-vad',
+    title: 'What is Voice Activity Detection (VAD), and why is it an essential step in audio processing systems?',
+    subtitle: 'Understanding how systems identify speech vs. silence to optimize audio processing efficiency and quality.',
+    date: 'June 21, 2026',
+    readTime: '5 min read',
+    tags: ['Audio Processing', 'Speech Recognition', 'Signal Processing', 'Interview Prep'],
+    coverEmoji: '🎤',
+    content: [
+      {
+        type: 'callout',
+        emoji: '🎯',
+        text: 'Voice Activity Detection is a foundational step in speech-based systems. It separates actual speech from background noise, silence, or music—a crucial preprocessing step for ASR, speaker verification, and audio compression.'
+      },
+      {
+        type: 'h2',
+        text: 'What is Voice Activity Detection?'
+      },
+      {
+        type: 'paragraph',
+        text: 'Voice Activity Detection (VAD) is a binary classification task: given an audio signal, determine whether the frame contains human speech or not. Output: speech vs. non-speech for each time window (typically 10-20ms frames).'
+      },
+      {
+        type: 'h2',
+        text: 'Why VAD is Essential'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '🎯 Efficiency: Skip processing silence/noise. ASR systems waste compute on non-speech regions.',
+          '📊 Accuracy: Isolate speech helps downstream models focus. Noise degrades ASR, speaker ID, emotion detection.',
+          '💾 Storage: Compress by discarding silence frames. Video calls, voice recording apps save bandwidth.',
+          '⚡ Latency: Stream processing gets cleaner signal faster.',
+          '🔊 Cost: Reduce API calls to speech services (many charge per minute of audio).'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'VAD Approaches'
+      },
+      {
+        type: 'h3',
+        text: 'Method 1: Energy-Based (Simple, Fast)'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Algorithm:\n  1. Compute energy (power) of each frame: E = Σ(x[n]²)\n  2. Compute short-term (STD) and long-term energy (LTE)\n  3. If STD > threshold × LTE: classify as speech\n  4. Threshold typically: 40-50% of peak energy\n\nPros: O(1) per frame, works instantly, no training\nCons: Fails with:\n  - Low SNR (signal-to-noise ratio)\n  - Background noise (traffic, music)\n  - Soft-spoken speakers\n  - Noisy environments'
+      },
+      {
+        type: 'h3',
+        text: 'Method 2: Spectral Features (Better)'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Features extracted from audio frames:\n  1. MFCC (Mel-Frequency Cepstral Coefficients): 13 coefficients\n  2. Zero Crossing Rate (ZCR): speech has lower ZCR\n  3. Spectral Centroid: speech concentrated in specific freq bands\n  4. Spectral Flux: change in power across frequencies\n\nClassifier: SVM, Random Forest, or simple GMM (Gaussian Mixture Model)\n\nPros: Handles noise better, interpretable features\nCons: Requires labeled training data, ~5-10ms per frame'
+      },
+      {
+        type: 'h3',
+        text: 'Method 3: Deep Learning (State-of-the-art)'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Architecture: CNN/LSTM on mel-spectrograms\n  Input: Mel-spectrogram (e.g., 64×T frames)\n  Model: TCN (Temporal Convolutional Network) or LSTM\n  Output: Binary classification (speech/non-speech) per frame\n\nTraining: WebRTC VAD, Mozilla VAD, or custom datasets\n  - Needs audio with labels (speech/silence)\n  - Trained on diverse noise conditions\n  - ~1-5ms per frame on CPU\n\nPros: Robust to noise, handles edge cases, pre-trained models available\nCons: Requires GPU for real-time streaming, model size (~1-50MB)'
+      },
+      {
+        type: 'h2',
+        text: 'Real-World Implementations'
+      },
+      {
+        type: 'h3',
+        text: 'WebRTC VAD (Industry Standard)'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Open-source, used in Chrome, Zoom, Discord',
+          'Adaptive: learns environment over time',
+          'Supports 3 aggressiveness levels (0-3)',
+          'Level 0: lenient (keeps more speech), Level 3: strict (removes more silence)',
+          'Works with 8kHz, 16kHz, 32kHz, 48kHz audio'
+        ]
+      },
+      {
+        type: 'h3',
+        text: 'Cloud Services'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Google Cloud Speech-to-Text: Built-in VAD, returns confidence scores',
+          'AWS Transcribe: Option to filter silence automatically',
+          'Azure Speech: Starts transcription only on speech detected'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'VAD in Production Pipelines'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Typical Audio Processing Pipeline:\n\nRaw Audio Stream\n    ↓\n┌─────────────────────────────┐\n│ VAD Detection (this step)    │ ← Discard non-speech frames\n└─────────────────────────────┘\n    ↓ (only speech frames)\n┌─────────────────────────────┐\n│ Noise Suppression           │ ← Clean remaining audio\n└─────────────────────────────┘\n    ↓\n┌─────────────────────────────┐\n│ Speech Recognition (ASR)    │ ← Transcribe\n└─────────────────────────────┘\n    ↓\nTranscription Output\n\nResult: ~30-50% reduction in processing due to silence removal'
+      },
+      {
+        type: 'h2',
+        text: 'VAD Challenges'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Silence vs. Pauses: Speech pauses mid-sentence—VAD must not cut off speech',
+          'Music/Singing: Often misclassified as speech (high spectral content)',
+          'Background Speech: Distinguish speaker from background chatter',
+          'Edge Cases: Whispers, heavy accents, singing, crying—all legitimate speech',
+          'Latency: Real-time VAD needs sub-frame latency (~10-20ms)'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Interview Tips'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Energy-based VAD is baseline: simple, fast, but weak in noise',
+          'Spectral features capture speech characteristics better than raw energy',
+          'Deep learning wins in production—WebRTC VAD or custom models trained on diverse noise',
+          'VAD always trades off: reduce false positives (miss speech) vs. false negatives (keep silence)',
+          'Explain tradeoff: strict VAD (high precision) risks cutting speech; lenient VAD (high recall) keeps noise'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Key Takeaway'
+      },
+      {
+        type: 'divider' },
+      {
+        type: 'paragraph',
+        text: 'Voice Activity Detection separates speech from silence/noise—essential preprocessing for speech systems. Energy-based VAD is fast but unreliable in noise. Spectral features help. Deep learning (CNNs/LSTMs on mel-spectrograms) is state-of-the-art and widely used (WebRTC VAD, Google Cloud). Key tradeoff: aggressiveness (how strict) vs. missing real speech. In production, VAD typically reduces processing load by 30-50% by skipping silence frames before feeding to costly ASR models.'
+      }
+    ]
+  },
+  {
+    slug: 'fraud-detection-imbalanced-data',
+    title: 'Detecting Fraudulent Transactions in Imbalanced Datasets: Which Models to Choose?',
+    subtitle: 'Strategies and models for tackling fraud detection with highly imbalanced data—minimizing false positives while catching fraud.',
+    date: 'June 21, 2026',
+    readTime: '10 min read',
+    tags: ['Imbalanced Classification', 'Fraud Detection', 'Machine Learning', 'Interview Prep'],
+    coverEmoji: '🚨',
+    content: [
+      {
+        type: 'callout',
+        emoji: '🎯',
+        text: 'Fraud detection is a classic imbalanced learning problem: fraudulent transactions are rare (0.1-1%), but false positives cost money (blocking legitimate customers). Standard models fail here because they optimize for accuracy—predicting everything as "legitimate" achieves 99% accuracy but catches zero fraud.'
+      },
+      {
+        type: 'h2',
+        text: 'The Core Problem: Why Standard Models Fail'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Dataset: 1M transactions\n  Fraudulent: 5,000 (0.5%)\n  Legitimate: 995,000 (99.5%)\n\nNaive Model: Predicts everything as "Legitimate"\n  Accuracy: 99.5% ✓ (looks great!)\n  Fraud Caught: 0% ✗ (useless for business)\n  False Positives: 0% ✓ (but not enough fraud detection)\n\nThe Trap: Accuracy is a terrible metric for imbalanced data.\nWhat we need: High Recall (catch fraud) + High Precision (minimize false positives)'
+      },
+      {
+        type: 'h2',
+        text: 'Why This Matters'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '💰 Cost of False Negative: Miss fraud → financial loss, liability',
+          '😠 Cost of False Positive: Block legitimate transaction → customer leaves, reputation damage',
+          '⚖️ Business Tradeoff: Accept some false positives to catch fraud (then verify with additional checks)',
+          '📊 Metrics That Matter: Precision, Recall, F1-Score, AUC-ROC (not accuracy)'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Strategy 1: Handle Data Imbalance'
+      },
+      {
+        type: 'h3',
+        text: 'Approach A: Class Weights (Simplest, Recommended)'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Idea: Penalize misclassifying minority class (fraud) more heavily.\n\nWeight calculation:\n  weight_fraud = n_samples / (n_classes × n_fraud)\n             = 1M / (2 × 5K) = 100\n  weight_legit = n_samples / (n_classes × n_legit)\n             = 1M / (2 × 995K) ≈ 0.5\n\nResult: Model learns fraud is 200x more "expensive" to miss\n\nModels supporting class weights:\n  - Logistic Regression: class_weight=\"balanced\"\n  - Random Forest: class_weight=\"balanced\"\n  - XGBoost: scale_pos_weight = ratio\n  - Neural Networks: sample_weight parameter\n\nPros: No data manipulation, faster training\nCons: Not as powerful as resampling for severe imbalance'
+      },
+      {
+        type: 'h3',
+        text: 'Approach B: Oversampling Minority Class (SMOTE)'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'SMOTE = Synthetic Minority Over-sampling Technique\n\nAlgorithm:\n  1. For each fraudulent sample, find k nearest fraud neighbors\n  2. Generate synthetic fraud samples between pairs (interpolation)\n  3. Create balanced dataset (50-50 fraud/legit or custom ratio)\n\nExample:\n  Original: 5K fraud, 995K legit (0.5% fraud)\n  After SMOTE: 500K fraud, 500K legit (balanced)\n\nPros: Helps models learn minority class patterns\nCons: Risk of overfitting, synthetic data may not reflect real fraud\n\nWhen to use: Severe imbalance (< 1%) + small fraud dataset\nLibraries: imbalanced-learn (Python)'
+      },
+      {
+        type: 'h3',
+        text: 'Approach C: Undersampling Majority Class'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Idea: Remove legitimate transactions to balance classes.\n\nExample:\n  Original: 5K fraud, 995K legit\n  After undersampling: 5K fraud, 50K legit (10:1 ratio)\n\nPros: Faster training, simpler\nCons: Lose information about legit patterns, may hurt precision\n\nBest for: When you have massive majority class and abundant data'
+      },
+      {
+        type: 'h3',
+        text: 'Recommendation: Hybrid Approach'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Step 1: Apply class weights (always)\nStep 2: Light SMOTE (synthetic oversampling to ~5-10% fraud)\nStep 3: Slight undersampling (reduce legit to ~10x fraud count)\nResult: Balanced training, retains real patterns, faster training'
+      },
+      {
+        type: 'h2',
+        text: 'Strategy 2: Choose the Right Models'
+      },
+      {
+        type: 'h3',
+        text: 'Model 1: Logistic Regression (Baseline)'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Why: Simple, interpretable, works well with class weights\n\nSetup:\n  from sklearn.linear_model import LogisticRegression\n  model = LogisticRegression(class_weight=\"balanced\", max_iter=1000)\n\nPros:\n  - Fast to train and predict\n  - Outputs probability (calibrated, useful for thresholding)\n  - Coefficients show feature importance\n  - Works well with feature engineering\n\nCons:\n  - Assumes linear decision boundary\n  - Needs careful feature scaling\n  - May underfit on complex fraud patterns\n\nUse: As baseline, quick prototyping, regulatory compliance (explainability)'
+      },
+      {
+        type: 'h3',
+        text: 'Model 2: Random Forest (Robust, Practical)'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Why: Handles non-linearity, feature interactions, imbalance\n\nSetup:\n  from sklearn.ensemble import RandomForestClassifier\n  model = RandomForestClassifier(\n    n_estimators=200,\n    class_weight=\"balanced\",\n    max_depth=15,\n    n_jobs=-1\n  )\n\nPros:\n  - Handles mixed feature types (numeric + categorical)\n  - Feature importance built-in\n  - Robust to outliers\n  - Parallelizes well\n\nCons:\n  - Slower inference than Logistic Regression\n  - Less interpretable than LR\n  - Prone to overfitting (requires tuning)\n\nUse: Production fraud detection, moderate complexity'
+      },
+      {
+        type: 'h3',
+        text: 'Model 3: XGBoost / LightGBM (Best Performance)'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Why: State-of-the-art for tabular data, handles imbalance, fast\n\nSetup (XGBoost):\n  import xgboost as xgb\n  model = xgb.XGBClassifier(\n    scale_pos_weight=fraud_weight,\n    max_depth=5,\n    learning_rate=0.1,\n    subsample=0.8,\n    colsample_bytree=0.8,\n    random_state=42\n  )\n\nPros:\n  - Best accuracy on tabular fraud data\n  - Fast inference (milliseconds)\n  - Handles missing values\n  - scale_pos_weight directly addresses imbalance\n  - Feature importance + SHAP explainability\n\nCons:\n  - More hyperparameter tuning needed\n  - Can overfit if not tuned well\n  - Requires more memory than RF\n\nUse: Production systems where accuracy matters most'
+      },
+      {
+        type: 'h3',
+        text: 'Model 4: Neural Networks (Complex Patterns)'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Why: Can learn complex patterns, handles sequence features\n\nArchitecture:\n  Input Layer: N features\n  Hidden Layers: [128, 64, 32] (with Dropout=0.3)\n  Output Layer: 1 (sigmoid for binary classification)\n\nTraining:\n  - Use class_weight or sample_weight for imbalance\n  - Batch normalization helps\n  - Early stopping prevents overfitting\n\nPros:\n  - Learns deep patterns in features\n  - Can incorporate embeddings (merchant, user)\n  - Handles non-linear interactions\n\nCons:\n  - Requires more data to shine\n  - Black-box (hard to explain)\n  - Longer training time\n\nUse: Large datasets (>1M samples), complex feature interactions'
+      },
+      {
+        type: 'h2',
+        text: 'Strategy 3: Right Evaluation Metrics'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'NEVER use Accuracy for imbalanced data.\n\nInstead:\n  1. Confusion Matrix: TP, FP, TN, FN breakdown\n  2. Precision: TP / (TP + FP) → of predicted fraud, how many real?\n     (minimize false positives = don\'t block legit customers)\n  3. Recall: TP / (TP + FN) → of real fraud, how many caught?\n     (maximize fraud detection)\n  4. F1-Score: Harmonic mean of Precision & Recall\n     (balanced when both matter)\n  5. AUC-ROC: Ranking quality across thresholds\n     (fraud detection + false positive rate)\n  6. PR-Curve (Precision-Recall): Better than ROC for imbalanced\n     (focuses on minority class)\n\nBusiness Metrics:\n  - Precision@k: Of top-k fraud alerts, what % are real?\n  - FPR (False Positive Rate): % of legit transactions blocked\n  - Operational Cost: Fraud loss + customer churn from false positives'
+      },
+      {
+        type: 'h2',
+        text: 'Strategy 4: Threshold Tuning (Critical!)'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'By default, models use threshold = 0.5 for binary classification.\nFor fraud, this is often WRONG.\n\nExample:\n  Model outputs: [0.45, 0.51, 0.72, 0.83, ...]\n  Default (threshold=0.5): Classify as [No, Yes, Yes, Yes, ...]\n\nFraud Problem: Fraud cases likely to have lower probability\n  (0.3-0.6), legit cases cluster near 0.05-0.1 or 0.9+\n\nSolution: Lower threshold\n  Threshold=0.3: More fraud caught (higher recall)\n  Trade-off: More false positives (block more legit transactions)\n\nTuning process:\n  1. Train model with imbalance-adjusted techniques\n  2. Get prediction probabilities on validation set\n  3. Plot Precision-Recall curve for different thresholds\n  4. Choose threshold balancing business constraints\n     (e.g., "accept 5% false positive rate to catch 90% fraud")\n  5. Validate on test set\n\nCode Example:\n  from sklearn.metrics import precision_recall_curve\n  prec, rec, thresholds = precision_recall_curve(y_val, y_pred_prob)\n  # Find threshold where recall=0.9\n  idx = np.where(rec >= 0.9)[0][0]\n  optimal_threshold = thresholds[idx]'
+      },
+      {
+        type: 'h2',
+        text: 'Real-World Fraud Detection Pipeline'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Transaction Incoming\n    ↓\n┌────────────────────────────────────────┐\n│ 1. Rule-Based Checks (Fast, No ML)     │ (amount limits, velocity)\n│    Output: APPROVE / MANUAL_REVIEW / BLOCK │\n└────────────────────────────────────────┘\n    ↓ (only MANUAL_REVIEW)\n┌────────────────────────────────────────┐\n│ 2. ML Model (XGBoost with threshold)   │ (fraud probability)\n│    Output: APPROVE / BLOCK             │\n└────────────────────────────────────────┘\n    ↓ (only marginal cases 0.3-0.7)\n┌────────────────────────────────────────┐\n│ 3. Additional Verification             │ (send OTP, 3D Secure)\n│    Output: APPROVE / BLOCK             │\n└────────────────────────────────────────┘\n    ↓\nFinal Decision + Log for Model Retraining'
+      },
+      {
+        type: 'h2',
+        text: 'Recommended Approach for Interview'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'If asked in interview, structure answer as:\n\n1. Problem Understanding:\n   - Identify imbalance: 0.5% fraud vs 99.5% legit\n   - Define business constraints: precision vs recall tradeoff\n   - Choose metrics: Precision, Recall, F1, AUC-ROC (NOT accuracy)\n\n2. Data Handling:\n   - Apply class weights (always)\n   - Optional: Light SMOTE if severe imbalance\n   - Train-Test split respecting temporal order (no data leakage)\n\n3. Model Selection:\n   - Start: Logistic Regression (baseline, interpretable)\n   - Strong: Random Forest (robustness + feature importance)\n   - Best: XGBoost (accuracy on tabular data)\n   - Fallback: Neural Network (if complex patterns expected)\n\n4. Optimization:\n   - Tune threshold based on business constraints\n   - Use validation set to find optimal operating point\n   - Monitor Precision-Recall curve\n\n5. Monitoring:\n   - Model drift: Fraud patterns change over time\n   - Retraining strategy: Weekly or when performance drops\n   - Explainability: Log reasons for each fraud decision'
+      },
+      {
+        type: 'h2',
+        text: 'Key Takeaway'
+      },
+      {
+        type: 'divider' },
+      {
+        type: 'paragraph',
+        text: 'Fraud detection with imbalanced data requires three-pronged approach: (1) Handle imbalance via class weights + optional SMOTE/undersampling. (2) Choose models: Logistic Regression (baseline), Random Forest (robust), or XGBoost (best accuracy). (3) Tune for business: Use Precision/Recall/F1 metrics, not accuracy. Lower decision threshold to catch more fraud at cost of false positives. Combine ML with rule-based checks and additional verification for production systems.'
+      }
+    ]
+  },
+  {
+    slug: 'meeting-transcription-system-design',
+    title: 'Designing a Meeting Transcription Service: High-Level Architecture',
+    subtitle: 'System components for accurate transcription, speaker differentiation, and searchable transcript generation.',
+    date: 'June 21, 2026',
+    readTime: '7 min read',
+    tags: ['System Design', 'Speech Recognition', 'Audio Processing', 'Interview Prep'],
+    coverEmoji: '📝',
+    content: [
+      {
+        type: 'callout',
+        emoji: '🎯',
+        text: 'Meeting transcription requires three core capabilities: (1) Accurate speech-to-text (ASR), (2) Speaker identification (who said what), and (3) Searchable indexing. This article outlines the high-level system components and their interactions.'
+      },
+      {
+        type: 'h2',
+        text: 'System Overview'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'User Records/Uploads Meeting Audio\n    ↓\n┌─────────────────────────────────────────────────────┐\n│ Audio Ingestion & Preprocessing                     │\n│ (format conversion, quality check, VAD)             │\n└─────────────────────────────────────────────────────┘\n    ↓\n┌─────────────────────────────────────────────────────┐\n│ Parallel Processing:                                │\n│  ├─ Speech Recognition (ASR)                       │\n│  ├─ Speaker Diarization                            │\n│  └─ Voice Activity Detection                       │\n└─────────────────────────────────────────────────────┘\n    ↓\n┌─────────────────────────────────────────────────────┐\n│ Speaker Attribution & Merging                       │\n│ (align ASR output with speaker identities)         │\n└─────────────────────────────────────────────────────┘\n    ↓\n┌─────────────────────────────────────────────────────┐\n│ Post-Processing & Structuring                       │\n│ (punctuation, paragraph breaks, speaker labels)    │\n└─────────────────────────────────────────────────────┘\n    ↓\n┌─────────────────────────────────────────────────────┐\n│ Indexing & Storage                                  │\n│ (database + search index)                           │\n└─────────────────────────────────────────────────────┘\n    ↓\n┌─────────────────────────────────────────────────────┐\n│ User Interface                                      │\n│ (search, browse, export transcript)                │\n└─────────────────────────────────────────────────────┘\n    ↓\nSearchable Transcript'
+      },
+      {
+        type: 'h2',
+        text: 'Core Components & Their Roles'
+      },
+      {
+        type: 'h3',
+        text: '1. Audio Ingestion & Preprocessing'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Accepts various formats: MP3, WAV, OGG, M4A, WebM',
+          'Normalizes to standard format/sample rate (16kHz mono or stereo)',
+          'Quality checks: Duration, file size, corruption detection',
+          'Splits long meetings into chunks (e.g., 15-min segments) for parallel processing',
+          'Applies Voice Activity Detection (VAD) to filter silence/noise early'
+        ]
+      },
+      {
+        type: 'h3',
+        text: '2. Automatic Speech Recognition (ASR)'
+      },
+      {
+        type: 'paragraph',
+        text: 'Converts audio to text. Critical for accuracy—downstream components depend on quality.'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Role: Generate continuous transcription with timestamps for each word/phrase',
+          'Outputs: Text + timing (e.g., "Hello" [0.5s-0.8s], "everyone" [0.8s-1.1s])',
+          'Challenge: Speaker overlap, accents, domain-specific vocabulary (product names, acronyms)',
+          'Approach: Use commercial APIs (Google Cloud, Azure, AWS) or open-source (Wav2Vec2, Whisper)',
+          'Trade-off: Accuracy vs. latency (real-time vs. offline processing)'
+        ]
+      },
+      {
+        type: 'h3',
+        text: '3. Speaker Diarization'
+      },
+      {
+        type: 'paragraph',
+        text: 'Answers "Who spoke when?" Clusters audio into speaker-specific segments without knowing speaker identities.'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Input: Raw audio with multiple speakers overlapping\nOutput: Timeline with speaker labels\n  Segment 1 [0s-5s]: Speaker_A\n  Segment 2 [5s-12s]: Speaker_B\n  Segment 3 [12s-18s]: Speaker_A\n  (Speaker_A, Speaker_B are anonymous identities)\n\nProcess:\n  1. Extract speaker embeddings (voice signature) every 0.5-2s\n  2. Cluster similar embeddings → groups = speakers\n  3. Smooth transitions (handle brief overlaps)\n  4. Output labeled segments with confidence scores'
+      },
+      {
+        type: 'h3',
+        text: '4. Speaker Attribution (Optional but Valuable)'
+      },
+      {
+        type: 'paragraph',
+        text: 'Maps Speaker_A, Speaker_B to actual names. Requires speaker enrollment or inference.'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Approach 1 (Best): Pre-enrolled speakers—extract voice prints before meeting, match during transcription',
+          'Approach 2 (Fallback): Ask organizer to map speakers post-transcription ("Speaker_A is John", "Speaker_B is Sarah")',
+          'Approach 3 (Advanced): Use meeting metadata (participant list) + speaker embedding to predict names',
+          'Challenge: Multiple speakers with similar voices, heavy accents, audio quality degradation'
+        ]
+      },
+      {
+        type: 'h3',
+        text: '5. ASR + Diarization Merging'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Align timestamps from ASR and Diarization:\n\nASR Output:          Diarization Output:\n  [0s-0.5s] "Hello"     [0s-5s] Speaker_A\n  [0.5s-1.1s] "everyone"  [5s-12s] Speaker_B\n  [1.1s-2s] "welcome"     [12s-18s] Speaker_A\n\nMerged Output:\n  Speaker_A: "Hello everyone welcome"\n  Speaker_B: "Thanks for joining..."\n  Speaker_A: "Let\'s start..."\n\nChallenge: ASR and Diarization may have timing misalignment (~100-500ms drift)'
+      },
+      {
+        type: 'h3',
+        text: '6. Post-Processing & Structuring'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Punctuation restoration: ASR outputs plain text → add periods, commas, question marks',
+          'Paragraph breaks: Split on long pauses (>2s) to create readability',
+          'Noise cleanup: Remove filler words ("um", "uh", "like") optionally',
+          'Coreference resolution: Link pronouns to speakers ("He said..." → "John said...")',
+          'Sentence boundary detection: Help indexing and display'
+        ]
+      },
+      {
+        type: 'h3',
+        text: '7. Indexing & Storage'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Database Schema (simplified):\n  Transcript {\n    id: unique_id\n    meeting_id: reference to meeting\n    created_at: timestamp\n    duration: seconds\n    segments: [\n      {\n        speaker: "John",\n        timestamp_start: 0.5,\n        timestamp_end: 5.2,\n        text: "Hello everyone...",\n        embedding: vector (for similarity search)\n      },\n      ...\n    ]\n  }\n\nSearch Index (Elasticsearch or similar):\n  - Full-text index: speaker name + text content\n  - Timestamp index: fast range queries ("show speaker John at 5-10 minutes")\n  - Embedding index: semantic search ("find segments about Q3 revenue")\n\nOptimization:\n  - Cache frequently accessed transcripts in Redis\n  - Compress old transcripts to cold storage (S3)'
+      },
+      {
+        type: 'h3',
+        text: '8. Search & Retrieval Interface'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Keyword search: "Find all mentions of \'Q3 budget\'"',
+          'Speaker filter: "Show only John\'s segments"',
+          'Time range: "Transcript from minute 5 to 15"',
+          'Semantic search: "Find when we discussed marketing strategy" (embeddings)',
+          'Highlights: Jump to exact timestamp in audio for playback'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Key Design Decisions'
+      },
+      {
+        type: 'h3',
+        text: 'Real-Time vs. Batch Processing'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Real-Time (Streaming):\n  - Process audio as it arrives\n  - Pro: Live captions, low latency (~1-2s)\n  - Con: Complex infrastructure, tricky synchronization\n  - Use: Zoom, Teams, Google Meet\n\nBatch (Offline):\n  - Upload meeting → transcribe after completion\n  - Pro: Better accuracy (full context), parallelization\n  - Con: User waits minutes/hours\n  - Use: Otter.ai, Rev, human transcription services\n\nHybrid Approach (Recommended):\n  - Real-time rough transcription (streaming ASR)\n  - Refinement pass after meeting (full diarization, cleanup)\n  - Trade-off: Low initial latency + high final quality'
+      },
+      {
+        type: 'h3',
+        text: 'Make vs. Buy'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Option 1: Build custom end-to-end\n  - Full control, optimizable\n  - Huge effort: ASR requires 10K+ hours labeled data, diarization R&D\n  - Cost: GPU infrastructure, research team\n  - Timeline: 2+ years\n\nOption 2: Use existing APIs + custom diarization\n  - Use Google Cloud Speech-to-Text (ASR)\n  - Build diarization with Pyannote-audio\n  - Pro: 80% solution in weeks\n  - Con: Dependent on third-party API quality/cost\n\nOption 3: Hybrid / Multi-model\n  - Use multiple ASR providers (Google + AWS)\n  - Ensemble diarization models\n  - Pro: Redundancy, quality improvement\n  - Con: Complexity, cost\n\nRecommendation: Start with Option 2 (APIs + open-source), migrate to Option 1 later as volume justifies'
+      },
+      {
+        type: 'h2',
+        text: 'Scalability & Performance Considerations'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '🔄 Parallelization: Split long meetings into chunks, process independently, merge results',
+          '💾 Storage: Average meeting 1 hour → ~10-15MB transcript + embeddings. 1M meetings → ~10TB (manageable)',
+          '⚡ Latency: 1-hour meeting takes ~5-10 minutes to transcribe on commodity hardware',
+          '🔍 Search Speed: Full-text index retrieves results in <100ms. Semantic search slower (~500ms)',
+          '📈 Scaling: Queue-based architecture (Kafka, SQS) for handling traffic spikes'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Challenges & Trade-offs'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Accuracy: Heavy accents, domain jargon, multiple languages → 85-95% WER (depends on ASR model)',
+          'Speaker overlap: When multiple speakers talk simultaneously → diarization fails',
+          'Cold start: First-time speaker with no enrollment → can\'t attribute name',
+          'Latency: Real-time requires low-latency infrastructure; batch is slower but better quality',
+          'Cost: ASR APIs expensive (~$0.01-0.05 per minute); self-hosted ASR requires GPU ($1-5/hour)'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Interview Tips'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Start high-level: Outline components before diving into implementation',
+          'Clarify requirements: Real-time vs. batch? Pre-enrolled speakers? What accuracy target?',
+          'Discuss trade-offs: Accuracy vs. latency, build vs. buy, cost vs. complexity',
+          'Mention real systems: Zoom uses real-time streaming, Otter uses batch + ML, Google Meet combines both',
+          'Deep dive ready: Be prepared to discuss ASR, diarization, or search in detail if asked'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Key Takeaway'
+      },
+      {
+        type: 'divider' },
+      {
+        type: 'paragraph',
+        text: 'Meeting transcription system requires 5 core components: (1) Audio preprocessing + VAD, (2) ASR for speech-to-text, (3) Speaker diarization for "who spoke when", (4) Attribution + merging to link speakers to text, (5) Indexing + search for retrieval. Scalability achieved via parallelization and queue-based processing. Key trade-off: accuracy (batch processing) vs. latency (real-time streaming). Most cost-effective approach: Use commercial ASR APIs + open-source diarization + custom search/indexing.'
+      }
+    ]
+  },
+  {
+    slug: 'sft-vs-rlhf-dpo-llm-alignment',
+    title: 'Why is alignment (RLHF/DPO) necessary after SFT for LLMs? Limitations and Solutions.',
+    subtitle: 'Understanding why Supervised Fine-Tuning alone fails and how alignment methods address distribution shift, reward gaming, and human preference optimization.',
+    date: 'June 21, 2026',
+    readTime: '9 min read',
+    tags: ['LLMs', 'RLHF', 'DPO', 'Model Alignment', 'Interview Prep'],
+    coverEmoji: '🎯',
+    content: [
+      {
+        type: 'callout',
+        emoji: '🎯',
+        text: 'Supervised Fine-Tuning (SFT) teaches models to mimic examples, but it doesn\'t teach them what humans actually prefer. This is why additional alignment (RLHF, DPO) is critical: it optimizes the model to generate responses humans genuinely want, not just examples that exist in training data.'
+      },
+      {
+        type: 'h2',
+        text: 'What Does SFT Do?'
+      },
+      {
+        type: 'paragraph',
+        text: 'Supervised Fine-Tuning takes a pre-trained language model and trains it on curated examples (prompt, correct_response) pairs, minimizing cross-entropy loss. Result: model learns to predict the next token like the training data.'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'SFT Training:\n  Loss = -log P(correct_token | context)\n  \nExample:\n  Prompt: "Explain quantum computing"\n  Correct Response: "Quantum computers use quantum bits..."\n  \n  Model learns: given "Explain quantum computing",\n  predict "Quantum" with high probability,\n  then "computers", then "use", etc.'
+      },
+      {
+        type: 'h2',
+        text: 'Why SFT Alone is Insufficient'
+      },
+      {
+        type: 'h3',
+        text: 'Problem 1: Distribution Mismatch (Exposure Bias)'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'During SFT training:\n  Model sees: Prompt → Teacher\'s Response\n  Learns: probability of next token given teacher\'s exact history\n  \nDuring inference (deployment):\n  Model generates: Prompt → Model\'s Response\n  Problem: Model generates its own tokens, not teacher\'s\n  If early token is wrong → downstream tokens see different context\n  \nExample:\n  Teacher: "Q: What is 2+2? A: The answer is four."\n  Model learns: P("four" | "The answer is")\n  But model might generate: "The answer is" → WRONG_TOKEN\n  Now model predicts next token given WRONG_TOKEN, not teacher\'s sequence\n  Error compounds: wrong token → worse next token → cascading mistakes\n  \nResult: Inference quality much worse than training quality'
+      },
+      {
+        type: 'h3',
+        text: 'Problem 2: No Reward Signal (Only Examples)'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'SFT limitation:\n  Training signal: "Predict the teacher\'s next token" (yes/no)\n  Missing: "How good is this response compared to alternatives?"\n  \nExample:\n  Prompt: "Explain climate change"\n  Teacher Response: "Climate change is..."\n  \n  SFT sees: maximize likelihood of teacher\'s exact words\n  SFT doesn\'t see:\n    - Alternative responses (good, bad, neutral)\n    - Relative preference ("Response A is better than B")\n    - Human satisfaction (would user like this answer?)\n  \nResult: Model has no notion of quality, only imitation'
+      },
+      {
+        type: 'h3',
+        text: 'Problem 3: One-Token-at-a-Time Learning'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'SFT trains token-by-token:\n  Loss for token 1: -log P(correct_token_1 | prompt)\n  Loss for token 2: -log P(correct_token_2 | prompt + token_1)\n  Loss for token 3: -log P(correct_token_3 | prompt + token_1 + token_2)\n  ...\n  \nProblem: Doesn\'t optimize whole-response quality\n  - Model might output grammatically correct but useless response\n  - Model prioritizes matching training examples over coherence\n  - Can\'t learn: "Long response > short response" for complex questions\n  - Can\'t learn: "Factually correct response > fluent but wrong response"\n  \nExample:\n  Teacher: "Q: Name a programming language. A: Python is popular."\n  SFT: Learns P("Python"), P("is"), P("popular")\n  Doesn\'t learn: Whole response quality or factuality score'
+      },
+      {
+        type: 'h3',
+        text: 'Problem 4: Reward Hacking (if you naively add reward)'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'If you train SFT model to maximize a simple reward:\n  Reward = Length of response\n  \nModel learns to generate: "blah blah blah..." (padding)\n  It exploits the reward function instead of learning useful behavior\n  \nOther examples:\n  - Reward = Training data likelihood → memorization\n  - Reward = Confidence → output always confident (wrong but confident)\n  - Reward = User clicks → clickbait instead of helpful'
+      },
+      {
+        type: 'h3',
+        text: 'Problem 5: No Preference Learning (One Answer per Question)'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'SFT dataset structure:\n  {\n    prompt: "Explain X",\n    response: "X is..."\n  }\n  \nNo information about:\n  - Alternative ways to explain X\n  - Quality ranking of different explanations\n  - Tradeoffs (concise vs. detailed, formal vs. casual)\n  \nSFT learns: "Given prompt, generate this exact response"\nNot: "Given prompt, generate response humans prefer"\n  \nResult: Model can\'t adapt to diverse human preferences'
+      },
+      {
+        type: 'h2',
+        text: 'How RLHF (Reinforcement Learning from Human Feedback) Addresses This'
+      },
+      {
+        type: 'h3',
+        text: 'RLHF Overview'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'RLHF Pipeline:\n  \nStep 1: SFT Pre-training\n  - Train initial model on demonstration data (standard SFT)\n  \nStep 2: Collect Human Preference Data\n  - Generate multiple responses per prompt (e.g., 4-8 variants)\n  - Show humans pairs of responses\n  - Collect preference: "Which response is better?"\n  - Result: Dataset of (prompt, response_A, response_B, preference)\n  \nStep 3: Train Reward Model\n  - Use preference data to train classifier\n  - Input: (prompt, response)\n  - Output: Reward score (scalar)\n  - Learns: \"What responses do humans prefer?\"\n  \nStep 4: RL Training (PPO - Proximal Policy Optimization)\n  - Use SFT model as policy\n  - Optimize: max (Reward - KL divergence penalty)\n  - KL penalty: Don\'t drift too far from SFT model\n  - Result: Model that generates responses humans prefer, while staying close to SFT'
+      },
+      {
+        type: 'h3',
+        text: 'How RLHF Solves SFT Problems'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '✅ Preference Learning: Learns from human rankings, not just imitation',
+          '✅ Whole-Response Quality: Optimizes end-to-end response quality, not token-by-token',
+          '✅ Reward Signal: Explicit reward model captures human preferences',
+          '✅ Flexibility: Can learn different preferences (tradeoff: factuality vs. conciseness)'
+        ]
+      },
+      {
+        type: 'h3',
+        text: 'RLHF Limitations'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '❌ Expensive: Collecting human preferences requires thousands of annotators',
+          '❌ Reward Model Overfitting: Reward model trained on limited data, may not generalize',
+          '❌ KL Divergence Curse: Pulling too far from SFT still requires careful tuning',
+          '❌ Complex Training: RL is notoriously unstable; PPO requires many hyperparameters',
+          '❌ Slow Inference: PPO requires multiple forward passes per generation'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'How DPO (Direct Preference Optimization) is Better'
+      },
+      {
+        type: 'h3',
+        text: 'DPO Overview'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'DPO: Optimize directly on preference pairs WITHOUT training a reward model\n\nKey Insight:\n  Instead of: SFT → Collect preferences → Train reward model → RL training\n  DPO does: SFT → Collect preference pairs → Direct optimization\n  \nFormulation:\n  Loss = -log σ(β * log(P(y_preferred|x) / P(y_rejected|x)))\n  \nInterpretation:\n  - Compare two responses on same prompt\n  - Increase probability of preferred response\n  - Decrease probability of rejected response\n  - β controls strength of preference signal'
+      },
+      {
+        type: 'h3',
+        text: 'DPO Advantages over RLHF'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '⚡ Simpler: No reward model needed, no RL training (just supervised learning)',
+          '💰 Cheaper: Skip reward model training → fewer compute resources',
+          '🎯 More Stable: Supervised learning is more stable than RL',
+          '🚀 Faster: Direct gradient updates, no multiple forward passes',
+          '📊 Better Performance: Often matches or beats RLHF (empirically shown in papers)'
+        ]
+      },
+      {
+        type: 'h3',
+        text: 'DPO Drawbacks'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '❌ Still needs preference data: Must collect human preferences (like RLHF)',
+          '❌ Distribution assumption: Assumes preference data reflects real-world distribution',
+          '❌ Mode collapse: May amplify certain preferences, reduce diversity',
+          '❌ Newer: Less battle-tested than RLHF in production'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'RLHF vs. DPO: Direct Comparison'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Aspect              RLHF                    DPO\n────────────────────────────────────────────────────────────\nComplexity          High (RL + reward model) Low (supervised)\nTraining Time       Weeks                   Days\nStability           Tricky (RL unstable)    Stable\nCost                High                    Medium\nPerformance         Strong                  Comparable/Better\nProduction Maturity Proven (ChatGPT, GPT-4) Emerging (Llama 2)\nRequires Preferences Yes                     Yes\nScalability         Scales with compute      Scales linearly'
+      },
+      {
+        type: 'h2',
+        text: 'Other Alignment Methods (Brief)'
+      },
+      {
+        type: 'h3',
+        text: 'IPO (Identity Preference Optimization)'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Similar to DPO but with different loss function',
+          'Simpler theoretical foundation',
+          'Performance comparable to DPO'
+        ]
+      },
+      {
+        type: 'h3',
+        text: 'SLiC-HF (Supervised Learning for Internet Citation preferences)'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Uses citation patterns as preference signal',
+          'Scalable: no manual annotation needed',
+          'Trade-off: less direct human preference'
+        ]
+      },
+      {
+        type: 'h3',
+        text: 'Constitutional AI (CAI)'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Model generates own preferences based on constitution (rules)',
+          'Reduces need for human annotation',
+          'Trade-off: alignment defined by rules, may not match real human preferences'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Real-World Pipeline'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Typical LLM post-training (2024+):\n\n1. Pre-training\n   - Unsupervised learning on massive text corpus\n   - Result: Base model (capable but unaligned)\n\n2. SFT Phase\n   - Train on curated (prompt, response) pairs\n   - ~10k-100k examples from human annotators\n   - Result: Instruction-following model\n\n3. Alignment Phase (Choose one or both):\n   Option A: RLHF\n     - Collect preferences on SFT outputs\n     - Train reward model\n     - PPO training loop\n     - Result: Human-preferred model\n   \n   Option B: DPO (Increasingly preferred)\n     - Collect preferences on diverse response pairs\n     - Direct optimization on preference loss\n     - Result: Human-preferred model (faster, simpler)\n\n4. Evaluation & Iteration\n   - Test on benchmarks (MMLU, HumanEval, etc.)\n   - Red-teaming for adversarial inputs\n   - Repeat 2-3 if needed\n\n5. Deploy'
+      },
+      {
+        type: 'h2',
+        text: 'Interview Tips'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Start with SFT limitation: "SFT only teaches imitation, not preference"',
+          'Explain exposure bias: "Inference distribution differs from training distribution"',
+          'Contrast RLHF approach: "Use human preferences as reward signal"',
+          'Mention DPO innovation: "Skip reward model, optimize directly on preferences"',
+          'Discuss tradeoffs: "RLHF proven but complex; DPO simpler but newer"',
+          'Real examples: "GPT-4 uses RLHF; Llama 2 uses DPO; newer models may use hybrid"',
+          'Edge cases: "Alignment tax—model may become less diverse. Preference data quality matters."'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Key Takeaway'
+      },
+      {
+        type: 'divider' },
+      {
+        type: 'paragraph',
+        text: 'SFT teaches models to imitate training examples but fails to capture human preferences, suffers from exposure bias, and doesn\'t optimize whole-response quality. RLHF addresses this via reward modeling + RL, but is complex and expensive. DPO simplifies alignment by directly optimizing on preference pairs without a separate reward model—equally effective but faster and more stable. Modern LLMs combine both: SFT for instruction-following, then RLHF or DPO for human preference alignment. Key insight: alignment is necessary because the training objective (imitation) differs from the deployment objective (human satisfaction).'
+      }
+    ]
+  },
+  {
+    slug: 'multi-query-attention-mqa',
+    title: 'What is Multi-Query Attention (MQA) in LLMs, and why do people use it?',
+    subtitle: 'Understanding how Multi-Query Attention reduces memory overhead and accelerates LLM inference while trading off model capacity.',
+    date: 'June 21, 2026',
+    readTime: '8 min read',
+    tags: ['LLMs', 'Attention Mechanisms', 'Inference Optimization', 'Interview Prep'],
+    coverEmoji: '⚡',
+    content: [
+      {
+        type: 'callout',
+        emoji: '🎯',
+        text: 'Multi-Query Attention (MQA) is an optimization technique that reduces memory and compute during LLM inference by sharing key/value (KV) caches across multiple query heads. Trade-off: slight quality loss for 5-10x faster inference and dramatically less memory usage.'
+      },
+      {
+        type: 'h2',
+        text: 'Background: Standard Multi-Head Attention'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Standard Multi-Head Attention (MHA):\n\nFor each token position:\n  - Query (Q): n_heads × d_k dimensions\n  - Key (K): n_heads × d_k dimensions\n  - Value (V): n_heads × d_k dimensions\n  \nAttention(Q, K, V) = softmax(Q @ K.T / sqrt(d_k)) @ V\n\nEach of n_heads heads has its own Q, K, V projections\nResult: High quality attention (each head attends differently)\nCost: Store K and V for every token in every head\n\nExample:\n  Sequence length: 2000 tokens\n  n_heads: 32\n  d_k: 64 (per head)\n  \n  KV cache size = 2 × 2000 × 32 × 64 = 8.2 MB per layer\n  For 80 layers: ~650 MB just for KV cache per token batch\n  This scales linearly with sequence length (slow decoding)'
+      },
+      {
+        type: 'h2',
+        text: 'The KV Cache Problem in LLM Inference'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'LLM Decoding (Autoregressive Generation):\n\nGenerate one token at a time:\n  Step 1: Input prompt (e.g., 500 tokens) → predict token 501\n  Step 2: Rerun attention on all 501 tokens → predict token 502\n  Step 3: Rerun attention on all 502 tokens → predict token 503\n  ...\n  Step 2000: Rerun attention on all 2000 tokens → predict token 2001\n\nNaive approach: Recompute attention for all 1-500 tokens each step\n  - Redundant: We already computed attention for token 1-500\n  - Slow: O(n²) complexity per new token\n\nOptimization: Cache KV projections\n  - Store K, V for tokens 1-500 (first step)\n  - Reuse cached K, V for step 2, only compute K, V for token 501\n  - Much faster: O(n) per token, not O(n²)\n\nProblem: KV cache grows with sequence length\n  - Generating 2000 tokens → KV cache for 2000 tokens\n  - Modern LLMs: Context up to 8k, 32k, 100k+ tokens\n  - KV cache becomes bottleneck: memory usage, memory bandwidth'
+      },
+      {
+        type: 'h2',
+        text: 'The Multi-Query Attention (MQA) Solution'
+      },
+      {
+        type: 'h3',
+        text: 'Core Idea: Share Key/Value Across Heads'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Standard MHA:\n  Q: n_heads × d_k\n  K: n_heads × d_k  ← Different K for each head\n  V: n_heads × d_k  ← Different V for each head\n\nMulti-Query Attention (MQA):\n  Q: n_heads × d_k\n  K: 1 × d_k        ← SAME K shared across ALL heads\n  V: 1 × d_k        ← SAME V shared across ALL heads\n\nComputation:\n  attention_head_i = softmax(Q_i @ K.T / sqrt(d_k)) @ V\n  \n  All heads use the same K and V, but different Q\n  Result: Different attention patterns (Q differs), but shared KV'
+      },
+      {
+        type: 'h3',
+        text: 'Memory Savings: The Math'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Standard MHA KV cache:\n  Cache size per layer = seq_length × n_heads × (d_k + d_v)\n  Example: 2000 × 32 × 128 = 8.2 MB per layer\n  80 layers: ~650 MB\n\nMQA KV cache:\n  Cache size per layer = seq_length × 1 × (d_k + d_v)\n  Example: 2000 × 1 × 128 = 0.256 MB per layer\n  80 layers: ~20 MB\n  \n  Reduction factor: 32 (n_heads) = 32x smaller\n  \nPractical impact:\n  - MHA can fit ~100 concurrent users on A100 GPU\n  - MQA can fit ~1000 concurrent users (10x more)\n  - Memory bandwidth: KV cache memory access is often bottleneck\n  - Smaller cache → better cache locality → faster inference'
+      },
+      {
+        type: 'h2',
+        text: 'Why Use MQA? (Benefits)'
+      },
+      {
+        type: 'h3',
+        text: '1. Inference Speed (5-10x faster)'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Reduced memory footprint → fits in GPU cache more often',
+          'Lower memory bandwidth requirement during decoding',
+          'Batch size can be larger (more throughput per second)',
+          'Real-world: Generating 100 tokens with MQA ~5-10x faster than MHA'
+        ]
+      },
+      {
+        type: 'h3',
+        text: '2. Memory Efficiency (32x smaller cache)'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Smaller GPUs can run inference (A10 instead of A100)',
+          'Mobile/edge deployment feasible',
+          'Reduced cost: cheaper hardware, less power consumption'
+        ]
+      },
+      {
+        type: 'h3',
+        text: '3. Longer Context Windows'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'MHA with 8k context:\n  KV cache for 8000 tokens × 32 heads × 128 dims = 33 MB per layer\n  80 layers: ~2.6 GB\n  \nMQA with 100k context:\n  KV cache for 100k tokens × 1 head × 128 dims = 12.8 MB per layer\n  80 layers: ~1 GB (same or less!)\n  \nResult: MQA enables longer context without extra memory'
+      },
+      {
+        type: 'h3',
+        text: '4. Production Deployment Feasibility'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Real-time serving: Faster inference → lower latency',
+          'Cost-effective: Fewer GPUs needed to serve same load',
+          'Scalability: Can serve more concurrent users'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Trade-off: Quality Loss'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Why does MQA hurt quality?\n\nStandard MHA:\n  Each head specializes: some attend to previous words, some to syntax, etc.\n  Different K, V allow diversity in what each head learns\n  \nMQA:\n  All heads share K, V: less diversity, less specialization\n  Each head still learns different Q (different queries)\n  But all query the SAME K, V\n  \nResult: Less modeling capacity\n  - ~3-10% quality drop vs. MHA (measured on benchmarks)\n  - Noticeable but not dramatic\n  - Trade-off worthwhile for most deployments'
+      },
+      {
+        type: 'h2',
+        text: 'Grouped-Query Attention (GQA): The Middle Ground'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'MQA extreme: 1 K, 1 V shared (32x reduction, more quality loss)\nMHA baseline: 32 K, 32 V per head (no reduction, best quality)\n\nGrouped-Query Attention (GQA):\n  Q: n_heads (e.g., 32) heads\n  K: n_groups (e.g., 8) groups\n  V: n_groups (e.g., 8) groups\n  \nEach group of heads shares K, V:\n  Heads 0-3 share K, V from group 0\n  Heads 4-7 share K, V from group 1\n  ...\n  Heads 28-31 share K, V from group 7\n  \nBenefit: 4x reduction (32/8) while maintaining quality closer to MHA\nTrade-off: Inference still fast, quality loss minimal\n\nGQA Performance:\n  - ~90% of quality vs. MHA\n  - ~4-8x faster than MHA\n  - Used in Llama 2, GPT-4 (reportedly)'
+      },
+      {
+        type: 'h2',
+        text: 'When to Use What?'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Decision Tree:\n\n1. Training a new model (no inference latency constraint)?\n   → Use Standard MHA\n   → Best quality, train once, worth the cost\n   \n2. Deployed inference (real-time serving)?\n   → Use GQA (Grouped-Query Attention)\n   → ~4-8x speedup, minimal quality loss\n   → Increasingly standard choice (Llama 2, GPT-4)\n   \n3. Extreme constraint (mobile, edge, cost-critical)?\n   → Use MQA (Multi-Query Attention)\n   → ~32x speedup, ~3-10% quality loss\n   → Acceptable if quality is not critical\n   → Used in: Falcon 40B, PaLM 2'
+      },
+      {
+        type: 'h2',
+        text: 'Real-World Implementations'
+      },
+      {
+        type: 'h3',
+        text: 'Models Using MQA'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Falcon 40B (TII): MQA for 40B model, fast inference',
+          'PaLM 2: Google\'s model uses variants of MQA',
+          'T5 with MQA: Research models for efficient serving'
+        ]
+      },
+      {
+        type: 'h3',
+        text: 'Models Using GQA (More Common Now)'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Llama 2: GQA for better efficiency',
+          'GPT-4 (reportedly): Uses GQA or similar',
+          'Newer open models: Moving toward GQA'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Interview Tips'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Explain KV cache problem first: "LLM decoding is memory-bandwidth bound, KV cache grows with sequence"',
+          'Contrast MHA vs. MQA: "MHA: different K, V per head. MQA: same K, V across all heads"',
+          'Quantify benefits: "32x smaller cache, 5-10x faster inference"',
+          'Mention trade-off: "MQA loses ~3-10% quality due to reduced capacity"',
+          'Introduce GQA: "Middle ground: group heads, share K, V within group. 4-8x speedup, minimal quality loss"',
+          'Use cases: "MQA for edge/mobile. GQA for production. MHA for training or quality-critical."',
+          'Distinguish from other optimizations: "Different from quantization, distillation, pruning—these are orthogonal"'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Key Takeaway'
+      },
+      {
+        type: 'divider' },
+      {
+        type: 'paragraph',
+        text: 'Multi-Query Attention (MQA) reduces KV cache memory by sharing key/value projections across all query heads, enabling 5-10x faster inference with ~32x smaller cache. Trade-off: 3-10% quality loss due to reduced model capacity. Grouped-Query Attention (GQA) is the practical middle ground: groups of heads share KV, achieving 4-8x speedup with minimal quality loss. MQA ideal for mobile/edge; GQA standard for production inference; MHA best for training. As LLM inference becomes production bottleneck, attention mechanisms like GQA/MQA increasingly critical for deployment efficiency.'
+      }
+    ]
+  },
+  {
+    slug: 'gans-vaes-diffusion-models-overview',
+    title: 'Overview of GANs, VAEs, and Diffusion Models: Core Principles and Key Differences',
+    subtitle: 'Understanding three major generative model families—their architectures, objectives, and trade-offs.',
+    date: 'June 21, 2026',
+    readTime: '10 min read',
+    tags: ['Generative Models', 'Deep Learning', 'Machine Learning', 'Interview Prep'],
+    coverEmoji: '🎨',
+    content: [
+      {
+        type: 'callout',
+        emoji: '🎯',
+        text: 'Generative models learn to create new data samples (images, text, etc.). Three major families exist: GANs (adversarial), VAEs (variational), and Diffusion Models (iterative denoising). Each takes a fundamentally different approach to learning and generation.'
+      },
+      {
+        type: 'h2',
+        text: 'Generative Modeling: The Problem'
+      },
+      {
+        type: 'paragraph',
+        text: 'Goal: Learn distribution p(x) from training data, then sample new x ~ p(x). Challenges: High-dimensional data (images: 256×256×3 = 196k dimensions), multimodal distribution (many valid outputs), computational efficiency.'
+      },
+      {
+        type: 'h2',
+        text: 'GANs (Generative Adversarial Networks)'
+      },
+      {
+        type: 'h3',
+        text: 'Core Principle: Adversarial Game'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Two neural networks compete:\n\n1. Generator (G):\n   - Input: Random noise z ~ N(0, I)\n   - Output: Fake sample x_fake = G(z)\n   - Goal: Fool discriminator (generate realistic samples)\n\n2. Discriminator (D):\n   - Input: Real sample x_real or fake x_fake\n   - Output: Probability this is real [0, 1]\n   - Goal: Distinguish real from fake\n\nGame Theory:\n  Generator tries to maximize: E[log D(G(z))]\n  Discriminator tries to maximize: E[log D(x_real)] + E[log(1 - D(x_fake))]\n  \nEquilibrium: G generates perfect samples, D can\'t tell real from fake (50-50)'
+      },
+      {
+        type: 'h3',
+        text: 'Architecture'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Generator (Deconvolutional Network):\n  Random z (e.g., 100-dim) \n    ↓ (Fully Connected)\n  4×4×512 feature maps\n    ↓ (Transpose Conv)\n  8×8×256\n    ↓ (Transpose Conv)\n  16×16×128\n    ↓ (Transpose Conv)\n  32×32×64\n    ↓ (Transpose Conv)\n  64×64×3 (RGB Image)\n\nDiscriminator (Convolutional Network):\n  64×64×3 image\n    ↓ (Conv)\n  32×32×64\n    ↓ (Conv)\n  16×16×128\n    ↓ (Conv)\n  8×8×256\n    ↓ (Conv)\n  4×4×512\n    ↓ (Fully Connected)\n  1 (Real/Fake probability)'
+      },
+      {
+        type: 'h3',
+        text: 'Training: Alternating Optimization'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Loop:\n  1. Train Discriminator (k steps):\n     - Sample real x_real from training data\n     - Sample fake x_fake = G(z) with random z\n     - Update D to maximize: log D(x_real) + log(1 - D(x_fake))\n     \n  2. Train Generator (1 step):\n     - Sample random z\n     - Update G to maximize: log D(G(z))\n     \n  3. Repeat until convergence\n  \nResult: Adversarial process pushes G toward real data distribution'
+      },
+      {
+        type: 'h3',
+        text: 'Advantages'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '✅ Fast sampling: Generator is single forward pass (very fast inference)',
+          '✅ High-quality outputs: Direct adversarial training on sample quality',
+          '✅ No explicit probability model needed (implicit distribution)'
+        ]
+      },
+      {
+        type: 'h3',
+        text: 'Disadvantages'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '❌ Training instability: Adversarial game can diverge or collapse',
+          '❌ Mode collapse: Generator learns to produce limited variety (same few samples repeatedly)',
+          '❌ No likelihood: Can\'t evaluate p(x) for data, only generate',
+          '❌ Hyperparameter sensitive: Architecture, learning rates, batch size all critical'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'VAEs (Variational Autoencoders)'
+      },
+      {
+        type: 'h3',
+        text: 'Core Principle: Probabilistic Latent Space'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Key Insight: Learn to encode data into latent space z, then decode back\n\nArchitecture:\n  Encoder: x → distribution over z (μ, σ)\n  Latent space: z (continuous, normally distributed)\n  Decoder: z → reconstruction of x\n\nGeneration:\n  1. Sample z ~ N(0, I) from standard normal\n  2. Decode: x = Decoder(z)\n  3. Get new sample similar to training distribution'
+      },
+      {
+        type: 'h3',
+        text: 'Objective: ELBO (Evidence Lower Bound)'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'VAE Loss (ELBO):\n  L = E_q(z|x)[log p(x|z)] - KL(q(z|x) || p(z))\n      ↑ Reconstruction term      ↑ Regularization term\n\nInterpretation:\n  1. Reconstruction: Encode x → z, decode z → x_recon, minimize MSE\n     (autoencoder objective: compress without information loss)\n     \n  2. KL divergence: Regularize encoded distribution q(z|x) toward prior p(z)\n     (pushes latent space toward standard normal, enables sampling)\n     \nTrade-off: Balance reconstruction accuracy vs. latent space regularity\n  - High λ (KL weight): Latent space more regular, worse reconstruction\n  - Low λ: Better reconstruction, latent space less regular'
+      },
+      {
+        type: 'h3',
+        text: 'Architecture'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Encoder:\n  Image x (28×28 for MNIST)\n    ↓ (Conv layers)\n  Latent code\n    ↓ (Split into μ and log σ²)\n  μ (e.g., 20-dim)\n  log σ² (e.g., 20-dim)\n  \nSampling: z = μ + σ * ε, where ε ~ N(0, I)\n\nDecoder:\n  z (20-dim)\n    ↓ (FC layers)\n  Deconvolutional layers\n    ↓\n  Reconstructed image (28×28)\n  \nTotal parameters: Encoder + Decoder'
+      },
+      {
+        type: 'h3',
+        text: 'Advantages'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '✅ Stable training: Direct optimization, no adversarial dynamics',
+          '✅ Interpretable latent space: Can interpolate between samples smoothly',
+          '✅ Has likelihood: Can evaluate p(x) using ELBO',
+          '✅ Theoretically grounded: Variational inference framework'
+        ]
+      },
+      {
+        type: 'h3',
+        text: 'Disadvantages'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '❌ Blurry outputs: Reconstruction loss leads to averaging (mode-covering)',
+          '❌ Slower sampling: Encode + decode (two networks)',
+          '❌ Posterior collapse: KL term goes to zero, latent z becomes unused',
+          '❌ Quality: Generally lower quality than GANs or Diffusion Models'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Diffusion Models'
+      },
+      {
+        type: 'h3',
+        text: 'Core Principle: Reverse Noising Process'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Forward Process (Data → Noise):\n  x_0 ~ p(data) (real image)\n  x_1 = x_0 + small noise\n  x_2 = x_1 + small noise\n  ...\n  x_T = pure Gaussian noise (after T steps)\n  \nReverse Process (Noise → Data):\n  x_T ~ N(0, I) (sample random noise)\n  x_{T-1} = x_T - small noise (remove noise)\n  x_{T-2} = x_{T-1} - small noise\n  ...\n  x_0 = reconstructed image\n  \nKey Insight: If we learn to reverse the noising process step-by-step,\nwe can generate data by starting from noise and denoising'
+      },
+      {
+        type: 'h3',
+        text: 'Objective: Predict Noise at Each Step'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Training (Denoising Score Matching):\n  1. Sample real image x_0\n  2. Sample timestep t ∈ [1, T] uniformly\n  3. Add noise: x_t = √(ᾱ_t) * x_0 + √(1 - ᾱ_t) * ε, where ε ~ N(0, I)\n  4. Train network to predict ε:\n     ε_pred = ε_θ(x_t, t)\n     Loss = ||ε_pred - ε||²\n     \nIntuition: At each timestep t, the network learns to denoise x_t → x_{t-1}\n\nInference:\n  1. Sample x_T ~ N(0, I)\n  2. For t = T to 1:\n     - ε_pred = ε_θ(x_t, t)\n     - x_{t-1} = (x_t - √(1 - ᾱ_t) * ε_pred) / √(ᾱ_t)\n  3. Output x_0 (generated image)'
+      },
+      {
+        type: 'h3',
+        text: 'Architecture'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'UNet (Standard Diffusion Architecture):\n  Input: x_t (noisy image, e.g., 64×64×3) + timestep embedding\n  \n  Encoder (downsampling):\n    64×64×64 → Conv\n    32×32×128 → Conv\n    16×16×256 → Conv\n    8×8×512 → Conv (bottleneck)\n  \n  Decoder (upsampling with skip connections from encoder):\n    16×16×256 → Upsample + Conv\n    32×32×128 → Upsample + Conv\n    64×64×64 → Upsample + Conv\n  \n  Output: ε_pred (same shape as x_t)\n  \nTimestep Encoding:\n  - Sinusoidal embeddings for t\n  - Injected into residual blocks\n  - Helps network learn time-dependent denoising'
+      },
+      {
+        type: 'h3',
+        text: 'Advantages'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '✅ Highest quality: State-of-the-art image generation (DALL-E, Stable Diffusion)',
+          '✅ Stable training: Supervised denoising, no adversarial dynamics',
+          '✅ Flexible control: Can condition on text, class, inpainting, etc.',
+          '✅ Has likelihood: Can compute log-likelihood via VLB'
+        ]
+      },
+      {
+        type: 'h3',
+        text: 'Disadvantages'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '❌ Slow sampling: Need many denoising steps (50-1000 iterations)',
+          '❌ High compute: Training requires massive compute (A100s, weeks)',
+          '❌ Memory intensive: UNet backbone large, many forward passes during inference',
+          '❌ Complex: Many hyperparameters (noise schedule, timesteps, architecture)'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Side-by-Side Comparison'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Aspect              GANs                VAEs                Diffusion\n────────────────────────────────────────────────────────────────────────\nCore Idea           Adversarial game    Encode/Decode       Iterative denoising\nObjective           Min-max game        ELBO (KL + Recon)   Denoising loss\nTraining Stability  Unstable            Stable              Stable\nSampling Speed      ⚡ Fast (1 pass)    🔸 Medium (2 pass)   🐢 Slow (many steps)\nOutput Quality      🏆 High            👎 Blurry            🏆 Highest\nLikelihood          ❌ No               ✅ Yes (ELBO)        ✅ Yes (VLB)\nMode Coverage       ❌ Mode collapse    ✅ Mode-covering     ✅ Mode-covering\nControlled Gen.     ❌ Hard             🔸 Possible          ✅ Easy (conditioning)\nLatent Space        ❌ Implicit         ✅ Explicit          🔸 Implicit\nInterpretability    ❌ Black-box        ✅ Interpretable      🔸 Multi-step\n────────────────────────────────────────────────────────────────────────\nBest Use Case       Fast generation     Structured data     High-quality images\n                    (e.g., style)       (VAE bottleneck)    (e.g., DALL-E)'
+      },
+      {
+        type: 'h2',
+        text: 'Real-World Examples'
+      },
+      {
+        type: 'h3',
+        text: 'GANs'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'StyleGAN: High-quality face generation',
+          'CycleGAN: Unpaired image-to-image translation',
+          'Used in: Video generation, super-resolution, style transfer'
+        ]
+      },
+      {
+        type: 'h3',
+        text: 'VAEs'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'β-VAE: Disentangled representation learning',
+          'VQ-VAE: Discrete latent codes (used in VQ-GAN)',
+          'Used in: Data compression, representation learning, anomaly detection'
+        ]
+      },
+      {
+        type: 'h3',
+        text: 'Diffusion Models'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'DALL-E 2: Text-to-image generation',
+          'Stable Diffusion: Open-source, runs on consumer GPUs',
+          'Imagen: Google\'s high-quality text-to-image',
+          'Used in: Text-to-image, image inpainting, super-resolution'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Recent Developments'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '⚡ Faster Diffusion: Distillation, few-step models (DDIM, consistency models)',
+          '🔀 Hybrid Models: Diffusion + GAN (GigaGAN), Diffusion + VAE (LDM - Latent Diffusion)',
+          '📊 Score-Based Models: Generalization of diffusion using score functions',
+          '⚙️ Autoregressive + Diffusion: Combine for better performance'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Interview Tips'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Start high-level: "Three families: adversarial (GAN), probabilistic (VAE), iterative (Diffusion)"',
+          'Explain trade-offs: "Speed vs quality—GANs fast but unstable, Diffusion slow but best quality"',
+          'Contrast objectives: "GAN: game theory, VAE: ELBO, Diffusion: denoising loss"',
+          'Discuss mode collapse: "GANs suffer it, VAEs avoid it, Diffusion robust"',
+          'Mention stability: "Diffusion most stable, GANs hardest to train, VAE in-between"',
+          'Use examples: "DALL-E uses Diffusion, StyleGAN for faces, VAE for anomaly detection"',
+          'Trade-off discussion: "GANs: quality/speed, VAEs: blurriness, Diffusion: slow inference"'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Key Takeaway'
+      },
+      {
+        type: 'divider' },
+      {
+        type: 'paragraph',
+        text: 'Three major generative models: GANs use adversarial training for fast, high-quality generation but suffer from instability and mode collapse. VAEs learn interpretable latent spaces with stable training but produce blurry outputs and can\'t evaluate full likelihood. Diffusion models reverse a noising process iteratively, achieving highest quality with stable training, but require many sampling steps making inference slow. Modern trend: Diffusion dominates text-to-image (DALL-E, Stable Diffusion) due to superior quality and controllability. GANs still used for real-time applications. VAEs useful for representation learning and structured latent spaces. Emerging: Hybrid approaches combining benefits of multiple families.'
+      }
+    ]
+  },
+  {
+    slug: 'retrieval-augmented-generation-rag',
+    title: 'What is Retrieval-Augmented Generation (RAG) and how does it improve AI model accuracy?',
+    subtitle: 'Understanding how RAG combines retrieval and generation to reduce hallucinations and provide up-to-date, grounded responses.',
+    date: 'June 21, 2026',
+    readTime: '9 min read',
+    tags: ['LLMs', 'RAG', 'Information Retrieval', 'NLP', 'Interview Prep'],
+    coverEmoji: '🔍',
+    content: [
+      {
+        type: 'callout',
+        emoji: '🎯',
+        text: 'Retrieval-Augmented Generation (RAG) addresses a critical limitation of LLMs: they generate plausible-sounding but factually incorrect responses (hallucinations). RAG augments LLMs with retrieved documents, grounding responses in actual knowledge and dramatically improving accuracy on factual queries.'
+      },
+      {
+        type: 'h2',
+        text: 'The Problem: LLM Hallucinations'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Query: "What did CEO of OpenAI say about AI safety in June 2026?"\n\nStandard LLM Response:\n  "In June 2026, Sam Altman emphasized the importance of...\n   [Plausible but likely made-up details]\n  "\n  \nProblem: LLMs generate fluent text based on training data patterns,\n         not ground truth. If training data ends before June 2026,\n         LLM has no knowledge of actual events (hallucination).\n\nOther LLM Limitations:\n  1. Knowledge cutoff: Training data frozen at specific date\n  2. Domain-specific facts: Medical trials, company policies not in training\n  3. Proprietary information: Internal documents, private data never in training\n  4. Contradictions: Training data may have conflicting information\n  5. Confidence without verification: LLM confident even when wrong'
+      },
+      {
+        type: 'h2',
+        text: 'The Solution: Retrieval-Augmented Generation'
+      },
+      {
+        type: 'h3',
+        text: 'Core Idea: Retrieve Then Generate'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Standard LLM:\n  Query → [LLM] → Response (from memory only)\n\nRAG Pipeline:\n  Query → [Retriever] → Relevant Documents\n                ↓\n           [Generator (LLM)] → Response (grounded in documents)\n\nKey Principle: Augment LLM context with retrieved documents\n  - LLM sees both: original query + retrieved document context\n  - LLM generates response conditioning on retrieved facts\n  - Response is grounded in actual documents (reduced hallucination)'
+      },
+      {
+        type: 'h3',
+        text: 'Complete RAG Architecture'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'End-to-End RAG Pipeline:\n\n1. Offline (Setup Phase):\n   Knowledge Base (PDFs, websites, databases)\n       ↓\n   ┌────────────────────────┐\n   │ Chunking               │ (split into ~500-token chunks)\n   └────────────────────────┘\n       ↓\n   ┌────────────────────────┐\n   │ Embedding              │ (convert chunks to vectors)\n   │ (e.g., text-embedding-3)│ (each chunk → 1536-dim vector)\n   └────────────────────────┘\n       ↓\n   ┌────────────────────────┐\n   │ Vector Store / Index   │ (Pinecone, Weaviate, FAISS)\n   │ (searchable database)  │ (stores vectors + metadata)\n   └────────────────────────┘\n\n2. Online (Query Time):\n   User Query\n       ↓\n   ┌────────────────────────┐\n   │ Query Embedding        │ (embed query to same space)\n   └────────────────────────┘\n       ↓\n   ┌────────────────────────┐\n   │ Retriever              │ (find top-k similar vectors)\n   │ (Similarity Search)    │ (e.g., cosine distance)\n   └────────────────────────┘\n       ↓\n   Retrieved Documents (Context)\n       ↓ (combined with original query)\n   ┌────────────────────────┐\n   │ Generator (LLM)        │ (e.g., GPT-4)\n   │ Prompt: Query + Context│\n   └────────────────────────┘\n       ↓\n   Grounded Response'
+      },
+      {
+        type: 'h2',
+        text: 'How RAG Improves Accuracy'
+      },
+      {
+        type: 'h3',
+        text: '1. Reduces Hallucinations'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Without RAG:\n  Query: "What is the policy on remote work?"\n  LLM: "Company policy allows 3 days remote per week..."\n  Problem: Made up, doesn\'t match actual policy\n\nWith RAG:\n  Query: "What is the policy on remote work?"\n  Retrieved: [Company handbook chunk: "Remote work policy: up to 2 days...\"]\n  LLM: "According to the company handbook, remote work policy...\"\n  Benefit: Response grounded in actual document, no hallucination'
+      },
+      {
+        type: 'h3',
+        text: '2. Handles Out-of-Training-Data Knowledge'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Without RAG (Training cutoff: Dec 2023):\n  Query: "What happened at NIPS 2026?"\n  LLM: [No knowledge, hallucination likely]\n  Accuracy: ~0%\n\nWith RAG (2026 news indexed):\n  Query: "What happened at NIPS 2026?"\n  Retrieved: [Latest articles about NIPS 2026]\n  LLM: "According to recent reports, NIPS 2026 featured...\"\n  Accuracy: High (if documents are authoritative)'
+      },
+      {
+        type: 'h3',
+        text: '3. Enables Domain-Specific and Private Knowledge'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Without RAG:\n  Query: "What are the details of Product X v3.0 API?"\n  LLM: [Trained only on public data, missing internal docs]\n  Accuracy: Low or hallucinated\n\nWith RAG (Internal docs indexed):\n  Query: "What are the details of Product X v3.0 API?"\n  Retrieved: [Internal API documentation]\n  LLM: "According to API docs, the endpoint is...\"\n  Accuracy: High (grounded in actual internal docs)'
+      },
+      {
+        type: 'h3',
+        text: '4. Provides Citations/Attribution'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'With RAG, can track provenance:\n  Response: "The new CEO announced Q3 goals [Source: Q3 Report, page 5]\"\n  \nUser can:\n  - Verify claims in source documents\n  - Trust response (knows where it came from)\n  - Catch hallucinations (response contradicts source)\n  \nExample prompt to LLM:\n  \"Answer based on these documents: [retrieved docs]\n   If you cite information, include [Source: X].\n   If not in documents, say \'Not found in provided documents\'.\"'
+      },
+      {
+        type: 'h2',
+        text: 'RAG Components Deep Dive'
+      },
+      {
+        type: 'h3',
+        text: 'Component 1: Retriever'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Purpose: Find relevant documents for query',
+          'Methods: Dense (semantic embedding similarity), Sparse (BM25 keyword), Hybrid (both)',
+          'Dense Retrieval: Embed query + documents in same vector space, find nearest neighbors',
+          'Sparse Retrieval: TF-IDF / BM25 keyword matching (fast, interpretable)',
+          'Trade-off: Dense better quality, Sparse faster and handles keyword queries'
+        ]
+      },
+      {
+        type: 'h3',
+        text: 'Component 2: Vector Database'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Stores embeddings of all document chunks (searchable index)',
+          'Popular: Pinecone (serverless), Weaviate (open-source), FAISS (local)',
+          'Enables fast nearest-neighbor search (ANN - Approximate Nearest Neighbors)',
+          'Must handle scale: millions to billions of embeddings'
+        ]
+      },
+      {
+        type: 'h3',
+        text: 'Component 3: Generator (LLM)'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Standard LLM (GPT-4, Llama, Claude) with few modifications',
+          'Receives: Original query + Retrieved document context',
+          'Prompt engineering critical: How to format context for LLM?',
+          'Techniques: Few-shot examples, chain-of-thought, retrieval-aware prompts'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'RAG vs. Fine-Tuning: When to Use Each?'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Fine-Tuning:\n  Goal: Update model weights with new knowledge\n  Method: Train on (query, response) pairs\n  Pros:\n    - Knowledge encoded in weights\n    - Fast inference (no retrieval needed)\n    - Can learn patterns across examples\n  Cons:\n    - Expensive (GPU, time, data collection)\n    - Can\'t scale to large knowledge bases\n    - Knowledge becomes stale (hard to update)\n    - Risk of forgetting (catastrophic forgetting)\n\nRAG:\n  Goal: Augment LLM with external documents\n  Method: Retrieve documents, feed to LLM context\n  Pros:\n    - Cheap (no retraining)\n    - Up-to-date (add new docs anytime)\n    - Scales to massive knowledge bases\n    - Explainable (can cite sources)\n    - Easy to update knowledge\n  Cons:\n    - Slower (retrieval + generation)\n    - Retriever quality matters\n    - Context window limited (can\'t use all documents)\n    - May retrieve irrelevant documents\n\nDecision Tree:\n  - Need fast inference + knowledge in domain? → Fine-tune\n  - Need up-to-date or private knowledge? → RAG\n  - Need to cite sources? → RAG\n  - Knowledge changes frequently? → RAG\n  - Best: Hybrid (RAG + Fine-tune) → RAG for recent + FT for common patterns'
+      },
+      {
+        type: 'h2',
+        text: 'Challenges and Trade-offs'
+      },
+      {
+        type: 'h3',
+        text: 'Challenge 1: Retrieval Quality'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Problem: If retriever finds wrong documents, LLM generates wrong response\n\nExample:\n  Query: "What is Einstein\'s theory?"\n  Retrieved (wrong): [Article about Einstein\'s personal life]\n  LLM: Generates response about personal life instead of theory\n  \nSolution: Improve retriever\n  - Better embeddings (use domain-specific models)\n  - Hybrid retrieval (combine dense + sparse)\n  - Re-ranking: Second stage to filter retrieved docs\n  - Query expansion: Reformulate query to catch more relevant docs'
+      },
+      {
+        type: 'h3',
+        text: 'Challenge 2: Context Window Limit'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Problem: LLM has finite context window (e.g., 4k, 8k, 128k tokens)\n\nExample:\n  Query: "Summarize the entire manual?"\n  Manual size: 1M tokens\n  Context window: 8k tokens\n  Retrieved docs: Only top-k chunks fit, miss important info\n  \nSolution: Hierarchical retrieval\n  - Stage 1: Retrieve broad chunks\n  - Stage 2: Retrieve specific details based on broad understanding\n  - Or use longer-context models (GPT-4 Turbo 128k, Claude 100k+)'
+      },
+      {
+        type: 'h3',
+        text: 'Challenge 3: Retriever-Generator Mismatch'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Problem: Retriever and generator not optimized together\n\nExample:\n  Retriever trained on: Document relevance\n  Generator trained on: Response quality\n  Mismatch: Retrieved docs relevant but not optimal for response\n  \nSolution: Joint training\n  - Train retriever to optimize generator performance\n  - Use reinforcement learning to reward relevant retrievals\n  - Or use retriever-generator co-training'
+      },
+      {
+        type: 'h2',
+        text: 'Practical RAG System Example'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Enterprise Document Search (e.g., internal wiki search):\n\n1. Setup:\n   - Internal docs (wikis, PDFs, databases) → 100k documents\n   - Chunk size: 500 tokens\n   - Embedding model: OpenAI text-embedding-3-large\n   - Vector store: Pinecone\n   \n2. User Query:\n   - "What is the budget allocation for Q3 2026?"\n   \n3. Retrieval:\n   - Embed query → 1536-dim vector\n   - Search Pinecone for top-5 similar chunks\n   - Results: [Budget doc, Finance policy, Q3 report, ...]\n   \n4. Prompt LLM:\n   - "Based on these documents: [retrieved chunks]\\n\n     Answer: What is the budget allocation for Q3 2026?\\n\n     If information is in documents, cite the source.\\n\n     If not found, say so explicitly."\n   \n5. Response:\n   - "According to the Q3 2026 Budget Report (Finance/Q3_budget.pdf),\n     the allocation is: Engineering 40%, Product 30%, Sales 20%, etc.\n     [Source: Finance/Q3_budget.pdf, page 2]"\n   \n6. Benefits:\n   - Accurate (grounded in documents)\n   - Up-to-date (new docs added to index)\n   - Citable (know source)\n   - Private (internal docs never in LLM training)'
+      },
+      {
+        type: 'h2',
+        text: 'RAG Variations and Advances'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '🔄 Iterative RAG: Retrieve, generate partial answer, retrieve again (multi-hop)',
+          '🧠 Self-RAG: LLM decides when to retrieve (adaptive retrieval)',
+          '🔀 Multi-hop RAG: Follow chains of documents (question: "Who did X work with?" → retrieve X → retrieve collaborators)',
+          '📊 Fusion RAG: Combine multiple retrieval methods (dense + sparse + keyword)',
+          '🎓 Fine-tuned Retriever: Train retriever on query-document pairs specific to domain'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Real-World Applications'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Customer Support Chatbots: Ground responses in knowledge base, company policies',
+          'Legal Research: Retrieve case law, statutes, search legal databases',
+          'Medical QA: Retrieve clinical guidelines, research papers for doctor queries',
+          'Enterprise Search: Search internal documents, wikis, policies',
+          'Q&A Systems: Jeopardy-style QA, question answering benchmarks'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Interview Tips'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Explain problem first: "LLMs hallucinate and lack access to recent/private knowledge"',
+          'Describe pipeline: "Retrieve relevant documents, feed as context to LLM"',
+          'Discuss accuracy improvement: "Reduces hallucinations, enables grounding in sources"',
+          'Mention trade-offs: "Slower (retrieval step), but cheaper than fine-tuning, handles updates"',
+          'RAG vs FT: "RAG for up-to-date knowledge, FT for learning patterns. Can combine both."',
+          'Challenges: "Retriever quality matters, context window limits, need good chunking strategy"',
+          'Variations: "Multi-hop, self-RAG, iterative retrieval for complex questions"'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Key Takeaway'
+      },
+      {
+        type: 'divider' },
+      {
+        type: 'paragraph',
+        text: 'Retrieval-Augmented Generation (RAG) solves LLM hallucination by augmenting the model with retrieved documents. Pipeline: (1) Chunk and embed documents offline, store in vector DB. (2) At query time, retrieve relevant documents. (3) Feed retrieved context to LLM alongside query. (4) LLM generates grounded response. Benefits: Reduced hallucinations, up-to-date knowledge, domain/private knowledge support, explainability via citations. Trade-off: Slightly slower than pure LLM (retrieval step), but cheaper than fine-tuning and easy to update. RAG is practical solution for production systems requiring factual accuracy and knowledge currency.'
+      }
+    ]
+  },
+  {
+    slug: 'visual-similarity-search-system-design',
+    title: 'Designing a Visual Similarity Search System at Scale: End-to-End Pipeline',
+    subtitle: 'Building a real-time image retrieval system for 1B+ products—architecture, indexing, and retrieval strategies.',
+    date: 'June 21, 2026',
+    readTime: '10 min read',
+    tags: ['System Design', 'Computer Vision', 'Retrieval Systems', 'ML Infrastructure', 'Interview Prep'],
+    coverEmoji: '🔍',
+    content: [
+      {
+        type: 'callout',
+        emoji: '🎯',
+        text: 'Visual similarity search is a core feature in modern e-commerce (Google Lens, Pinterest, Amazon). Challenge: Search 1B+ images in real-time using only visual features, returning most similar products with minimal latency. Requires: feature extraction, efficient indexing (ANN), and multi-stage retrieval/ranking.'
+      },
+      {
+        type: 'h2',
+        text: 'The Problem'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Constraints:\n  - Database: 1 billion+ product images\n  - Query: Single user-provided image (no text, metadata, prefs)\n  - Output: Top-K most visually similar products (real-time)\n  - Latency: <100ms (production requirement)\n  - Feature: Visual only (color, shape, texture, design)\n  \nChallenges:\n  1. Embedding Space: How to represent images? (embeddings must be comparable)\n  2. Scale: 1B vectors, can\'t search all in real-time\n  3. Recall: Find relevant products among billions\n  4. Precision: Rank results properly (best match first)\n  5. Freshness: Add new products daily\n  6. Cost: GPUs, infrastructure expensive at scale'
+      },
+      {
+        type: 'h2',
+        text: 'High-Level End-to-End Architecture'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Visual Similarity Search Pipeline:\n\n┌─────────────────────────────────────────────────────────────┐\n│ OFFLINE (Batch Processing)                                  │\n├─────────────────────────────────────────────────────────────┤\n│                                                              │\n│  Product Catalog (1B+ images)                               │\n│     ↓                                                        │\n│  ┌──────────────────────────────────────┐                   │\n│  │ Feature Extraction                   │                   │\n│  │ (CNN: ResNet, EfficientNet, etc.)   │                   │\n│  │ Input: Image                         │                   │\n│  │ Output: 512/2048-dim embedding       │                   │\n│  └──────────────────────────────────────┘                   │\n│     ↓ (1B embeddings)                                        │\n│  ┌──────────────────────────────────────┐                   │\n│  │ Indexing (ANN)                       │                   │\n│  │ (Faiss, Milvus, Vespa, etc.)        │                   │\n│  │ Build searchable index of embeddings │                   │\n│  └──────────────────────────────────────┘                   │\n│     ↓                                                        │\n│  ┌──────────────────────────────────────┐                   │\n│  │ Metadata Store                       │                   │\n│  │ (product_id → image, price, rating)  │                   │\n│  └──────────────────────────────────────┘                   │\n│                                                              │\n└─────────────────────────────────────────────────────────────┘\n\n┌─────────────────────────────────────────────────────────────┐\n│ ONLINE (Real-Time Query)                                    │\n├─────────────────────────────────────────────────────────────┤\n│                                                              │\n│  User Query Image                                           │\n│     ↓                                                        │\n│  ┌──────────────────────────────────────┐                   │\n│  │ Query Encoding                       │                   │\n│  │ (same CNN feature extractor)         │                   │\n│  │ Output: 512-dim embedding            │                   │\n│  └──────────────────────────────────────┘                   │\n│     ↓                                                        │\n│  ┌──────────────────────────────────────┐                   │\n│  │ Stage 1: Fast Retrieval (ANN)        │                   │\n│  │ Find ~10k candidates via similarity  │                   │\n│  │ (cosine distance in embedding space) │                   │\n│  └──────────────────────────────────────┘                   │\n│     ↓ (~10k candidates)                                      │\n│  ┌──────────────────────────────────────┐                   │\n│  │ Stage 2: Refinement & Re-ranking     │                   │\n│  │ - Fine-grained similarity scoring    │                   │\n│  │ - Apply business rules (stock, price)│                   │\n│  │ - Diversity filtering                │                   │\n│  └──────────────────────────────────────┘                   │\n│     ↓ (~100 top results)                                     │\n│  ┌──────────────────────────────────────┐                   │\n│  │ Results: Top-K Products              │                   │\n│  │ (rank ordered by relevance)          │                   │\n│  └──────────────────────────────────────┘                   │\n│                                                              │\n└─────────────────────────────────────────────────────────────┘'
+      },
+      {
+        type: 'h2',
+        text: 'Core Components'
+      },
+      {
+        type: 'h3',
+        text: 'Component 1: Feature Extraction (Embedding Model)'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Goal: Convert high-dimensional image → compact vector\n\nArchitecture: Pre-trained CNN\n  - ResNet-50: 2048-dim embedding (standard)\n  - EfficientNet-B7: Higher accuracy, higher latency\n  - Vision Transformer (ViT): Better quality but slower\n  - Contrastive models (CLIP, SuperVision): Learn visual semantics\n\nTrade-offs:\n  - Dimension: 512 (fast, small) vs 2048 (better quality, bigger index)\n  - Speed: ResNet-50 ~10ms/image, ViT ~50ms/image\n  - Quality: Semantic vs pixel-level features\n  \nApproach:\n  - Use pre-trained model (ImageNet on ResNet-50)\n  - Optional: Fine-tune on e-commerce data (product similarity)\n  - Normalize embeddings (L2 norm) → unit vectors\n  - Store normalized embeddings for cosine similarity'
+      },
+      {
+        type: 'h3',
+        text: 'Component 2: Indexing with ANN (Approximate Nearest Neighbors)'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Problem: Can\'t compute distance to all 1B embeddings (O(1B) per query)\nSolution: Approximate Nearest Neighbors (ANN) index\n\nApproaches:\n  1. HNSW (Hierarchical Navigable Small World)\n     - Graph-based, excellent recall, faster build\n     - Libraries: Hnswlib (Python), Vespa\n     - Trade-off: ~10-20% overhead vs exact\n  \n  2. FAISS (Facebook AI Similarity Search)\n     - IVF (Inverted File Index) + PQ (Product Quantization)\n     - Fast indexing, distributed\n     - Trade-off: Need to tune parameter k (clusters)\n  \n  3. LSH (Locality-Sensitive Hashing)\n     - Hash similar embeddings to same bucket\n     - Simple, embarrassingly parallelizable\n     - Trade-off: Precision-recall tuning complex\n  \n  4. Learned Indexes\n     - Use ML model to predict candidate range\n     - Research-stage, emerging\n\nRecommendation: HNSW or FAISS IVF\n  - Build time: Few hours (offline)\n  - Query time: ~10-50ms for 10k candidates\n  - Storage: ~8KB per embedding (1B × 8KB = 8TB manageable)'
+      },
+      {
+        type: 'h3',
+        text: 'Component 3: Two-Stage Retrieval & Ranking'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Stage 1: Fast Retrieval (ANN Index)\n  - Goal: Find ~10k candidate products quickly\n  - Method: Approximate nearest neighbor search\n  - Latency: ~20-50ms\n  - Recall: Target 90-95% (retrieve true top-100 items ~90% of time)\n  \nStage 2: Refinement & Re-ranking (Candidate Pool)\n  - Goal: Rank 10k candidates precisely, return top-K\n  - Methods:\n    a) Exact Similarity: Compute exact cosine similarity on all 10k\n    b) Fine-grained Features: Extract additional features\n       (color histogram, shape descriptors, texture)\n    c) Business Rules: Apply filters\n       (in-stock, price range, seller rating)\n    d) Diversity: Reduce duplicate/similar results\n       (show variety of products)\n    e) ML Ranker: Learn ranking from user interactions\n       (click-through, add-to-cart, purchase)\n  - Latency: ~20-30ms\n  \nTotal Latency: ~50-80ms\n  - Query encoding: 10ms\n  - ANN retrieval: 20-50ms\n  - Re-ranking: 20-30ms\n  - Meets <100ms requirement'
+      },
+      {
+        type: 'h3',
+        text: 'Component 4: Metadata & Storage'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'What to store:\n  - Embeddings: Vector DB (Milvus, Vespa, Weaviate)\n  - Product metadata: Fast lookup\n    * product_id → embedding_id\n    * product_id → image URL, price, rating, stock\n    * Use distributed cache (Redis) for hot products\n    * Use database (Cassandra, DynamoDB) for long-tail\n\nInfrastructure:\n  - Vector DB layer: Stores embeddings + metadata\n    * Distributed across shards (product_id % num_shards)\n    * Replication for reliability\n  - Cache layer: Redis for frequently accessed\n  - Database layer: Cassandra/DynamoDB for complete data'
+      },
+      {
+        type: 'h2',
+        text: 'Handling Scale (1 Billion Images)'
+      },
+      {
+        type: 'h3',
+        text: 'Sharding Strategy'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Single machine: 1-100M embeddings\n  → 1B embeddings needs ~10 machines\n  \nSharding by product_id:\n  - Shard 0: product_id % 10 == 0 (100M products)\n  - Shard 1: product_id % 10 == 1 (100M products)\n  - ...\n  - Shard 9: product_id % 10 == 9 (100M products)\n  \nBenefit: Distribute load, parallel indexing, isolated failures\nDownside: Must query all shards for search (fan-out)\n  \nOptimization: Geo-sharding\n  - Shard 0: US products\n  - Shard 1: EU products\n  - User queries relevant shard first'
+      },
+      {
+        type: 'h3',
+        text: 'Indexing at Scale'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Daily updates: ~1M new products, ~100M image updates\n\nApproach 1: Batch Re-indexing\n  - Nightly: Rebuild index from scratch\n  - Pro: Clean state, optimal index\n  - Con: ~1-2 hours downtime, requires new products off until rebuild\n\nApproach 2: Incremental Indexing\n  - Add new embeddings to existing index incrementally\n  - Pro: No downtime, new products searchable immediately\n  - Con: Index degrades over time, periodic rebuild needed\n\nRecommendation: Hybrid\n  - Incremental updates during day\n  - Nightly batch rebuild (off-peak)\n  - Use shadow index during rebuild'
+      },
+      {
+        type: 'h2',
+        text: 'Quality & Metrics'
+      },
+      {
+        type: 'h3',
+        text: 'Retrieval Metrics'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Recall@K: % of true top-K results retrieved by ANN (target 90%+)',
+          'Latency: Query time (target <100ms)',
+          'QPS (Queries Per Second): System throughput',
+          'Index build time: How long to index 1B embeddings'
+        ]
+      },
+      {
+        type: 'h3',
+        text: 'Business Metrics'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Click-through rate (CTR): Do users click results?',
+          'Conversion rate: Do users buy?',
+          'User satisfaction: Ratings on relevance',
+          'Diversity: Are results diverse (not all identical products)?'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Key Design Decisions'
+      },
+      {
+        type: 'h3',
+        text: 'Decision 1: Embedding Dimension'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: '512-dim:     Fast, smaller index (4TB), slightly lower quality\n2048-dim:    Slower, bigger index (16TB), higher quality\n\nRecommendation: 512-dim initially\n  - Reason: ~3-5% quality drop but 4x speedup, 4x storage savings\n  - Can upgrade to 2048 if quality issues\n  - Can use quantization (int8) to reduce size further'
+      },
+      {
+        type: 'h3',
+        text: 'Decision 2: ANN Algorithm'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'HNSW: Best all-around (recall + speed + simplicity)\nFAISS IVF: Scalable, mature, well-tested at scale\nLSH: Simple but harder to tune\n\nRecommendation: HNSW + FAISS hybrid\n  - Use HNSW for build (faster convergence)\n  - Convert to FAISS for serving (better distributed support)'
+      },
+      {
+        type: 'h3',
+        text: 'Decision 3: Feature Model'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Pre-trained ResNet-50: Good baseline\nEfficientNet-B7: Better accuracy (~5%), 2-3x slower\nFine-tuned on e-commerce: Custom triplet loss for product similarity\n\nRecommendation: ResNet-50 initially\n  - Reason: Well-studied, fast inference\n  - Fine-tune if needed based on user feedback\n  - Can A/B test EfficientNet on small % traffic'
+      },
+      {
+        type: 'h2',
+        text: 'Example Query Flow'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'User uploads query image\n    ↓ (50ms)\nQuery image encoded to 512-dim embedding\n    ↓ (10-20ms, fan-out to 10 shards)\nANN search on each shard: top-1000 candidates per shard\n    ↓ (aggregate 10k candidates)\nRe-rank 10k candidates (20-30ms):\n  - Compute exact cosine similarity\n  - Filter: in-stock, price 0-500, rating > 3\n  - Apply diversity: max 2 per brand\n    ↓\nReturn top-100 products\n\nTotal latency: ~80-100ms (acceptable)'
+      },
+      {
+        type: 'h2',
+        text: 'Challenges & Future Improvements'
+      },
+      {
+        type: 'h3',
+        text: 'Current Challenges'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '🔍 Semantic gap: Visual features don\'t capture use-case (red shirt looks like red sofa)',
+          '⚠️ Scalability: Indexing 1B embeddings requires significant infrastructure',
+          '💾 Storage: 8TB for embeddings + metadata (distributed, but expensive)',
+          '📈 Freshness: New products take hours to become searchable',
+          '🎯 Cold start: New seller products have no interaction history'
+        ]
+      },
+      {
+        type: 'h3',
+        text: 'Future Improvements'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '🧠 Multi-modal: Combine visual + text (title, description) embeddings',
+          '📍 Context-aware: Incorporate user location, browsing history',
+          '🎓 Active learning: Learn from user feedback, retrain embeddings',
+          '⚡ Distillation: Compress embedding model for faster inference',
+          '🔗 Semantic linking: Embed product attributes (color, size) in vector space'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Interview Tips'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Start high-level: "Extract embeddings, build ANN index, two-stage retrieval + ranking"',
+          'Discuss scale: "1B images → need distributed indexing, sharding, caching"',
+          'Address latency: "Two-stage: fast ANN (~50ms) + re-ranking (~30ms) = ~80ms total"',
+          'Mention trade-offs: "Embedding dim (512 vs 2048), model choice (ResNet vs ViT)"',
+          'Explain ANN: "Can\'t search all 1B in real-time → approximate nearest neighbors"',
+          'Ranking strategy: "Re-rank top candidates with business rules, diversity filters"',
+          'Be ready to dive deep: "Explain feature extraction, indexing algorithm, ranking model"'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Key Takeaway'
+      },
+      {
+        type: 'divider' },
+      {
+        type: 'paragraph',
+        text: 'Visual similarity search at scale requires: (1) CNN feature extraction (ResNet-50, 512-dim embeddings). (2) Approximate Nearest Neighbors indexing (HNSW/FAISS) for ~50ms candidate retrieval from 1B images. (3) Two-stage pipeline: fast ANN retrieval (~10k candidates) + re-ranking with business logic (~100 top results). (4) Distributed sharding to handle 1B embeddings across 10+ machines. (5) Careful optimization: embedding dimension, ANN parameters, re-ranking criteria. Achieves <100ms latency while maintaining 90%+ recall. Key insight: two-stage retrieval-ranking trades off speed for quality, balancing real-time requirements with accuracy.'
+      }
+    ]
+  },
 
 ];
