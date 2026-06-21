@@ -20307,5 +20307,103 @@ WELLBEING METRICS (not engagement metrics):
       }
     ]
   },
+  {
+    slug: 'lora-low-rank-adaptation',
+    title: 'LoRA (Low-Rank Adaptation): Efficient LLM Fine-Tuning at Scale',
+    subtitle: 'Reduce fine-tuning parameters by 10000x using low-rank matrix decomposition.',
+    date: 'June 21, 2026',
+    readTime: '8 min read',
+    tags: ['LLMs', 'Fine-tuning', 'Parameter Efficiency', 'Interview Prep'],
+    coverEmoji: '🔢',
+    content: [
+      {
+        type: 'callout',
+        emoji: '💡',
+        text: 'LoRA insight: LLM weights change during fine-tuning are low-rank. Instead of updating all 7B parameters in GPT-3, add trainable matrices A (7B x r) and B (r x 7B) where r is small (8-64). Update only 0.03 percent of parameters. Benefit: 10k smaller checkpoint, faster training, no accuracy loss vs. full fine-tuning.'
+      },
+      {
+        type: 'h2',
+        text: 'The Problem: Full Fine-Tuning is Expensive'
+      },
+      {
+        type: 'paragraph',
+        text: 'Full fine-tuning GPT-3 (175B params) costs 1.3M GPU hours on AWS. Checkpoint size 350GB. Requires staying entire model in memory. Most teams cannot afford it. Solution: Fine-tune only a fraction.'
+      },
+      {
+        type: 'h2',
+        text: 'LoRA Mechanism'
+      },
+      {
+        type: 'paragraph',
+        text: 'Original weight update: W_new = W + delta_W. LoRA hypothesis: delta_W is low-rank. Factor as: delta_W = A @ B^T where A is n x r, B is n x r, r << n. During training, freeze W, learn A and B. At inference, compute W_new = W + A @ B^T on-the-fly.'
+      },
+      {
+        type: 'h2',
+        text: 'Parameter Count Comparison'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Full fine-tuning GPT-3: 175B params to learn',
+          'LoRA (r=8): 175B x 8 + 175B x 8 = 2.8B params (1.6 percent)',
+          'LoRA (r=64): 175B x 64 + 175B x 64 = 22.4B params (13 percent)',
+          'Default: r=8 balances efficiency and quality'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Why Low-Rank Works'
+      },
+      {
+        type: 'paragraph',
+        text: 'Empirical observation: fine-tuning only affects small subspace of weight matrix. Intrinsic dimensionality of task-specific changes is low. LoRA captures this subspace with low-rank matrices.'
+      },
+      {
+        type: 'h2',
+        text: 'Training Setup'
+      },
+      {
+        type: 'list',
+        ordered: true,
+        items: [
+          'Initialize A with Gaussian noise, B with zeros (delta_W starts at zero)',
+          'Freeze pretrained weights W',
+          'Learn only A and B using standard gradient descent',
+          'Loss: same as full fine-tuning (classification, language modeling, etc.)',
+          'At inference: compute W_new = W + A @ B^T once per forward pass'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Practical Considerations'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Rank r: Higher r more expressive but more params. Start r=8, adjust.',
+          'Alpha scaling: Multiply A @ B^T by alpha/r for training stability',
+          'Dropout: Apply on A for regularization',
+          'Modules: Apply LoRA to attention layers, skip MLPs (optional)'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Interview Tips'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Core: delta_W is low-rank, factor as A @ B^T',
+          'Scale: 1.6 percent params with r=8 vs. 100 percent full fine-tuning',
+          'Why: Intrinsic dimensionality of task-specific changes is small',
+          'Inference: One extra matrix multiply W + A @ B^T',
+          'Trade-off: Slight accuracy vs. 100x faster, smaller checkpoint'
+        ]
+      }
+    ]
+  },
 
 ];
