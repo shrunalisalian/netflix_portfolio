@@ -23332,5 +23332,160 @@ WELLBEING METRICS (not engagement metrics):
       }
     ]
   },
+  {
+    slug: 'activation-functions-llm-gelu-swish-relu',
+    title: 'Activation Functions in LLMs: Why GELU and Swish Outperform ReLU',
+    subtitle: 'Understand smooth, non-linear functions that enable expressiveness in feed-forward networks.',
+    date: 'June 21, 2026',
+    readTime: '7 min read',
+    tags: ['LLMs', 'Neural Networks', 'Architecture', 'Interview Prep'],
+    coverEmoji: '⚙️',
+    content: [
+      {
+        type: 'callout',
+        emoji: '📈',
+        text: 'Activation function role: Introduce non-linearity between linear layers. Without it, stacking layers = single linear map (useless). Modern LLMs use smooth functions (GELU, Swish) instead of ReLU. Reason: Smooth functions have non-zero gradients everywhere (better gradients for learning). Smooth approximation of step function enables gating behavior. Result: 2-3 percent perplexity improvement on language tasks.'
+      },
+      {
+        type: 'h2',
+        text: 'Why Non-linearity Matters'
+      },
+      {
+        type: 'paragraph',
+        text: 'Feed-forward layer: Input -> Linear -> Activation -> Output. Without activation: f(x) = W2 * W1 * x = (W2*W1) * x (still linear, no expressive power). With activation: f(x) = W2 * act(W1 * x) (non-linear, can learn complex patterns).'
+      },
+      {
+        type: 'h2',
+        text: 'ReLU (Rectified Linear Unit)'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Formula: ReLU(x) = max(0, x)',
+          'Behavior: Pass positive, zero out negative',
+          'Advantage: Simple, fast, works well for CNNs',
+          'Disadvantage: Gradient = 0 for negative inputs (dying ReLU problem)',
+          'Gradient: Piecewise constant (0 or 1), not smooth'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'The Dying ReLU Problem'
+      },
+      {
+        type: 'paragraph',
+        text: 'Issue: If neuron receives negative input during training, ReLU outputs 0. Gradient = 0, weight never updates. Neuron "dies" (always outputs 0 thereafter). More common in very deep networks or with poor initialization. Result: Reduced capacity (some neurons unused).'
+      },
+      {
+        type: 'h2',
+        text: 'GELU (Gaussian Error Linear Unit)'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Formula: GELU(x) = x * Phi(x) where Phi = cumulative Gaussian',
+          'Behavior: Smooth approximation of ReLU, values between -0.17 and 1',
+          'Advantage: Smooth gradients everywhere (no dying issue)',
+          'Used in: BERT, GPT-2, GPT-3 (modern LLMs)',
+          'Gradient: Non-zero, enables better learning signal'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Swish (Self-Gated Linear Unit)'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Formula: Swish(x) = x * sigmoid(beta * x)',
+          'Behavior: Self-gating mechanism (multiply by sigmoid)',
+          'Advantage: Smooth, simple, learned gate parameter',
+          'Used in: EfficientNets, some LLMs (alternative to GELU)',
+          'Gradient: Non-zero, smooth learning dynamics'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Key Differences: GELU vs. Swish vs. ReLU'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'ReLU: Piecewise linear, sharp kink at 0, dying issue',
+          'GELU: Smooth S-curve, gating via error function, no dying',
+          'Swish: Smooth S-curve, gating via sigmoid, learnable coefficient'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Why Smooth Functions Matter for LLMs'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Gradient flow: Smooth gradients propagate better through deep networks',
+          'Learning stability: No dead zones, training more stable',
+          'Approximation theory: Smooth functions approximate step functions (gating)',
+          'Expressiveness: Gating mechanism enables selective information flow'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Empirical Performance'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'ReLU perplexity: Baseline on language modeling',
+          'GELU perplexity: 2-3 percent better on GPT scale models',
+          'Swish perplexity: Similar to GELU, sometimes slightly better',
+          'Difference compounds: Over trillions of parameters, 2-3 percent = significant'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Gating Interpretation'
+      },
+      {
+        type: 'paragraph',
+        text: 'GELU/Swish can be viewed as soft gates: sigmoid/Phi(x) multiplies signal. Value in 0-1 range gates input (some info passes, some blocked). Unlike hard ReLU gate (0 or 1), soft gating allows gradients to flow through all values. Result: More nuanced information routing.'
+      },
+      {
+        type: 'h2',
+        text: 'Computational Cost'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'ReLU: One comparison per element (fastest)',
+          'GELU: Error function approximation (~10-20x slower than ReLU)',
+          'Swish: Sigmoid computation (~5-10x slower than ReLU)',
+          'In practice: Activation cost small relative to matrix multiply (acceptable overhead)'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Interview Tips'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Activation function: Introduce non-linearity, enable expressiveness',
+          'ReLU: Simple, piecewise linear, dying problem',
+          'GELU: Smooth, Gaussian-gated, used in modern LLMs',
+          'Swish: Smooth, sigmoid-gated, learnable coefficient',
+          'Why smooth: Better gradients, no dying issue, gating mechanism'
+        ]
+      }
+    ]
+  },
 
 ];
