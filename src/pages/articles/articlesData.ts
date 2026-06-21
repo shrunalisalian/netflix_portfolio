@@ -21706,5 +21706,128 @@ WELLBEING METRICS (not engagement metrics):
       }
     ]
   },
+  {
+    slug: 'rag-search-capabilities-challenges',
+    title: 'Why Search Matters in RAG: Challenges and Solutions for Effective Retrieval',
+    subtitle: 'Poor search degrades RAG quality. Understand semantic gaps, ranking, and scale.',
+    date: 'June 21, 2026',
+    readTime: '7 min read',
+    tags: ['RAG', 'Search', 'Information Retrieval', 'Interview Prep'],
+    coverEmoji: '🔎',
+    content: [
+      {
+        type: 'callout',
+        emoji: '⚠️',
+        text: 'RAG quality bottleneck: Search, not generation. If retrieval misses relevant documents, LLM cannot answer factually. Example: Query "latest Netflix earnings Q2 2024" retrieves unrelated documents, LLM hallucinates numbers. 80 percent of RAG failures stem from poor retrieval, not bad generation. Invest in search quality first.'
+      },
+      {
+        type: 'h2',
+        text: 'Why Search is Critical'
+      },
+      {
+        type: 'paragraph',
+        text: 'RAG pipeline: Search (retrieve docs) -> Augment (add to prompt) -> Generate. If step 1 fails (retrieves wrong docs), steps 2-3 cannot fix it. LLM works with bad context, generates plausible but false answers. Garbage in, garbage out.'
+      },
+      {
+        type: 'h2',
+        text: 'Key Challenge 1: Semantic Gap'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Query: "How do I fix a leaky faucet?"',
+          'Relevant docs: "Plumbing repair," "Water fixtures," "Tap maintenance"',
+          'Naive keyword search: Misses docs using synonyms (spigot, tap, valve)',
+          'Solution: Dense embeddings (semantic understanding) vs. keyword matching'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Key Challenge 2: Relevance Ranking'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Retrieve top-20 candidates, but rank poorly',
+          'Example: Top-1 result talks about faucet cleaning (irrelevant), top-5 is repair (relevant)',
+          'Problem: Embedding similarity not perfectly aligned with relevance',
+          'Solution: Re-ranking with learned ranker or LLM-based evaluation'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Key Challenge 3: Long-Tail Queries'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Common queries (e.g., "weather today"): Easy to answer, search works well',
+          'Rare queries (e.g., "obscure historical event from 1823"): Hard to find relevant docs',
+          'Problem: Limited training data for rare queries, embeddings less reliable',
+          'Solution: Ensemble methods, fallback to keyword search'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Key Challenge 4: Scale and Latency'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Corpus: 10M documents. Exact search infeasible (O(n))',
+          'Solution: Approximate nearest neighbor (ANN) search (HNSW, IVF)',
+          'Trade-off: Speed (100ms retrieval) vs. accuracy (may miss some relevant docs)',
+          'Tuning: Balance recall and latency'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Key Challenge 5: Outdated Embeddings'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Domain shift: Embeddings trained on general text may not work for specialized domains',
+          'Example: Legal documents, medical papers, code',
+          'Solution: Fine-tune embeddings on domain data or use domain-specific models'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Solutions'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Dense + sparse: Combine semantic (dense) and keyword (sparse) retrieval',
+          'Re-ranking: Retrieve top-20, re-rank with trained ranker',
+          'Domain fine-tuning: Adapt embeddings to domain via contrastive learning',
+          'Query expansion: Expand query with synonyms/related terms',
+          'Hard negatives: Mine challenging negatives for embedding training'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Interview Tips'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '80 percent RAG failures from poor retrieval, not bad LLM',
+          'Challenge 1: Semantic gap (synonyms missed by keyword search)',
+          'Challenge 2: Relevance ranking (top results not most relevant)',
+          'Challenge 3: Long-tail queries (rare, hard to find)',
+          'Solutions: Dense + sparse, re-ranking, domain fine-tuning'
+        ]
+      }
+    ]
+  },
 
 ];
