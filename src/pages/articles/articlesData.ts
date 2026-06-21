@@ -20405,5 +20405,104 @@ WELLBEING METRICS (not engagement metrics):
       }
     ]
   },
+  {
+    slug: 'fraud-detection-transaction-clustering',
+    title: 'Detecting Fraud Through Transaction Clustering: Real-Time Stream Analysis',
+    subtitle: 'Identify suspicious transaction clusters using sorted lists and consecutive triples.',
+    date: 'June 21, 2026',
+    readTime: '6 min read',
+    tags: ['Fraud Detection', 'Stream Processing', 'Algorithms', 'Interview Prep'],
+    coverEmoji: '🚨',
+    content: [
+      {
+        type: 'callout',
+        emoji: '🔍',
+        text: 'Fraud signals: Detect when 3 or more transaction amounts cluster tightly. Query: Given stream of integers, return first triple where max-min is within distance d. Example: d=10, transactions [1, 2, 20, 50, 5, 4]. At transaction 5, sorted=[1, 2, 4, 5]. Triple [1, 2, 5] has range 4 <= 10. Flag as suspicious.'
+      },
+      {
+        type: 'h2',
+        text: 'Problem: Find Tight Clusters in Streams'
+      },
+      {
+        type: 'paragraph',
+        text: 'Stream arrives one transaction at a time. For each new amount, check if any 3 amounts cluster within range d (max-min <= d). Return first cluster found. Naive: check all 3-combinations = O(n^3) per transaction. Better: O(n) per transaction using sorted list.'
+      },
+      {
+        type: 'h2',
+        text: 'Key Insight: Check Consecutive Triples Only'
+      },
+      {
+        type: 'paragraph',
+        text: 'In sorted array, if 3 elements a, b, c satisfy (max-min) <= d, then some consecutive triple also satisfies it. Why: For non-consecutive elements x < y < z, range is z-x. For consecutive at same positions, range is z-x (same). So check only consecutive triples: O(n) per transaction instead of O(n^3).'
+      },
+      {
+        type: 'h2',
+        text: 'Algorithm'
+      },
+      {
+        type: 'list',
+        ordered: true,
+        items: [
+          'Maintain sorted list of all amounts seen',
+          'On new transaction: insert amount using bisect.insort (O(n) insertion)',
+          'Iterate through consecutive triples [i, i+1, i+2]',
+          'For each triple: check if (triple[2] - triple[0]) <= d',
+          'If yes: return triple. Cache result for future calls (prevent re-scanning)'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Time and Space Complexity'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Per transaction: O(n) insertion + O(n) scan = O(n)',
+          'For k transactions: O(k^2) worst case',
+          'Space: O(k) for sorted list',
+          'Optimization: Only check triples involving new element (reduces to O(n) total)'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Example Walkthrough'
+      },
+      {
+        type: 'paragraph',
+        text: 'Stream [1, 2, 20, 50, 5, 4] with d=10. Transaction 1: sorted=[1]. Transaction 2: sorted=[1,2]. Transaction 20: sorted=[1,2,20]. Transaction 50: sorted=[1,2,20,50]. Transaction 5: sorted=[1,2,5,20,50]. Check consecutive: [1,2,5] has range 4 <= 10. Found! Cache [1,2,5]. All future transactions return [1,2,5].'
+      },
+      {
+        type: 'h2',
+        text: 'Edge Cases'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'No cluster: all amounts spread apart (never find triple)',
+          'Cluster at boundary: exactly d range (still valid: max-min <= d)',
+          'Cluster early: first 3 transactions are tight (return immediately)',
+          'Single triple: exactly 3 tight amounts, rest isolated',
+          'Persistent result: once found, return same triple forever'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Interview Tips'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Problem: Detect 3-tuples from stream where range <= d',
+          'Naive O(n^3): check all triples. Optimized O(n): consecutive only.',
+          'Key insight: Sorted array property ensures consecutive triple suffices',
+          'Data structure: Sorted list (bisect.insort in Python)',
+          'Optimization: Cache result to avoid re-scanning'
+        ]
+      }
+    ]
+  },
 
 ];
