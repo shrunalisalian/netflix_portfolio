@@ -20924,5 +20924,121 @@ WELLBEING METRICS (not engagement metrics):
       }
     ]
   },
+  {
+    slug: 'generative-models-gans-vaes-diffusion',
+    title: 'Generative Models Compared: GANs, VAEs, and Diffusion Models',
+    subtitle: 'Architecture, training, and trade-offs for generating images and text.',
+    date: 'June 21, 2026',
+    readTime: '9 min read',
+    tags: ['Generative Models', 'Deep Learning', 'Computer Vision', 'Interview Prep'],
+    coverEmoji: '🎨',
+    content: [
+      {
+        type: 'callout',
+        emoji: '🔄',
+        text: 'Three generative paradigms: (1) GANs: Adversarial game (generator vs. discriminator). Fast generation, training instability. (2) VAEs: Probabilistic encoder-decoder. Stable, slower, blurrier outputs. (3) Diffusion: Reverse noising process. SOTA quality, high inference cost. Use: GANs for speed, VAEs for stable learning, Diffusion for best quality.'
+      },
+      {
+        type: 'h2',
+        text: 'Generative Adversarial Networks (GANs)'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Architecture: Generator G(z) and Discriminator D(x)',
+          'Loss: min_G max_D [D(x) + log(1-D(G(z)))]',
+          'Training: Alternating updates (generator then discriminator)',
+          'Generation: O(1) forward pass (fast)',
+          'Problem: Training instability, mode collapse, convergence issues'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Variational Autoencoders (VAEs)'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Architecture: Encoder (x -> z), Decoder (z -> x)',
+          'Loss: Reconstruction + KL divergence (regularizer for latent distribution)',
+          'Training: Direct maximum likelihood (stable)',
+          'Generation: Sample z from N(0, I), decode',
+          'Advantage: Theoretically grounded, stable. Disadvantage: Blurry outputs'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Diffusion Models'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Idea: Learn to reverse gradual noise addition process',
+          'Forward: x -> x_T by gradually adding noise (Gaussian)',
+          'Reverse: x_T -> x by learning denoising network (neural net predicts noise)',
+          'Training: Predict noise at each step, MSE loss (simple, stable)',
+          'Generation: Start with pure noise, denoise T steps (expensive, ~1000 steps)'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Comparison Table'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'GANs: Fast generation, unstable training, mode collapse',
+          'VAEs: Stable training, slow generation, blurry outputs',
+          'Diffusion: Best quality, slow generation, stable training'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Inference Cost'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'GAN: 1 forward pass (ms)',
+          'VAE: 1 encoder + 1 decoder forward (10-50ms)',
+          'Diffusion: 1000 denoising steps (5-30s on GPU, seconds on CPU)',
+          'Implication: GANs/VAEs for real-time, Diffusion for batch processing'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Applications'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'GANs: Style transfer, fast image generation, video synthesis',
+          'VAEs: Anomaly detection, representation learning, interpolation',
+          'Diffusion: High-quality image generation (DALL-E, Stable Diffusion), text-to-image, inpainting'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Interview Tips'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'GANs: Two networks, adversarial training, fast but unstable',
+          'VAEs: Encoder-decoder, KL regularizer, stable but blurry',
+          'Diffusion: Denoise noise iteratively, SOTA quality but slow',
+          'Trade-off: Speed vs. quality (GAN > VAE > Diffusion)',
+          'Real-world: Diffusion dominates image generation now (DALL-E 3, Midjourney)'
+        ]
+      }
+    ]
+  },
 
 ];
