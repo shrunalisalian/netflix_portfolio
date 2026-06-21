@@ -23778,5 +23778,170 @@ WELLBEING METRICS (not engagement metrics):
       }
     ]
   },
+  {
+    slug: 'probability-threshold-binary-classification',
+    title: 'Probability Thresholds in Binary Classification: Tuning Trade-offs with Precision and Recall',
+    subtitle: 'Understand how threshold selection impacts performance and using binary search for optimization.',
+    date: 'June 21, 2026',
+    readTime: '7 min read',
+    tags: ['Classification', 'Model Evaluation', 'Thresholding', 'Interview Prep'],
+    coverEmoji: '⚖️',
+    content: [
+      {
+        type: 'callout',
+        emoji: '🎯',
+        text: 'Threshold problem: Classifier outputs probability (e.g., 0.72 for "fraud"). Default: threshold 0.5 (>= 0.5 = positive). But 0.5 may be suboptimal. If cost of missed fraud >> false alarms, lower threshold (e.g., 0.3). If cost of false alarms >> missed fraud, raise threshold (0.7). Solution: Binary search to find threshold achieving target recall (e.g., 95 percent). Key: Different applications need different thresholds.'
+      },
+      {
+        type: 'h2',
+        text: 'Default Threshold 0.5 Problem'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Assumption: Probability > 0.5 = positive class',
+          'Reality: Optimal threshold varies by task and cost',
+          'Example: Fraud detection - missing fraud (false negative) costs $1000',
+          'Example: Email spam - false positive (blocking email) costs user annoyance',
+          'One-size-fits-all 0.5 fails for both'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Precision-Recall Trade-off'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Low threshold (0.1): Predict more positives -> high recall, low precision',
+          'High threshold (0.9): Predict fewer positives -> low recall, high precision',
+          'Middle (0.5): Balanced but may not match business needs',
+          'Tuning threshold changes precision-recall, not model quality'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Why Threshold Matters'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Cost asymmetry: False negatives more expensive than false positives (or vice versa)',
+          'Recall requirement: "Catch 95 percent of fraud cases" (regulatory)',
+          'Precision requirement: "Only 2 percent false positives acceptable" (UX)',
+          'Business goal: Different per application (healthcare vs. ads vs. fraud)'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Metrics and Threshold'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Precision: TP / (TP + FP) - of predicted positives, how many correct',
+          'Recall: TP / (TP + FN) - of actual positives, how many detected',
+          'F1: Harmonic mean (balanced)',
+          'Adjusting threshold moves along precision-recall curve'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Threshold Tuning Example'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Threshold 0.1: 1000 TP, 5000 FP (recall 100%, precision 17%)',
+          'Threshold 0.5: 950 TP, 500 FP (recall 95%, precision 65%)',
+          'Threshold 0.9: 800 TP, 50 FP (recall 80%, precision 94%)',
+          'Choose based on cost: If recall critical, use 0.1. If precision critical, use 0.9.'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Binary Search for Threshold'
+      },
+      {
+        type: 'list',
+        ordered: true,
+        items: [
+          'Goal: Find threshold t where recall = target (e.g., 95%)',
+          'Setup: Range [0, 1]. Compute predictions for all samples.',
+          'Binary search: Mid = 0.5. Check recall at 0.5.',
+          'If recall < target: Lower threshold (move left to 0.25)',
+          'If recall > target: Raise threshold (move right to 0.75)',
+          'Repeat until threshold converges'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Why Binary Search Works'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Monotonicity: As threshold increases, recall decreases (monotonic)',
+          'Sorted property: Thresholds ordered by recall',
+          'Binary search exploits this: O(log n) instead of linear search',
+          'Efficient: Only 10 iterations for precision 10^-3'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Algorithm Pseudocode'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'probs = model.predict_proba(X_test)',
+          'low, high = 0.0, 1.0',
+          'while high - low > epsilon:',
+          '  mid = (low + high) / 2',
+          '  predictions = (probs >= mid).astype(int)',
+          '  recall = compute_recall(predictions, y_test)',
+          '  if recall < target: high = mid',
+          '  else: low = mid',
+          'optimal_threshold = (low + high) / 2'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Practical Considerations'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Multiple objectives: Optimize for both recall and precision',
+          'ROC curve: Visualizes threshold trade-offs',
+          'Business constraints: Regulatory (e.g., "recall must exceed 95%")',
+          'Distribution shift: Optimal threshold may change with new data'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Interview Tips'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Default 0.5 threshold suboptimal for most tasks',
+          'Precision-recall trade-off: Adjust threshold to balance',
+          'Binary search: Efficiently find threshold for target recall',
+          'Monotonicity: Recall decreases as threshold increases (key assumption)',
+          'Business-driven: Choose threshold based on cost asymmetry, not 0.5'
+        ]
+      }
+    ]
+  },
 
 ];
