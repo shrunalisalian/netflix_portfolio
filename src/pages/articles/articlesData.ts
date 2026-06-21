@@ -20203,5 +20203,109 @@ WELLBEING METRICS (not engagement metrics):
       }
     ]
   },
+  {
+    slug: 'unix-cd-command-implementation',
+    title: 'Implementing the Unix cd Command: Path Navigation with Stack-Based Parsing',
+    subtitle: 'Navigate filesystem with relative and absolute paths, handling edge cases.',
+    date: 'June 21, 2026',
+    readTime: '7 min read',
+    tags: ['System Design', 'Path Navigation', 'Algorithms', 'Interview Prep'],
+    coverEmoji: '📁',
+    content: [
+      {
+        type: 'callout',
+        emoji: '🎯',
+        text: 'Core challenge: Change directories handling . (current), .. (parent), absolute paths (/usr), relative paths (subdir/../file). Key insight: Use stack to track directory names. Pop on .., push on directory names. Algorithm runs O(n) on path length. Edge case: Trying to pop above root returns None.'
+      },
+      {
+        type: 'h2',
+        text: 'Problem Statement'
+      },
+      {
+        type: 'paragraph',
+        text: 'Simulate Unix cd command. Input: current directory and new path. Output: final canonical path after navigation. Handle . (stay), .. (up), absolute paths (ignore current), relative paths (from current). Return None if invalid (pop above root).'
+      },
+      {
+        type: 'h2',
+        text: 'Algorithm Overview'
+      },
+      {
+        type: 'list',
+        ordered: true,
+        items: [
+          'Determine start point: absolute path starts from /, relative from current_dir',
+          'Parse current_dir into stack of directory names',
+          'Split new_path by / and process each segment',
+          'For each segment: skip empty or ., pop on .., push on directory name',
+          'Rebuild path from stack with / prefix'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Key Insight: Why Stack Works'
+      },
+      {
+        type: 'paragraph',
+        text: 'Stack naturally models directory hierarchy. Push represents entering subdirectory. Pop represents going to parent. Stack top is current directory. When empty, at root. O(n) time where n is path length.'
+      },
+      {
+        type: 'h2',
+        text: 'Examples'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'cd(/home/user, ..) -> /home (pop once)',
+          'cd(/home/user, ../.. ) -> / (pop twice, stack empty)',
+          'cd(/a/b, ../../c) -> /c (pop twice, push c)',
+          'cd(/x/y, /a/b) -> /a/b (absolute: ignore /x/y)',
+          'cd(/, ..) -> None (pop from empty stack)'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Edge Cases'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Consecutive slashes: /home//user normalizes to /home/user (empty segments skipped)',
+          'Dots: /home/user/../.. -> / (multiple parents)',
+          'Absolute overrides: cd(/x/y, /usr) always goes to /usr',
+          'Root edge: cd(/, .) -> /',
+          'Beyond root: cd(/home, ../../../x) -> None'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Time and Space Complexity'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Time: O(n) where n = length of new_path (split and process each segment)',
+          'Space: O(d) where d = depth of resulting path (stack size)'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Interview Tips'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Start simple: test basic cases first (., .., single dir)',
+          'Handle edge: root behavior, invalid paths',
+          'Clarify output: canonical form with leading /, no trailing /',
+          'Explain stack: why not recursion (cleaner, avoids stack overflow)',
+          'Code neat: clear variable names, comments for segment types'
+        ]
+      }
+    ]
+  },
 
 ];
