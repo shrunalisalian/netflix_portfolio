@@ -21373,5 +21373,116 @@ WELLBEING METRICS (not engagement metrics):
       }
     ]
   },
+  {
+    slug: 'precision-document-editing-llm',
+    title: 'Precision Document Editing: Localized LLM Edits Without Full Regeneration',
+    subtitle: 'Edit specific paragraphs in documents while preserving rest of content.',
+    date: 'June 21, 2026',
+    readTime: '7 min read',
+    tags: ['LLMs', 'Document Processing', 'System Design', 'Interview Prep'],
+    coverEmoji: '✏️',
+    content: [
+      {
+        type: 'callout',
+        emoji: '🎯',
+        text: 'Precision editing challenge: User wants to change paragraph 3 of 10-paragraph document. Naive: Regenerate all 10 paragraphs (expensive, 1-2 min latency, risks breaking other paragraphs). Better: Send only paragraph 3 to LLM for editing (50ms latency), stitch back into document. Key: Maintain document structure, preserve cross-references.'
+      },
+      {
+        type: 'h2',
+        text: 'Problem: Regeneration is Expensive'
+      },
+      {
+        type: 'paragraph',
+        text: 'Document: 10 paragraphs, 5000 words. User edits paragraph 3. Full regeneration: 2-5 minutes on GPU, 50x compute. Risk: LLM changes other paragraphs, breaks structure. Better approach: Edit only target paragraph, preserve rest.'
+      },
+      {
+        type: 'h2',
+        text: 'Approach: Localized Editing'
+      },
+      {
+        type: 'list',
+        ordered: true,
+        items: [
+          'Parse document into logical units (paragraphs, sections)',
+          'Identify target paragraph for editing',
+          'Extract context: Previous paragraph + current + next paragraph',
+          'Prompt: "Edit this paragraph while maintaining flow with context" (shorter context)',
+          'Generate replacement paragraph',
+          'Replace in original document, preserve rest'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Context Strategy'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Full context: Previous + current + next (ensures continuity)',
+          'Prevents LLM from contradicting surrounding content',
+          'Total tokens: Usually 500-1000 (vs. 5000 for full document)',
+          'Result: 10-20x faster, same quality'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Challenges'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Cross-references: Paragraph 3 references section 7 (must preserve)',
+          'Length mismatch: Edited para longer/shorter than original (affects layout)',
+          'Tone consistency: LLM might change writing style from original author',
+          'Fact changes: Must validate edited para against document facts'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Solutions'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Cross-references: Pass document structure to LLM (preserve mentions)',
+          'Length: Constrain prompt: "Keep roughly same length as original"',
+          'Tone: Include author tone in system prompt (style examples)',
+          'Fact validation: LLM flags new facts, compare against document'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Advanced: Multi-Paragraph Edits'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'User edits paragraphs 3-5 together (coherence required)',
+          'Include para 2 (before) and para 6 (after) as context',
+          'Edit as unit to maintain coherence across all three',
+          'Cost: Still 2-3x cheaper than full document'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Interview Tips'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Problem: Full document regeneration expensive and risky',
+          'Solution: Extract target paragraph with context, edit locally, stitch back',
+          'Context: Previous + current + next paragraph (maintain flow)',
+          'Constraints: Length, tone, cross-references (in prompt)',
+          'Trade-off: 10-20x speedup, same quality if context sufficient'
+        ]
+      }
+    ]
+  },
 
 ];
