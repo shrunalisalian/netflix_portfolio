@@ -21595,5 +21595,116 @@ WELLBEING METRICS (not engagement metrics):
       }
     ]
   },
+  {
+    slug: 'on-device-llms-mobile-inference',
+    title: 'On-Device LLMs: Running Language Models on Mobile and Edge Devices',
+    subtitle: 'Optimize LLMs for mobile phones with quantization, pruning, and distillation.',
+    date: 'June 21, 2026',
+    readTime: '7 min read',
+    tags: ['Mobile', 'LLMs', 'Optimization', 'Interview Prep'],
+    coverEmoji: '📱',
+    content: [
+      {
+        type: 'callout',
+        emoji: '⚡',
+        text: 'On-device LLM challenge: Run GPT-like model on iPhone (4GB RAM, no GPU). Original model 175B parameters too large. Solution: Quantize to 4-bit (44x smaller), distill to 7B parameters (25x smaller), use efficient architecture (3-4GB total). Benefit: Offline inference, privacy (no server calls), low latency. Trade-off: Quality loss from compression.'
+      },
+      {
+        type: 'h2',
+        text: 'Problem: Models are Too Large'
+      },
+      {
+        type: 'paragraph',
+        text: 'GPT-3: 175B parameters x 2 bytes = 350GB. iPhone: 4GB RAM. GRU can fit ~20M params uncompressed. Need 1000x compression.'
+      },
+      {
+        type: 'h2',
+        text: 'Technique 1: Quantization'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Full precision: FP32 (4 bytes per param). 7B model = 28GB.',
+          'Half precision: FP16 (2 bytes per param). 7B model = 14GB.',
+          '8-bit: 7B model = 7GB. Still too large.',
+          '4-bit: 7B model = 3.5GB. Fits on iPhone with room for cache.',
+          'Trade-off: Quality drops 2-5%, inference latency increases 10-20%'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Technique 2: Knowledge Distillation'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Teacher model: 70B parameter LLM (server)',
+          'Student model: 7B parameter (mobile)',
+          'Train student to mimic teacher outputs (KL divergence loss)',
+          'Result: Small model with teacher-like quality',
+          'Trade-off: Training time, but inference is fast'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Technique 3: Pruning'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Remove unimportant weights (small magnitude)',
+          'Example: 175B params -> 25% pruned -> 131B params',
+          'Structured pruning: Remove entire neurons/layers (hardware-friendly)',
+          'Trade-off: Quality drops slightly, inference gains significant speedup'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Real Examples'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Llama 2 7B: Fits on iPhone, generates at 1 token/sec',
+          'PhoBERT: Vietnamese BERT, 135M params, runs on Android',
+          'MobileBERT: 25M params, optimized for mobile (Android, iOS)',
+          'Qualcomm Snapdragon: Supports on-device AI inference'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Challenges'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Battery life: Inference consumes significant power',
+          'Memory management: Context window limited (512 tokens typical)',
+          'Quality degradation: Extreme compression hurts accuracy',
+          'Model updates: Hard to roll out new models to millions of devices'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Interview Tips'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Problem: Models too large for mobile devices',
+          'Solutions: Quantization (4-bit), distillation (small student), pruning (remove weights)',
+          'Trade-off: 1000x compression, 5-10% quality loss',
+          'Hardware: CPU inference slow, compile for ARM architecture',
+          'Use case: Offline chat, privacy-focused features'
+        ]
+      }
+    ]
+  },
 
 ];
