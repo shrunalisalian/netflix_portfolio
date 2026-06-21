@@ -15996,5 +15996,36 @@ WELLBEING METRICS (not engagement metrics):
       { type: 'paragraph', text: 'Adam combines adaptive learning rates (different per parameter) with momentum. It maintains first moment (gradient average) and second moment (gradient variance), scaling updates inversely with variance. Result: faster convergence, less learning rate tuning, and robust training. Default hyperparameters (lr=0.001, beta1=0.9, beta2=0.999) work well out-of-box. Trade-off: faster training but sometimes slightly worse generalization than SGD+momentum. Standard choice for deep learning, especially when iteration speed matters.' }
     ]
   },
+  {
+    slug: 'cnn-vs-fully-connected-networks',
+    title: 'Convolutional Neural Networks (CNNs) vs Fully Connected Networks',
+    subtitle: 'Understanding the key architectural differences and why CNNs dominate computer vision.',
+    date: 'June 21, 2026',
+    readTime: '5 min read',
+    tags: ['Deep Learning', 'Neural Networks', 'Computer Vision', 'Interview Prep'],
+    coverEmoji: '🖼️',
+    content: [
+      { type: 'h2', text: 'Quick Definition' },
+      { type: 'paragraph', text: 'A Convolutional Neural Network (CNN) is a neural network designed for spatial data (images, video, audio) that uses local filters (kernels) to detect hierarchical features. A Fully Connected (FC) network connects every neuron to every neuron in the next layer—it has no spatial awareness and treats inputs as flat vectors.' },
+      { type: 'h2', text: 'Key Differences' },
+      { type: 'h3', text: 'Connectivity' },
+      { type: 'list', ordered: false, items: ['FC: Every neuron connects to every neuron in the next layer', 'CNN: Local receptive fields; 3×3 or 5×5 filters slide across input'] },
+      { type: 'h3', text: 'Parameters' },
+      { type: 'code', language: 'text', code: 'FC Network (32x32 image):\n  Flatten: 32×32 = 1,024 inputs\n  Dense layer: 1,024 → 512 = 524,288 parameters\n\nCNN:\n  3×3 filter with 32 channels = 9 × 32 = 288 parameters\n  Same filter reused across entire image (weight sharing)' },
+      { type: 'h3', text: 'Weight Sharing' },
+      { type: 'paragraph', text: 'CNN: Same filter weights slide across the entire input. A filter detecting "edges" works everywhere in the image. FC: Every connection has unique weights.' },
+      { type: 'h3', text: 'Spatial Awareness' },
+      { type: 'paragraph', text: 'CNN: Preserves spatial structure; learns that nearby pixels correlate. FC: Flattens input, destroying spatial relationships. Missing pixels can completely change learned features.' },
+      { type: 'h2', text: 'Why CNNs Win for Images' },
+      { type: 'list', ordered: true, items: ['Parameter efficiency: weight sharing reduces overfitting', 'Translation invariance: same feature detected anywhere in image', 'Hierarchical learning: early layers learn edges → later layers learn objects', 'Spatial structure preserved: nearby pixels matter for images'] },
+      { type: 'h2', text: 'Simple Example' },
+      { type: 'code', language: 'text', code: 'FC Network:\n  Input: 32×32 image → flatten to 1,024 vector\n  First layer: 1,024 → 512 neurons\n  Problem: loses spatial info, overfits, needs tons of parameters\n\nCNN:\n  Input: 32×32 image (as 2D)\n  Conv layer: 16 filters of 3×3 each\n  Output: 16 feature maps of 30×30\n  Result: 9×16 = 144 parameters (vs 500K for FC)\n  Learns: edges at position (5,10) → same filter finds edges at (20,15)' },
+      { type: 'h2', text: 'When to Use Each' },
+      { type: 'list', ordered: false, items: ['CNN: Images, video, audio spectrograms, anything with spatial/temporal structure', 'FC: Tabular data, time series without position meaning, small fixed-size inputs'] },
+      { type: 'h2', text: 'Key Takeaway' },
+      { type: 'divider' },
+      { type: 'paragraph', text: 'CNNs use local filters with weight sharing to exploit spatial structure in images. FC networks have no spatial awareness and require exponentially more parameters. For images, CNNs are orders of magnitude more efficient and effective. FC networks still work but are wasteful and prone to overfitting.' }
+    ]
+  },
 
 ];
