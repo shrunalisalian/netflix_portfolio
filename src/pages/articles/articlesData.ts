@@ -18512,5 +18512,145 @@ WELLBEING METRICS (not engagement metrics):
       }
     ]
   },
+  {
+    slug: 'fine-tuning-llm-aws-vpc',
+    title: 'Fine-Tuning LLMs in AWS VPC: Keeping Data Private Without Leaving the Network',
+    subtitle: 'Enterprise architecture for secure LLM fine-tuning where training data never leaves your VPC boundary.',
+    date: 'June 21, 2026',
+    readTime: '10 min read',
+    tags: ['LLMs', 'Fine-Tuning', 'AWS', 'Security', 'System Design', 'Interview Prep'],
+    coverEmoji: '🔐',
+    content: [
+      {
+        type: 'callout',
+        emoji: '🔒',
+        text: 'Enterprise LLM problem: Company has sensitive data (financial records, medical documents, customer data). Wants to fine-tune a large language model to improve domain-specific performance. But third-party LLM providers don\'t allow sensitive data to be sent to their servers. Solution: Run LLM fine-tuning entirely inside your AWS VPC where data never leaves corporate network. Challenge: LLMs are massive (7B-70B parameters), fine-tuning is compute-intensive, need infrastructure to support distributed training, monitoring, versioning, and inference—all within VPC constraints.'
+      },
+      {
+        type: 'h2',
+        text: 'The Problem: Data Privacy vs. LLM Innovation'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Scenario: Financial Services Company\n\nGoal: Fine-tune LLM to understand financial documents, regulations, customer profiles\n       Improve accuracy on domain-specific tasks like report summarization\n\nConstraint: NEVER send customer data outside corporate network\n           Regulation: FINRA, SOX, GDPR compliance\n           Risk: Data breach, regulatory fine, customer trust loss\n\nOptions Explored:\n1. Third-party API (OpenAI, Claude API)\n   Advantage: Easy to use, best-in-class models\n   Problem: Can\'t send sensitive data to their servers\n   \n2. Train on public data, hope it generalizes\n   Problem: Domain-specific performance suffers\n   \n3. Fine-tune entirely in-house on private data\n   Advantage: Data never leaves network, full control\n   Problem: Requires infrastructure, expertise, cost'
+      },
+      {
+        type: 'h2',
+        text: 'Solution: Self-Hosted LLM Fine-Tuning in AWS VPC'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Architecture Layers:\n\n1. Data Layer (VPC Internal)\n   Data sources: Internal databases, file systems\n   Format: Structured (JSON, CSV) + unstructured (PDFs, docs)\n   Sensitive data: Never leaves VPC\n\n2. Preprocessing Layer (EC2/ECS in VPC)\n   Tasks: Clean, tokenize, format training data\n   Output: Training batches in S3 (inside VPC endpoint)\n\n3. Training Layer (SageMaker in VPC)\n   Model: Open-source LLM (Llama 2, Mistral, etc.)\n   Method: LoRA (Low-Rank Adaptation) or full fine-tuning\n   Compute: GPU instances (p3.8xlarge, g4dn.12xlarge)\n   Storage: EBS volumes for model checkpoints\n\n4. Monitoring Layer\n   CloudWatch: Training metrics, loss curves, GPU utilization\n   Custom logging: Training progress, data quality checks\n\n5. Inference Layer (VPC)\n   Endpoint: SageMaker endpoint in VPC\n   Access: Application servers call endpoint privately\n   No internet traffic for inference\n\n6. Model Registry (Private)\n   Store versions: Checkpoints, metadata, performance metrics\n   Version control: Track which version deployed where'
+      },
+      {
+        type: 'h2',
+        text: 'Component 1: VPC Network Architecture'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'VPC Configuration:\n\n1. Subnets\n   Private subnet: Training instances, SageMaker, S3 VPC endpoints\n   No internet gateway: Zero public IP addresses\n   NAT gateway: (Optional) For downloading open-source models only\n\n2. VPC Endpoints\n   S3 VPC Endpoint: Access S3 without leaving VPC\n   ECR VPC Endpoint: Pull container images from AWS ECR\n   SageMaker VPC Endpoint: Run training jobs\n   CloudWatch VPC Endpoint: Ship logs to CloudWatch\n\n3. Security Groups\n   Training instances: Allow internal communication only\n   SageMaker security group: Allow traffic from app servers\n   No inbound from internet\n\n4. Data Flow\n   Sensitive data: Database → EC2 processing → S3 (via VPC endpoint)\n   Model weights: Downloaded via VPC endpoint (if from ECR)\n   Training: EC2/SageMaker instances access data via internal network\n   Inference: Application servers → SageMaker endpoint (private)\n   Logs/Metrics: CloudWatch (via VPC endpoint)\n   \n   Rule: Every byte stays inside VPC'
+      },
+      {
+        type: 'h2',
+        text: 'Component 2: Data Pipeline Inside VPC'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Step 1: Data Collection\n  Source: Internal databases, document stores, APIs\n  Format: Structured (SQL queries) + Unstructured (S3 documents)\n  Volume: ~100GB-1TB typical for financial domain\n\nStep 2: Preprocessing (EC2/ECS Job)\n  Task: Clean sensitive data\n    - Remove PII: Mask customer IDs, account numbers, names\n    - Tokenization: Convert text to token IDs\n    - Formatting: Convert to training format (prompt-completion pairs)\n  \n  Example Input:\n    Customer Account #1234567 requested balance inquiry\n  Example Output (after PII masking):\n    Customer [MASKED_ID] requested balance inquiry\n  \n  Output: JSONL files (one example per line)\n    {\"prompt\": \"What is...\", \"completion\": \"The answer is...\"}\n\nStep 3: Store in S3 (VPC Endpoint)\n  Location: S3 bucket inside AWS account (no public access)\n  Access: Via VPC endpoint (no internet traffic)\n  Versioning: Keep audit trail of training data versions\n\nStep 4: Data Validation\n  Check: Dataset completeness, quality, distribution\n  Monitoring: Data quality metrics logged to CloudWatch\n  Issue detection: Alert if data looks corrupted or biased'
+      },
+      {
+        type: 'h2',
+        text: 'Component 3: Fine-Tuning Setup'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Model Selection:\n  Base model: Open-source LLM\n    Candidates: Llama 2 (13B), Mistral 7B, Qwen 72B\n    Hosted: Private ECR in AWS (no download from internet)\n    License: Verify commercial use allowed\n\nTuning Method 1: LoRA (Recommended)\n  What: Low-Rank Adaptation\n  Why: Reduces parameters from 13B to ~100M trainable parameters\n  Benefit: Faster training, less memory, 90-95 percent of full fine-tuning quality\n  Hardware: Single GPU (g4dn.12xlarge sufficient)\n  Time: 2-6 hours for 100GB training data\n  Cost: ~$2-5 per training run\n\nTuning Method 2: Full Fine-Tuning\n  What: Update all model parameters\n  Why: Highest quality, best domain adaptation\n  Cost: Higher compute (multi-GPU, multi-node)\n  Hardware: p3.8xlarge (8× V100 GPUs)\n  Time: 12-24 hours for 100GB data\n  Cost: $50-200 per training run\n\nSetup Using AWS SageMaker:\n  1. Create training job configuration\n  2. Specify instance type (GPU), number of instances\n  3. Point to training data in S3 (VPC endpoint)\n  4. Set hyperparameters: learning rate, batch size, epochs\n  5. SageMaker pulls data, runs distributed training\n  6. Output: Model checkpoints saved to S3 (VPC)\n  7. Monitoring: CloudWatch dashboard for loss curves, GPU util'
+      },
+      {
+        type: 'h2',
+        text: 'Component 4: Training Execution and Monitoring'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Training Job Workflow:\n\n1. Launch Training\n   Command: AWS SageMaker API call (from app server in VPC)\n   Resource: GPU instances spin up in VPC subnet\n   Data: Training data fetched from S3 via VPC endpoint\n   Start: Training begins, runs in isolated VPC network\n\n2. Real-time Monitoring\n   Metrics:\n     - Training loss (decreasing = model learning)\n     - Validation accuracy (proxy for real-world performance)\n     - GPU utilization (should be 90 percent+)\n     - Memory usage (prevent OOM errors)\n   Logs: Streamed to CloudWatch via VPC endpoint\n   Alert: If training diverges (loss increases), auto-stop\n\n3. Checkpointing\n   Frequency: Save every N steps (e.g., every 100 steps)\n   Destination: S3 (VPC endpoint)\n   Purpose: Resume if interrupted, select best checkpoint\n   Retention: Keep last 3 checkpoints to save storage\n\n4. Training Completion\n   Artifacts: Final model weights saved to S3\n   Metadata: Training duration, final loss, hyperparameters\n   Next: Evaluate model on validation set\n\n5. Cost Optimization\n   Use spot instances: Save 70-80 percent on compute costs\n   Auto-shutdown: Stop instances immediately after training\n   Right-sizing: Choose minimum compute needed (not largest GPU)\n   Batch processing: Multiple fine-tuning jobs per day'
+      },
+      {
+        type: 'h2',
+        text: 'Component 5: Model Evaluation and Versioning'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Evaluation Phase:\n  Validation Set: Held-out portion of training data (10-20 percent)\n  Metrics:\n    - Accuracy: How often does model give correct answer?\n    - BLEU/ROUGE: Quality of text generation tasks\n    - Domain-specific: For financial data, test on regulatory QA\n  Compare: New model vs. baseline (original model)\n  Decision: Better performance = approve for deployment\n\nModel Versioning:\n  Registry: DynamoDB or S3 + metadata files\n  Store:\n    - Model weights: S3 path\n    - Version: v1, v2, v3, etc.\n    - Training date: When was this trained?\n    - Metrics: Accuracy, loss, performance\n    - Training data version: Which dataset was used?\n    - Approval status: Staging, approved, production\n  \n  Lineage:\n    v1: Initial LoRA fine-tune\n    v2: Added more financial documents, improved accuracy by 5 percent\n    v3: Full fine-tune on expanded dataset\n\nPromotion Pipeline:\n  1. Train: Generate v3\n  2. Evaluate: Metrics look good\n  3. Staging: Deploy to staging environment (internal testing)\n  4. Approve: Business team validates quality\n  5. Production: Deploy to prod inference endpoint\n  6. Monitor: Track real-world performance'
+      },
+      {
+        type: 'h2',
+        text: 'Component 6: Inference Inside VPC'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'SageMaker Endpoint (In VPC):\n  Setup:\n    1. Create endpoint configuration pointing to fine-tuned model\n    2. Specify instance type: ml.g4dn.xlarge (1× GPU)\n    3. Place in VPC private subnet\n    4. No public IP\n  \n  Scaling:\n    Auto-scaling: 1-10 instances based on request volume\n    Latency: <100ms per inference (model + network)\n    Throughput: ~50-100 requests per second per GPU\n\nApplication Integration:\n  Application server (in VPC):\n    1. Receives user query: \"Summarize this financial report\"\n    2. Calls SageMaker endpoint (internal URL)\n    3. Request travels over private network (VPC)\n    4. Model inference runs on GPU\n    5. Response returned to app (sensitive data never leaves VPC)\n  \n  Code Example:\n    client = boto3.client(\'sagemaker-runtime\')\n    response = client.invoke_endpoint(\n      EndpointName=\'financial-llm-prod\',\n      Body=json.dumps({\"prompt\": user_query}),\n      ContentType=\'application/json\'\n    )\n    result = json.loads(response[\'Body\'].read())\n\nSecurity:\n  VPC Security Group: Only allow traffic from app servers\n  IAM Role: SageMaker endpoint can read model from S3 only\n  Encryption: Data in transit (TLS), data at rest (S3 encryption)\n  Audit: All API calls logged to CloudTrail (internal only)'
+      },
+      {
+        type: 'h2',
+        text: 'Challenges and Solutions'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Model size: Llama 2 70B won\'t fit on single GPU. Solution: Use LoRA or smaller model (13B) for training, or distributed training across multiple GPUs.',
+          'Cold start: First inference slow (model loading). Solution: Keep endpoint warm with minimum 1 instance, or use provisioned throughput.',
+          'Data leakage: Ensuring no data copies leave VPC accidentally. Solution: VPC Flow Logs monitor all network traffic, alert if unexpected egress.',
+          'Model downloading: Need base model without internet. Solution: Store pre-downloaded models in ECR or S3 within VPC.',
+          'Cost: GPU compute is expensive. Solution: Use LoRA (cheaper), spot instances (70 percent discount), delete unused endpoints.'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Scale and Performance Metrics'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Typical Financial Services Deployment:\n\nTraining:\n  Data size: 100GB-500GB (financial documents)\n  Model: Llama 2 13B with LoRA\n  Hardware: 1× g4dn.12xlarge GPU instance\n  Duration: 4-8 hours\n  Cost: $3-8 per training run\n  Frequency: Weekly (as new data arrives)\n\nInference:\n  Endpoint instances: 2-4 (with auto-scaling)\n  Instance type: ml.g4dn.xlarge\n  Throughput: 100-500 requests per second\n  Latency: P50 = 50ms, P99 = 150ms\n  Monthly cost: ~$2k-3k (endpoints + compute)\n\nStorage:\n  Model checkpoint: 7-13GB (depends on model size)\n  Training data: 100GB-1TB\n  Logs: 10-50GB per month\n  Total S3 cost: ~$100-200 per month\n\nCompliance and Audit:\n  Data residency: 100 percent inside VPC\n  Logs: CloudTrail + CloudWatch (cannot be disabled)\n  Encryption: TLS for data in transit, KMS for data at rest\n  Access: IAM-controlled, all human access logged'
+      },
+      {
+        type: 'h2',
+        text: 'Interview Tips'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Problem: Enterprise has sensitive data but wants to fine-tune LLMs for domain adaptation.',
+          'Constraint: Data cannot leave corporate network (regulatory, security).',
+          'Solution: Self-hosted fine-tuning entirely inside AWS VPC using private subnets, VPC endpoints, and SageMaker.',
+          'Data flow: Internal database → VPC EC2 preprocessing → S3 (VPC endpoint) → SageMaker training → S3 model storage → SageMaker inference endpoint.',
+          'Method: LoRA (low-rank adaptation) for fast training vs. full fine-tuning for highest quality.',
+          'Monitoring: CloudWatch logs, metrics, GPU utilization; ensure zero data leaves VPC.',
+          'Versioning: Track model versions, training data versions, performance metrics; promote from staging to production.',
+          'Scale: 100GB-1TB training data typical, LoRA fine-tuning on single GPU in 4-8 hours, inference endpoint with auto-scaling to handle 100-500 requests/sec.'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Key Takeaway'
+      },
+      {
+        type: 'divider' },
+      {
+        type: 'paragraph',
+        text: 'Fine-tuning LLMs inside AWS VPC: Use private subnets, VPC endpoints (no internet), and SageMaker for self-hosted training. Data pipeline: internal database → EC2 preprocessing (mask PII) → S3 (VPC endpoint) → SageMaker training → model storage. Method: LoRA for efficiency (4-8 hours on single GPU, $3-8 cost) or full fine-tuning for quality. Inference: SageMaker endpoint in VPC, application servers call privately. All data stays inside network—100 percent compliance. Monitoring: CloudWatch metrics, CloudTrail audit, zero egress to internet. Key insight: Trade-off between training time (LoRA vs. full), inference latency, and operational cost, all within secure network boundary.'
+      }
+    ]
+  },
 
 ];
