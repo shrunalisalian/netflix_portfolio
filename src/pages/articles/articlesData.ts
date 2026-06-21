@@ -18795,5 +18795,139 @@ WELLBEING METRICS (not engagement metrics):
       }
     ]
   },
+  {
+    slug: 'ai-stale-webpage-detection',
+    title: 'Preventing AI from Confidently Summarizing Deleted Webpages: Freshness Verification at Scale',
+    subtitle: 'System design for detecting stale, deleted, or changed web content before AI generates summaries with high confidence.',
+    date: 'June 21, 2026',
+    readTime: '10 min read',
+    tags: ['System Design', 'Caching', 'Web Crawling', 'AI/ML', 'Interview Prep'],
+    coverEmoji: '🗑️',
+    content: [
+      {
+        type: 'callout',
+        emoji: '⚠️',
+        text: 'Stale content problem: User searches for topic, AI returns confident summary of a webpage. User clicks link and gets 404. Trust broken. At Google scale (billions of cached webpages), outdated content is inevitable—links break, pages get deleted, content changes. Problem: AI doesn\'t know a URL is dead until user reports it. Solution: Before summarizing cached content, verify the URL is still live and content hasn\'t changed. Challenges: Verification adds latency (100-300ms per URL), cost at scale (verify billions of URLs), need to rank freshness vs. speed, calibrate AI confidence based on content age.'
+      },
+      {
+        type: 'h2',
+        text: 'The Problem: Confident Summaries of Dead Links'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'User Journey (Bad):\n  User: "Summarize this article about AI breakthroughs"\n  AI: "According to a comprehensive study from 2024, GPT-5 showed...\"\n  Confidence: 95 percent\n  User clicks link → 404 Not Found\n  User impression: AI is outdated and unreliable\n\nWhy This Happens:\n  AI was trained/cached with webpage content\n  Webpage later deleted by author/site\n  Cache doesn\'t know URL is dead\n  AI confidently generates summary from memory\n  No mechanism to verify freshness before responding\n\nScale of Problem:\n  Google index: 100B+ webpages\n  Daily deletions: ~5-10M pages removed/updated\n  Percentage returning 404: ~3-5 percent of cached URLs\n  Impact: Millions of users getting stale summaries daily\n\nTrust Damage:\n  One confident wrong summary → users distrust AI\n  Competitive: ChatGPT with better freshness checks wins\n  Regulatory: Summarizing deleted content (legal disclaimers, corrections) creates liability'
+      },
+      {
+        type: 'h2',
+        text: 'Solution: Freshness Verification Pipeline'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'High-Level Flow:\n\n1. User Request\n   Input: "Summarize [URL]" or search query returning cached URLs\n   \n2. Pre-Summary Verification\n   Decision point: Should we verify freshness?\n   Cached content age > 7 days OR high-value query → verify\n   Very recent cache (< 1 hour) → skip verification\n   \n3. Freshness Check\n   HEAD request to URL (lightweight, no body)\n   Response codes:\n     200-299: URL alive, content likely valid\n     301-302: Redirect, follow to new URL\n     404/410: Page deleted, stop here, inform user\n     500-599: Server error, use cached content with caveat\n     Timeout: Unreachable, use cached with staleness warning\n   \n4. Content Validation (if 200)\n   Optional: Fetch content hash, compare to stored hash\n   If hash differs → content changed, re-summarize or flag\n   If hash same → content unchanged, use cached summary\n   \n5. Response to User\n   If URL alive: "Based on content from [date], here\'s the summary..."\n   If URL deleted: "This webpage is no longer available. Last seen [date]."\n   If URL changed: "Warning: Content may have changed since [date]."\n   \n6. Confidence Calibration\n   Freshness age < 1 day: confidence 0.95\n   Freshness age 1-7 days: confidence 0.80\n   Freshness age 7-30 days: confidence 0.60\n   Freshness age > 30 days: confidence 0.40\n   Display confidence to user: "I\'m 60 percent confident based on outdated data"'
+      },
+      {
+        type: 'h2',
+        text: 'Component 1: URL Health Check (Verification Gate)'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Purpose: Detect if URL is still live before generating summary\n\nImplementation:\n  Request Type: HTTP HEAD (headers only, no body)\n  Timeout: 2 seconds (fast, don\'t wait forever)\n  Retry: 1 retry on timeout (network hiccup)\n  \nResponse Handling:\n  200-299 (Success):\n    ✓ URL is alive\n    ✓ Content likely exists and hasn\'t moved\n    Action: Proceed with summary, mark freshness as current date\n  \n  301-302 (Redirect):\n    ⚠ URL moved to new location\n    Action: Follow redirect (recursive), check new URL\n    Edge case: Redirect chain > 5 hops? Stop, flag suspicious\n  \n  304 (Not Modified):\n    ✓ Content hasn\'t changed since last check\n    Action: Use cached summary, update freshness timestamp\n  \n  404/410 (Gone):\n    ✗ Page deleted or permanently removed\n    Action: Don\'t summarize, inform user "page no longer available"\n    Store: Cache this 404 for 7 days to avoid repeated checks\n  \n  500-599 (Server Error):\n    ? Server is down or broken\n    Action: Use cached summary with LOW confidence\n    Display: "Server unreachable. Summary based on older cached content."\n  \n  Timeout (No response):\n    ? Server not responding (down, slow, or blocked)\n    Action: Use cached summary with LOW confidence\n    Retry check: Schedule background retry in 1 hour\n\nCost Optimization:\n  Latency: HEAD request ~50-200ms per URL\n  Parallel: Batch 50 URLs in parallel → total time ~200ms\n  Caching: Store verification result for 24 hours\n  Benefit: Don\'t re-verify same URL multiple times daily'
+      },
+      {
+        type: 'h2',
+        text: 'Component 2: Content Hash Verification'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Purpose: Detect if content has changed since last cached\n\nWhen to Use:\n  High-value URLs (news, documentation, financial info)\n  URLs prone to frequent updates\n  User asks \"has this content changed?\"\n  \nImplementation:\n\n1. On Initial Indexing\n   Fetch full webpage content\n   Extract main content (remove ads, navigation, comments)\n   Compute hash: SHA256(cleaned_content)\n   Store: { url, content_hash, last_verified_date, last_fetch_date }\n\n2. On Verification\n   Fetch webpage again\n   Extract main content (same cleaning logic)\n   Compute hash: SHA256(new_cleaned_content)\n   Compare: hash_stored vs. hash_new\n   \n   If hash matches:\n     ✓ Content unchanged\n     ✓ Use cached summary\n     ✓ Update last_verified_date\n   \n   If hash differs:\n     ⚠ Content changed significantly\n     Action 1: Re-summarize new content (more fresh)\n     Action 2: Flag difference \"Content updated on [date]\"\n     Action 3: Store new hash for future comparisons\n\n3. Edge Cases\n  Cosmetic changes (layout, ads): Ignore (hash same or with content filter)\n  Dynamic content (dates, prices): Special handling for time-series data\n  Small changes (typo): Flag but use cached summary\n  Large changes (50 percent+ new): Re-summarize\n\nCost:\n  Full page fetch: 200-500ms\n  Content extraction: 50ms\n  Hashing: 10ms\n  Total: ~300-600ms per verification\n  Trade-off: Worth it for high-value/changing content'
+      },
+      {
+        type: 'h2',
+        text: 'Component 3: Freshness Metadata and Confidence Scoring'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Goal: Calibrate AI confidence based on content age\n\nMetadata per Cached URL:\n  last_verified_date: When was URL last checked? (2026-06-15)\n  cached_content_date: When was content fetched? (2026-06-10)\n  content_hash: SHA256 of content\n  url_status: alive, deleted, moved, unreachable\n  freshness_age_hours: Current time - last_verified_date\n  \nConfidence Scoring Function:\n  freshness_age = now - last_verified_date (in hours)\n  \n  if freshness_age < 24:\n    confidence = 0.95 (fresh, verified recently)\n  elif freshness_age < 7 * 24:\n    confidence = 0.80 (fairly fresh, 7-day window)\n  elif freshness_age < 30 * 24:\n    confidence = 0.60 (stale, 30-day window)\n  else:\n    confidence = 0.40 (very stale, > 30 days)\n  \n  Modifiers:\n    if url_status == \"moved\":\n      confidence *= 0.8 (less certain about redirected content)\n    if url_status == \"unreachable\":\n      confidence *= 0.6 (server down, content questionable)\n    if url_status == \"deleted\":\n      confidence = 0 (don\'t summarize at all)\n\nDisplay to User:\n  High confidence (0.8-1.0):\n    "Based on current information, here\'s the summary..."\n  Medium confidence (0.5-0.8):\n    "Based on information from [date], here\'s the summary. This may be outdated."\n  Low confidence (< 0.5):\n    "Warning: This content is [X days] old and may no longer be accurate. I recommend visiting the link to verify."\n\nAI Response Adjustment:\n  Confidence < 0.5 → Reduce hallucination risk\n  Include phrases: \"Based on older data...\", \"This may have changed...\"\n  Provide URL explicitly so user can verify\n  Suggest alternative recent sources if available'
+      },
+      {
+        type: 'h2',
+        text: 'Component 4: Staged Retrieval Strategy'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Decision Tree: How to Balance Latency vs. Freshness\n\nStage 1: Immediate Cache Check\n  Is content in hot cache (< 1 hour old)?\n    Yes → Use immediately, no verification needed\n    Latency: <10ms\n    Confidence: 0.98 (very fresh)\n  \nStage 2: Conditional Verification\n  Is content 1-7 days old?\n    Yes → Quick health check (HEAD request only)\n    Parallel batch: Check 10 URLs simultaneously\n    Latency: 50-150ms\n    If alive → use cache, update verification date\n    If dead → inform user "page deleted"\n  \nStage 3: Full Verification\n  Is content > 7 days old?\n    Yes → Full verification (HEAD + hash check optional)\n    Parallel batch: Check 10 URLs simultaneously\n    Latency: 200-400ms\n    Fetch full content if hash mismatch\n    Latency total: 400-600ms if re-fetch needed\n    Decision: Is latency worth freshness?\n\nStage 4: Background Update\n  For older content > 30 days, never verified recently\n  Schedule background re-verification job\n  Don\'t block user response\n  Update cache asynchronously\n  Next user gets fresh verification result\n\nLatency SLA per Stage:\n  Stage 1 (hot cache): < 20ms\n  Stage 2 (quick check): 100-200ms total\n  Stage 3 (full verify): 400-600ms total\n  Stage 4 (async): 0ms to user, updates backend'
+      },
+      {
+        type: 'h2',
+        text: 'Component 5: Feedback Loop and Anomaly Detection'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Real-Time User Feedback:\n  User clicks summary → lands on 404\n  Action: Log { url, user_id, timestamp, status_code }\n  \n  Signal Processing:\n    1 user reports 404 → log event\n    5 users report 404 on same URL → flag warning\n    20 users report 404 in 1 hour → immediately remove from index\n    Notify crawl team: "URL [X] is dead, stop summarizing"\n\nAnomaly Detection:\n  Monitor daily metrics:\n    404_rate: Percentage of verified URLs returning 404\n    Normal: 2-3 percent\n    Alert threshold: > 5 percent (data quality issue)\n    Action: Increase verification frequency, investigate\n  \n  Temporal patterns:\n    Spike in dead links at 3am → could be maintenance window\n    Gradual increase in 404s → crawler not respecting robots.txt\n  \n  Domain-level detection:\n    domain X suddenly 404-heavy → site redesign or domain expiration\n    Action: Pause summarizing content from this domain temporarily\n\nUser Feedback Button:\n  "Is this summary accurate?" → Yes / No / No, link is dead\n  If \"No, link is dead\":\n    Confidence score for that URL → 0 immediately\n    Remove from recommendations\n    Re-verify next check\n  \n  Signal collected:\n    Users correcting AI mistakes\n    Patterns of which domains are unreliable\n    Train model: which content is riskier to summarize'
+      },
+      {
+        type: 'h2',
+        text: 'Scale and Performance'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Google Scale Assumptions:\n  Index size: 100B+ webpages\n  Summarization requests: 1B+ per day\n  Dead URLs in index: ~3-5 percent (3-5B URLs)\n  Fresh vs. stale content: 50/50 split (50B fresh, 50B stale)\n\nVerification Strategy:\n  Batch 1: Hot cache (< 1 hour): No verification needed\n    Volume: 300M requests/day (30 percent)\n    Latency: < 20ms\n    Cost: $0\n  \n  Batch 2: Warm cache (1-7 days): Quick health check only\n    Volume: 400M requests/day (40 percent)\n    Verification: HEAD requests only (lightweight)\n    Latency: +100-150ms\n    Parallel: Batch 10 URLs per request\n    QPS required: ~50k URLs/second\n    Cost: HEAD requests are cheap, ~$50k/month\n  \n  Batch 3: Stale cache (7-30 days): Full verification\n    Volume: 200M requests/day (20 percent)\n    Verification: HEAD + optional hash check\n    Latency: +200-400ms\n    Cost: ~$100k/month\n  \n  Batch 4: Very stale (> 30 days): Background async\n    Volume: 100M URLs to refresh (background job)\n    Timing: Update 1B URLs monthly\n    Daily batch: ~33M URLs/day verification\n    Cost: ~$50k/month\n\nTotal Daily Verification Cost:\n  Quick checks: 400M URLs × $0.00001 = $4k\n  Full checks: 200M URLs × $0.00002 = $4k\n  Background: 33M URLs × $0.00003 = $1k\n  Total: ~$10k/day = $3.6M/year\n  \nBenefit:\n  Prevent millions of users from seeing stale content\n  Maintain AI trust score\n  Competitive advantage: More accurate than competitors'
+      },
+      {
+        type: 'h2',
+        text: 'Challenges and Trade-offs'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Latency vs. Freshness: Verification adds 100-600ms. Accept trade-off or serve cached + update async.',
+          'Cost at Scale: Verifying billions of URLs daily is expensive. Prioritize high-traffic, high-value URLs.',
+          'False Positives: Temporary server errors (500s) shouldn\'t permanently mark content as stale.',
+          'Content Extraction: Accurately identifying main content (vs. ads/navigation) for hashing is non-trivial.',
+          'Redirect Chains: Malicious sites create redirect loops. Cap redirect depth at 5 hops.',
+          'Dynamic Content: Pages with prices, dates, weather. Hash only stable content, ignore dynamic sections.',
+          'User Privacy: Logging which URLs users check may reveal interests. Anonymize verification logs.'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Interview Tips'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Problem: AI confidently summarizes deleted webpages, breaking user trust.',
+          'Core Issue: No freshness verification before generating summary.',
+          'Solution: Verify URL is live (HEAD request) before summarizing cached content.',
+          'Staged approach: Hot cache (< 1 hour, no verification) vs. stale cache (> 7 days, full verification).',
+          'Confidence calibration: Reduce AI confidence for old content, display staleness to user.',
+          'Content validation: Hash original content, re-summarize if content changed.',
+          'Feedback loop: Users reporting dead links → immediately flag URL, re-verify later.',
+          'Scale: Verify 400M URLs daily at 50k QPS, cost ~$3.6M/year, saves user trust.',
+          'Trade-off: Latency (verification adds 100-600ms) vs. accuracy (ensure content is fresh).'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Key Takeaway'
+      },
+      {
+        type: 'divider' },
+      {
+        type: 'paragraph',
+        text: 'Prevent stale AI summaries: Implement staged verification—hot cache (< 1 hour) needs no check, warm cache (1-7 days) gets quick HEAD request, stale cache (> 7 days) gets full verification with optional content hashing. Score confidence based on freshness: 0.95 for < 1 day, 0.40 for > 30 days. If URL returns 404/410, inform user immediately instead of summarizing. Display staleness to user: "Based on content from [date]. This may be outdated." Use user feedback loop to detect mass deletions (20+ users reporting dead link → remove URL). At Google scale: 400M quick checks daily at 50k QPS, cost $3.6M/year. Key insight: Freshness verification is cheaper than the trust damage of confident wrong summaries. Transparency wins—show users when content is old, let them decide.'
+      }
+    ]
+  },
 
 ];
