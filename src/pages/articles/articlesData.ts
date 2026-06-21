@@ -22890,5 +22890,154 @@ WELLBEING METRICS (not engagement metrics):
       }
     ]
   },
+  {
+    slug: 'n-grams-nlp-unigrams-bigrams-trigrams',
+    title: 'N-grams in NLP: Understanding Unigrams, Bigrams, and Trigrams for Language Modeling',
+    subtitle: 'Learn fixed-size token sequences for text analysis, prediction, and linguistic features.',
+    date: 'June 21, 2026',
+    readTime: '6 min read',
+    tags: ['NLP', 'Language Modeling', 'Tokenization', 'Interview Prep'],
+    coverEmoji: '📝',
+    content: [
+      {
+        type: 'callout',
+        emoji: '🔤',
+        text: 'N-gram definition: Contiguous sequence of n tokens from a text. Example: "The cat sat" yields unigrams (The, cat, sat), bigrams (The cat, cat sat), trigrams (The cat sat). Use cases: Language modeling (predict next word), spell checking (detect misspellings), machine translation. Benefit: Simple, interpretable, fast. Limitation: Cannot capture long-range dependencies (context beyond n tokens).'
+      },
+      {
+        type: 'h2',
+        text: 'Definition and Purpose'
+      },
+      {
+        type: 'paragraph',
+        text: 'N-gram: Sequence of n consecutive words (or characters) from text. Used to model probability of word sequences. Assumption: Next word depends only on previous n-1 words (Markov assumption). Simple but effective for many NLP tasks.'
+      },
+      {
+        type: 'h2',
+        text: 'Unigrams (n=1)'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Single tokens (words or characters)',
+          'Example: "The cat sat" yields [The, cat, sat]',
+          'Use: Word frequency analysis, vocabulary building',
+          'Assumption: Each word independent (no context)',
+          'Model: P(word) without context'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Bigrams (n=2)'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Pairs of consecutive tokens',
+          'Example: "The cat sat" yields [(The, cat), (cat, sat)]',
+          'Use: Detect word associations, autocomplete',
+          'Assumption: Current word depends on previous word',
+          'Model: P(word | previous_word)'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Trigrams (n=3)'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Triples of consecutive tokens',
+          'Example: "The cat sat" yields [(The, cat, sat)]',
+          'Use: Phrase detection, language modeling',
+          'Assumption: Current word depends on previous two words',
+          'Model: P(word | previous_two_words)'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Example: Language Modeling'
+      },
+      {
+        type: 'paragraph',
+        text: 'Sentence: "The quick brown fox". Bigram model P(word | previous): P(quick | The) = 0.02, P(brown | quick) = 0.15, P(fox | brown) = 0.08. Combined: P(sentence) = 0.02 x 0.15 x 0.08. Higher probability = more likely sentence.'
+      },
+      {
+        type: 'h2',
+        text: 'Benefit: Simplicity and Interpretability'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Simple: Count frequencies, no training needed (unlike neural models)',
+          'Interpretable: Easy to inspect (which words follow which?)',
+          'Fast: Lightweight, can run on CPU',
+          'Works well: Sufficient for many tasks (spell check, autocomplete)'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Limitation: Cannot Capture Long Dependencies'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Trigram only sees 2 previous words (fixed window)',
+          'Example: "The student who studied hard ___" needs context beyond 2 words',
+          'Cannot track: Subject-verb agreement across long distances',
+          'Fixed context: Sentence structure often spans 10+ words'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Data Sparsity Problem'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Unigram: 50k unique words',
+          'Bigram: 50k^2 = 2.5B unique pairs (sparse, many unseen)',
+          'Trigram: 50k^3 = 125T unique triples (extremely sparse)',
+          'Solution: Backoff models (use lower-order n-grams if high-order unseen)'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Modern Context: Why Transformers Replaced N-grams'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'N-grams: Limited context window, sparse, weak modeling',
+          'Transformers: Attention attends to all positions, dense embeddings',
+          'Result: Transformers superior for language understanding',
+          'N-grams still used: Feature engineering, lightweight applications'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Interview Tips'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'N-gram: Sequence of n consecutive tokens',
+          'Unigram (n=1): Single word, no context',
+          'Bigram (n=2): Pair of words, depends on previous word',
+          'Trigram (n=3): Triple of words, depends on previous two',
+          'Benefit: Simple, fast, interpretable',
+          'Limitation: Fixed context window, cannot capture long dependencies'
+        ]
+      }
+    ]
+  },
 
 ];
