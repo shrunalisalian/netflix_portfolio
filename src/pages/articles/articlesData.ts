@@ -18929,5 +18929,290 @@ WELLBEING METRICS (not engagement metrics):
       }
     ]
   },
+  {
+    slug: 'gemini-multimodal-fusion-pipeline',
+    title: 'Designing Gemini\'s Multimodal Fusion Pipeline: Processing Photo, Audio, and Text Together',
+    subtitle: 'Architecture for fusing image, audio, and text embeddings before generation in multimodal LLMs.',
+    date: 'June 21, 2026',
+    readTime: '11 min read',
+    tags: ['Multimodal AI', 'Deep Learning', 'LLMs', 'System Design', 'Interview Prep'],
+    coverEmoji: '🎨',
+    content: [
+      {
+        type: 'callout',
+        emoji: '🔀',
+        text: 'Multimodal input problem: User sends image of a café, audio clip (background music), and text query: "What\'s playing and what should I order?" Gemini needs to process all three modalities together, not independently. Challenge: Different encoders produce different embedding dimensions (image: 2048-dim, audio: 512-dim, text: 768-dim). How to fuse into unified representation? Naive approach: concatenate all embeddings → 3328-dim vector → loses modality information, wastes computation. Better approach: Project embeddings to shared space, weight by modality importance, fuse via cross-attention before feeding to decoder. Trade-off: Fusion complexity vs. coherence of multimodal understanding.'
+      },
+      {
+        type: 'h2',
+        text: 'The Problem: Three Modalities, Three Different Embeddings'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'User Input:\n  Image: Café interior photo (1024×768 pixels)\n  Audio: 30-second clip of café ambiance and music\n  Text: "What music is this and what should I order?"\n\nCurrent Approach (Naive Concatenation):\n  Image Encoder (Vision Transformer):\n    Input: 1024×768 image\n    Output: [2048-dim embedding]\n  \n  Audio Encoder (Wav2Vec + LSTM):\n    Input: 16kHz audio, 30 seconds = 480k samples\n    Output: [512-dim embedding]\n  \n  Text Encoder (BERT-based):\n    Input: "What music is this and what should I order?"\n    Output: [768-dim embedding]\n  \n  Naive fusion: concatenate\n    [2048] + [512] + [768] = [3328-dim vector]\n    Problem: Embeddings are in different representation spaces\n    Problem: Larger dimensions dominate (image 61 percent, audio 15 percent, text 23 percent)\n    Problem: No cross-modal attention (image doesn\'t "talk to" audio)\n    Result: Poor fusion, degraded generation quality\n\nKey Challenge:\n  How to align and weight embeddings from different modalities?\n  How to capture cross-modal relationships (music in image matches audio)?\n  How to prevent one modality from dominating?'
+      },
+      {
+        type: 'h2',
+        text: 'Solution: Projection, Weighting, and Cross-Modal Fusion'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Architecture Layers:\n\n1. Modality-Specific Encoders (Independent)\n   Each modality encoded separately:\n   - Vision Encoder: Process image → [2048-dim]\n   - Audio Encoder: Process audio → [512-dim]\n   - Text Encoder: Process text → [768-dim]\n\n2. Projection to Shared Space\n   Project all to same dimension (e.g., 768-dim):\n   - Image projection: Linear layer 2048 → 768\n   - Audio projection: Linear layer 512 → 768\n   - Text projection: Linear layer 768 → 768 (identity)\n   \n   Result: All embeddings now in same representation space\n   Benefit: Fair comparison, no modality dominance\n\n3. Cross-Modal Attention (The Key)\n   Image queries Audio and Text: "What do you know about this scene?"\n   Audio queries Image and Text: "What visual context matches this sound?"\n   Text queries Image and Audio: "What in image/audio answers my question?"\n   \n   Result: Unified representation that fuses all three modalities\n\n4. Weighted Fusion\n   Learnable weights per modality based on query relevance:\n   - weight_image, weight_audio, weight_text\n   - Learned during training based on task importance\n   \n   Final fusion = weight_image * image_emb + weight_audio * audio_emb + weight_text * text_emb\n\n5. Feed to Decoder LLM\n   Fused embedding → LLM decoder\n   Generate response incorporating all three modalities'
+      },
+      {
+        type: 'h2',
+        text: 'Component 1: Modality-Specific Encoders'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Image Encoder (Vision Transformer):\n  Architecture: ViT or ResNet50\n  Input: Image (1024×768 or variable size)\n  Patches: Divide image into 16×16 patches → 192 patches\n  Embed: Each patch → 768-dim vector\n  Transformer: Self-attention across patches (captures spatial relationships)\n  Output: [768-dim] pooled representation (CLS token or mean pooling)\n  Alternative: Use CLIP ViT for better vision-language alignment\n\nAudio Encoder (Audio Feature Extraction + LSTM):\n  Step 1: Mel-spectrogram\n    Input: Raw audio (30 seconds @ 16kHz = 480k samples)\n    Convert: Fourier transform → spectrogram\n    Scale: Mel-scale (perceptually accurate frequency bands)\n    Output: [129 × 300] mel-spectrogram (freq × time)\n  \n  Step 2: Embedding\n    Model: Wav2Vec 2.0 or WavLM (pre-trained audio models)\n    Process: Encode spectrogram → sequence of 768-dim embeddings\n    Output: [300 × 768] (300 time steps × 768 dims)\n  \n  Step 3: Temporal Pooling\n    LSTM or Attention pooling over time dimension\n    Extract temporal relationships (which sounds follow which)\n    Output: [768-dim] pooled representation\n\nText Encoder (BERT-like):\n  Input: "What music is this and what should I order?"\n  Tokenization: Split into tokens ["What", "music", "is", ...]\n  Embedding: Each token → 768-dim vector\n  BERT Transformer: Self-attention over tokens, contextual embeddings\n  Output: [768-dim] pooled representation (CLS token)\n  Alternative: Use T5 or other seq2seq models for better generation'
+      },
+      {
+        type: 'h2',
+        text: 'Component 2: Projection to Shared Embedding Space'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Why Project?\n  Problem: Different encoders → different dimensions\n    Image: 2048-dim (ResNet50 bottleneck)\n    Audio: 768-dim (Wav2Vec)\n    Text: 768-dim (BERT)\n  \n  Solution: Project all to common dimension (e.g., 768-dim)\n  Benefit: Fair fusion, enables cross-modal attention\n\nImplementation:\n  Projection layers (learnable linear transformations):\n  \n  image_embedding = Linear(image_encoder_output, 2048 → 768)\n  audio_embedding = Linear(audio_encoder_output, 768 → 768)\n  text_embedding = Linear(text_encoder_output, 768 → 768)\n  \n  Optional: Add layer normalization for stability\n  image_embedding = LayerNorm(image_embedding)\n  audio_embedding = LayerNorm(audio_embedding)\n  text_embedding = LayerNorm(text_embedding)\n\nAlternative: Use shared encoder all three modalities?\n  Problem: Single encoder can\'t handle variable input types\n  Solution: Use modality-specific encoders, project to shared space\n  Benefit: Leverage domain-specific pre-trained models (ViT for vision, Wav2Vec for audio)\n\nTraining:\n  Initialize projections randomly\n  Learn during end-to-end multimodal training\n  Use contrastive learning (CLIP-style) to align modalities\n  Loss: Encourage image-text, audio-text, audio-image pairs to have high similarity'
+      },
+      {
+        type: 'h2',
+        text: 'Component 3: Cross-Modal Attention Fusion'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Purpose: Capture relationships between modalities\n\nStandard Self-Attention (One Modality):\n  Query = Key = Value = text_embedding\n  Attention(Q, K, V) = softmax(QK^T / sqrt(d)) V\n  Result: Text attends to itself\n  Problem: Doesn\'t incorporate image or audio\n\nCross-Modal Attention (Multiple Modalities):\n  \n  Approach 1: All modalities attend to each other\n    Create unified token sequence:\n      tokens = [image_token, audio_token_1, audio_token_2, ..., text_token_1, ...]\n      (e.g., [image], [audio_frame_1], [audio_frame_2], [query])\n    \n    Multi-Head Self-Attention on combined sequence:\n      All tokens attend to all other tokens\n      Image attends to audio frames and query\n      Audio attends to image and query\n      Query attends to image and audio frames\n    \n    Output: [N_total_tokens × 768] where tokens are fused\n    Pool: Average or use query token as final representation\n  \n  Approach 2: Modality-specific and cross-modal attention\n    Layer 1: Intra-modal attention (each modality to itself)\n      image_refined = Attention(image, image, image)\n      audio_refined = Attention(audio, audio, audio)\n      text_refined = Attention(text, text, text)\n    \n    Layer 2: Cross-modal attention\n      image_attended = Attention(image_refined, [audio_refined, text_refined], [audio_refined, text_refined])\n      audio_attended = Attention(audio_refined, [image_refined, text_refined], [image_refined, text_refined])\n      text_attended = Attention(text_refined, [image_refined, audio_refined], [image_refined, audio_refined])\n    \n    Benefit: Modalities first understand themselves, then communicate\n\nAttention Visualization:\n  Query: "What music is this?"\n  Image attention to query: Which café details answer the question? (interior design, ambiance)\n  Audio attention to query: Which sounds are music? (filter out background noise)\n  Text attention to image/audio: Does query match what I see/hear?\n  \n  Result: Unified understanding of café + music + question'
+      },
+      {
+        type: 'h2',
+        text: 'Component 4: Modality Weighting and Fusion'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'After Cross-Modal Attention:\n  image_fused: [768-dim] after attention with audio/text\n  audio_fused: [768-dim] after attention with image/text\n  text_fused: [768-dim] after attention with image/audio\n\nOption 1: Equal Weight (Simple)\n  final_embedding = (image_fused + audio_fused + text_fused) / 3\n  Problem: Doesn\'t account for relevance of each modality\n  Example: For visual question, image should matter more than audio\n\nOption 2: Learnable Weights (Better)\n  weights = MLP([image_fused, audio_fused, text_fused])\n  weights = softmax(weights)  → [w_image, w_audio, w_text]\n  \n  final_embedding = w_image * image_fused + w_audio * audio_fused + w_text * text_fused\n  \n  Benefit: Learned what weight to give each modality\n  Training: Weights learned end-to-end based on task performance\n  Query-specific: Weights can change per query (query-dependent gating)\n\nOption 3: Query-Dependent Attention (Advanced)\n  attention_weights = softmax(MLP_image(text_fused), MLP_audio(text_fused))\n  \n  How much should text query attend to image vs. audio?\n  Example: Query "What music is playing?" → weight_audio > weight_image\n  Example: Query "What\'s in the café?" → weight_image > weight_audio\n\nFinal Representation:\n  final_embedding: [768-dim] vector combining all three modalities\n  Ready for LLM decoder to generate response'
+      },
+      {
+        type: 'h2',
+        text: 'Component 5: Feeding Fused Embedding to LLM Decoder'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'LLM Decoder Architecture:\n  Input: fused_embedding [768-dim]\n  Decoder: Transformer-based LLM (GPT-style)\n  \nIntegration Options:\n\n1. Prepend Fused Embedding\n   Prepend to input tokens:\n   input_tokens = [<multimodal>, fused_embedding_as_token, "What", "music", "is", ...]\n   Decoder processes: Multimodal context followed by text tokens\n   Benefit: Simple, works well\n\n2. Cross-Attention in Decoder\n   Decoder self-attention + cross-attention to multimodal context\n   Each text token can attend to fused embedding for multimodal information\n   More flexible, allows fine-grained attention per token\n\n3. Adapter Modules\n   Insert lightweight modules between encoder and decoder\n   multimodal_context = Adapter(fused_embedding)\n   Decoder receives augmented context\n   Benefits: Parameter efficient, can be added to frozen LLM\n\nDecoder Inference:\n  prompt = fused_embedding + query_text\n  response = LLM.generate(prompt, max_length=512)\n  \n  Generation uses:\n    - Visual understanding (image features)\n    - Audio context (sounds, music)\n    - Text query (what user is asking)\n  \n  Output: Natural language response incorporating all modalities'
+      },
+      {
+        type: 'h2',
+        text: 'End-to-End Example Flow'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'User Input:\n  Image: Café photo\n  Audio: Music in café\n  Text: "What music is this and what should I order?"\n\nStep 1: Encode Each Modality\n  image_embedding: ViT processes café photo → [2048-dim]\n  audio_embedding: Wav2Vec processes music → [300×768, pooled to 768-dim]\n  text_embedding: BERT processes query → [768-dim]\n\nStep 2: Project to Shared Space\n  image_proj = Linear_img(image_embedding, 2048→768) → [768-dim]\n  audio_proj = Linear_aud(audio_embedding, 768→768) → [768-dim]\n  text_proj = Linear_txt(text_embedding, 768→768) → [768-dim]\n\nStep 3: Cross-Modal Attention\n  Create token sequence: [<img>, <aud>, <txt>]\n  Multi-head attention (8 heads, 96-dim each):\n    - Image attends to audio/text (identifies café context from music + question)\n    - Audio attends to image/text (recognizes music matches café ambiance)\n    - Text attends to image/audio (understands what question asks in context)\n  \n  Output: [image_fused, audio_fused, text_fused] (each 768-dim, cross-modal aware)\n\nStep 4: Weighted Fusion\n  weights = softmax(MLP([image_fused, audio_fused, text_fused]))\n  weights ≈ [0.4, 0.5, 0.1]  (query is audio-heavy, less image info needed)\n  \n  final_embedding = 0.4 * image_fused + 0.5 * audio_fused + 0.1 * text_fused\n\nStep 5: LLM Decoding\n  decoder_input = [<multimodal>, final_embedding, query_text]\n  response = LLM.generate(decoder_input)\n  \n  Output:\n  "This is jazz music popular in modern cafés. Based on the cozy atmosphere,\n   I\'d recommend their espresso or cappuccino which pairs well with ambient jazz."\n\nKey: Response incorporates:\n  - Visual context (cozy café environment)\n  - Audio context (identified music genre)\n  - Text query (knows user is asking for music ID and food recommendation)'
+      },
+      {
+        type: 'h2',
+        text: 'Challenges and Design Choices'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Modality imbalance: One strong signal can dominate. Use learnable weighting or separate attention heads.',
+          'Missing modality: What if user only provides image and text (no audio)? Handle gracefully with optional embeddings.',
+          'Synchronization: In video+audio, align temporal information (which frame matches which audio segment).',
+          'Computational cost: Cross-modal attention for all modalities increases compute. Use efficient attention (sparse, linear).',
+          'Pre-training: Training multimodal models is expensive. Leverage pre-trained image (CLIP), audio (Wav2Vec), text (BERT) encoders.',
+          'Fusion bottleneck: Projecting 2048-dim to 768-dim loses information. Alternative: Project to larger shared space (1024-dim).'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Scale and Performance'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Inference Latency Breakdown:\n  Image encoding (ViT): 50-100ms\n  Audio encoding (Wav2Vec): 100-200ms (depends on audio length)\n  Text encoding (BERT): 10-20ms\n  Projection: 5ms\n  Cross-modal attention (Transformer): 50-100ms\n  Fusion: 5ms\n  LLM decoding: 500-1000ms (generates response tokens)\n  \n  Total: ~800-1400ms per request\n  Target SLA: < 2 seconds per request\n\nThroughput:\n  Batch size: 32 requests\n  Hardware: A100 GPU (80GB memory)\n  Requests per second: ~25-40 req/sec\n  Daily capacity: ~2M requests per A100\n  Gemini scale (1B+ requests/day): Need ~500-1000 A100s\n\nMemory Usage:\n  Model weights:\n    ViT: 100MB\n    Wav2Vec: 50MB\n    BERT: 350MB\n    LLM: 10-50GB (depends on model size)\n  \n  Batch inference (32 requests):\n    Intermediate activations: 5-10GB\n  \n  Total: ~15-60GB per A100 (fits in 80GB)\n\nTraining Cost:\n  Dataset: LAION-audio, Conceptual Captions, AudioCaps (billions of examples)\n  Training time: 100-500 TPU days\n  Cost: ~$10k-50k\n  Benefit: State-of-the-art multimodal understanding'
+      },
+      {
+        type: 'h2',
+        text: 'Interview Tips'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Problem: User sends image, audio, and text. How to fuse three modalities before generation?',
+          'Naive approach: Concatenate embeddings. Problem: Different dimensions, no cross-modal understanding.',
+          'Solution: Use separate encoders for each modality, project to shared space (e.g., 768-dim).',
+          'Cross-modal attention: Capture relationships—image attends to audio, audio to text, etc.',
+          'Fusion strategy: Learnable weights per modality or query-dependent weighting.',
+          'LLM integration: Fused embedding prepended to decoder or used via cross-attention.',
+          'Challenge: Modality imbalance (one dominates). Use attention heads per modality, separate pooling.',
+          'Scale: ViT (50-100ms) + Wav2Vec (100-200ms) + BERT (10-20ms) + Attention (50-100ms) + LLM (500-1000ms) = ~1.4 seconds.',
+          'Key insight: Pre-train encoders separately (ViT, Wav2Vec, BERT), then learn fusion layer end-to-end. Cheap fusion on expensive encoders.'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Key Takeaway'
+      },
+      {
+        type: 'divider' },
+      {
+        type: 'paragraph',
+        text: 'Fusing multimodal inputs (image, audio, text): Use separate domain-specific encoders (ViT for vision, Wav2Vec for audio, BERT for text), project all to shared embedding space (768-dim), apply cross-modal attention so each modality attends to others, use learnable query-dependent weights to combine embeddings (e.g., weight_image=0.4, weight_audio=0.5), feed fused embedding to LLM decoder. Key challenge: Different encoder outputs have different dimensions and semantic spaces. Solution: Projection layer aligns dimensions, cross-attention aligns semantics. Benefit: Multimodal understanding (image context + audio analysis + text query) produces coherent, integrated response. Inference latency: ~1.4 seconds (encoder bottleneck is audio at 100-200ms). Key insight: Leverage existing pre-trained models (CLIP, Wav2Vec, BERT), learn only fusion layers—cheap fusion on expensive encoders.'
+      }
+    ]
+  },
+  {
+    slug: 'ai-search-engine-with-confidence-ranking',
+    title: 'Building an AI Search Engine: Citation, Contradiction Detection, and Confidence-Based Ranking',
+    subtitle: 'Architecture for ranking search answers by confidence and coherence, not just relevance.',
+    date: 'June 21, 2026',
+    readTime: '12 min read',
+    tags: ['Search', 'Generative AI', 'System Design', 'Information Retrieval', 'Interview Prep'],
+    coverEmoji: '🔍',
+    content: [
+      {
+        type: 'callout',
+        emoji: '🎯',
+        text: 'AI search problem: Search returns multiple answers to query "Is coffee healthy?" Source A: "Yes, reduces disease risk", Source B: "No, increases blood pressure", Source C: "Depends on consumption amount". Naive system: Rank by relevance and return top result. Problem: User doesn\'t know which is correct or if sources disagree. Solution: (1) Extract claims from each source with confidence scores, (2) detect contradictions (Source A vs B), (3) rank answers by confidence and agreement level, (4) show sources with claims highlighted, (5) surface uncertainty explicitly. Challenge: Extracting claims accurately, detecting subtle contradictions (not just boolean yes/no), confidence scoring from different source types (peer-reviewed vs. social media).'
+      },
+      {
+        type: 'h2',
+        text: 'The Problem: Ranking by Relevance Alone is Insufficient'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Example Query: "Is coffee healthy?"\n\nTraditional Search Results (Ranked by Relevance BM25):\n1. Blog: "Coffee is a superfood. Studies show it reduces cancer risk!"\n   Relevance score: 0.92\n   Problem: High relevance but unverified claim, no uncertainty\n\n2. Medical journal: "Meta-analysis of 50 studies shows mixed results.\n   High consumption (> 4 cups/day) associated with sleep disruption.\n   Moderate consumption (1-2 cups) shows potential cardiovascular benefits."\n   Relevance score: 0.78 (less flashy, more nuanced)\n   Problem: Lower ranking despite being more accurate and careful\n\n3. WebMD: "Coffee can be healthy for most people, but those with\n   anxiety or certain medical conditions should avoid high amounts."\n   Relevance score: 0.85\n\nProblem:\n  Ranking doesn\'t account for source credibility (peer-reviewed vs. blog)\n  Ranking doesn\'t capture contradictions (superfood vs. sleep disruption)\n  Ranking doesn\'t reflect confidence (strong claims vs. nuanced findings)\n  User sees blog #1 and believes coffee is universally healthy\n  User misses important caveat about high consumption\n\nUser Expectation:\n  "Show me what experts agree on"\n  "Highlight where sources disagree"\n  "Tell me confidence level of each claim"\n  "Give me sources to verify information"'
+      },
+      {
+        type: 'h2',
+        text: 'Solution: Confidence-Ranked Search with Citation and Contradiction Detection'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Architecture Layers:\n\n1. Search and Retrieval\n   Query: "Is coffee healthy?"\n   Retrieve: Top 20-50 sources (documents, articles, papers)\n   Ranking: Initial relevance ranking (BM25, dense retrieval)\n\n2. Claim Extraction\n   For each source, extract key claims:\n   Source A: [Claim1: "Coffee reduces cancer risk" (confidence 0.7)]\n   Source B: [Claim1: "High coffee consumption causes sleep issues" (confidence 0.8)]\n   Source C: [Claim1: "Coffee health depends on amount" (confidence 0.9)]\n\n3. Contradiction Detection\n   Compare claims across sources:\n   Claim A vs Claim B: Potential contradiction (cancer benefit vs. sleep harm)\n   Semantic similarity: Different aspects of same topic\n   Flag: "Sources disagree on health impact"\n\n4. Source Credibility Scoring\n   Rate each source:\n   Peer-reviewed journal: 0.95\n   Medical website (WebMD): 0.80\n   News article: 0.70\n   Blog: 0.40\n\n5. Aggregated Confidence Scoring\n   Combine: Claim confidence + source credibility + agreement level\n   Formula: confidence_final = claim_confidence * source_credibility * agreement_bonus\n   If multiple credible sources agree → higher confidence\n   If sources contradict → lower confidence, flag disagreement\n\n6. Ranking and Display\n   Sort by confidence_final (not relevance)\n   Show:\n     - Core claim with confidence score\n     - Supporting sources (with caveats)\n     - Contradicting sources (with explanation)\n     - User can click for full source and claim context\n\n7. Uncertainty Communication\n   High confidence (> 0.8): "Strong agreement across sources"\n   Medium confidence (0.5-0.8): "Some sources agree, others disagree"\n   Low confidence (< 0.5): "Sources contradict each other. No consensus."\n   Unknown: "Insufficient sources to determine"'
+      },
+      {
+        type: 'h2',
+        text: 'Component 1: Claim Extraction from Sources'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Goal: Extract structured claims from unstructured text\n\nApproach 1: LLM-Based Extraction (GPT/Gemini)\n  Prompt: "Extract key factual claims from this text. For each claim,\n           rate your confidence (0-1) and categorize as medical/nutritional/other."\n  \n  Input: Medical journal abstract about coffee\n  Output:\n    Claim 1: "High coffee consumption (> 4 cups/day) associated with sleep disruption"\n             Category: Health effect\n             Confidence: 0.85 (evidence from controlled studies)\n    \n    Claim 2: "Moderate consumption (1-2 cups/day) shows cardiovascular benefits"\n             Category: Health benefit\n             Confidence: 0.70 (mixed evidence, depends on individual factors)\n    \n    Claim 3: "Pregnant women should limit coffee consumption"\n             Category: Medical caution\n             Confidence: 0.90 (strong evidence in meta-analyses)\n\nApproach 2: Structured Extraction (Rule-Based)\n  Look for claim patterns:\n    "[Subject] [Verb] [Effect]"\n    "Coffee causes sleep disruption"\n    "Coffee increases heart rate"\n    "Coffee improves alertness"\n  \n  Extract: (subject=coffee, verb=causes, effect=sleep disruption)\n  Lookup confidence from source type (journal=high, blog=low)\n\nApproach 3: Hybrid (LLM + Verification)\n  LLM extracts claims\n  Verify claims against other sources\n  Cross-reference with fact databases (medical research, Wikipedia)\n  Adjust confidence if claims are supported elsewhere\n\nConfidence Scoring:\n  Base confidence from LLM extraction (0.7-0.9)\n  Modifiers:\n    + if claim has citations/evidence: +0.1\n    + if claim appears in multiple sources: +0.1\n    - if claim contradicts meta-analyses: -0.2\n    - if claim lacks nuance (overly absolute): -0.1\n  \n  Final confidence: Base +/- modifiers, clamped to [0, 1]'
+      },
+      {
+        type: 'h2',
+        text: 'Component 2: Contradiction Detection'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Goal: Identify when sources make conflicting claims\n\nMethod 1: Semantic Similarity (Embeddings)\n  Encode each claim as embedding:\n    Claim A: "Coffee causes sleep disruption" → [embedding_A]\n    Claim B: "High caffeine improves alertness" → [embedding_B]\n  \n  Compute semantic similarity: cosine(embedding_A, embedding_B)\n  Similarity > 0.8: Claims are about same topic\n  \n  Negate claims and re-check:\n    NOT(Claim A): "Coffee does not disrupt sleep" → [embedding_not_A]\n    Similarity between NOT(Claim A) and Claim B: 0.85\n    → Contradiction detected\n\nMethod 2: Structured Claim Matching\n  Extract structure:\n    Claim A: (subject=coffee, verb=causes, effect=sleep_disruption, magnitude=high)\n    Claim B: (subject=coffee, verb=improves, effect=alertness, magnitude=high)\n  \n  Detect contradiction:\n    If subject and verb are compatible and effects are opposite → contradiction\n    Difference: Magnitude matters (high consumption vs. normal consumption)\n\nMethod 3: LLM-Based Detection\n  Prompt: "Do these two claims contradict each other?"\n    Claim A: "Coffee causes sleep disruption"\n    Claim B: "Coffee improves alertness"\n  \n  Output: Contradiction level = 0.7 (not absolute, both can be true depending on timing)\n  Explanation: "Coffee improves immediate alertness but can disrupt sleep if consumed late."\n\nNuance Handling:\n  Not all disagreements are contradictions\n  Claim A: "Coffee bad for pregnant women"\n  Claim B: "Coffee good for non-pregnant people"\n  Not a contradiction, just different populations\n  \n  Qualifier check: Extract population (pregnant, non-pregnant), context (amount, timing)\n  If qualifiers differ → potential nuance, not hard contradiction'
+      },
+      {
+        type: 'h2',
+        text: 'Component 3: Source Credibility Scoring'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Goal: Rate trustworthiness of each source\n\nCredibility Factors:\n\n1. Source Type\n   Peer-reviewed journal (JAMA, Nature): 0.95\n   University research: 0.90\n   Medical organization (Mayo Clinic, NIH): 0.85\n   News outlet (Reuters, AP): 0.75\n   Magazine article: 0.60\n   Blog or personal website: 0.30\n   Social media: 0.10\n\n2. Author Expertise\n   Author has PhD in relevant field: +0.10\n   Author works at credible institution: +0.08\n   Author has published history: +0.05\n   Anonymous author: -0.15\n   Author has conflicts of interest (e.g., coffee company): -0.20\n\n3. Publication Date\n   Newer (< 1 year): 0 modifier (recent = good)\n   Moderate (1-5 years): -0.05 (still valid)\n   Older (5-10 years): -0.15 (may be outdated)\n   Very old (> 10 years): -0.25 (likely outdated unless foundational)\n   Note: Foundational scientific papers are valued even if old\n\n4. Evidence Quality\n   Randomized controlled trial (RCT): 0.90\n   Observational study: 0.70\n   Meta-analysis: 0.92 (highest)\n   Expert opinion (no data): 0.50\n   Anecdotal (one person\'s experience): 0.20\n\n5. Source Reputation (External)\n   Query Wikipedia/Snopes for source reputation\n   Has source been cited in other credible sources? +0.10\n   Has source been flagged for misinformation? -0.30\n\nFinal Credibility Score:\n  credibility = base_type_score + author_modifier + date_modifier + evidence_quality\n  Clamped to [0, 1]\n  Example calculation:\n    Peer-reviewed journal (0.95) + PhD author (+0.10) + recent (+0) + RCT (0.90 = already in base)\n    = 0.95 + 0.10 = 0.95 (capped at 1.0) → 0.95 credibility'
+      },
+      {
+        type: 'h2',
+        text: 'Component 4: Confidence Aggregation and Ranking'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Per-Claim Confidence:\n  Extract claim C from source S\n  Claim confidence (c_claim): 0.7 (how confident is the source about this claim?)\n  Source credibility (c_source): 0.85 (how credible is the source overall?)\n  \n  Adjusted confidence = c_claim × c_source\n  Example: 0.7 × 0.85 = 0.595 → claim confidence considering source reliability\n\nAggregation Across Multiple Sources:\n  Multiple sources make similar claims → boost confidence\n  Claim C: "Coffee improves alertness"\n    Source A (credibility 0.9): confidence 0.8 → 0.72\n    Source B (credibility 0.7): confidence 0.75 → 0.525\n    Source C (credibility 0.85): confidence 0.85 → 0.7225\n  \n  Agreement metric: 3 sources agree on this claim\n  Aggregated confidence = weighted_average([0.72, 0.525, 0.7225])\n                        = (0.72 * 3 + 0.525 * 1 + 0.7225 * 2) / 6 ≈ 0.65\n  But since all agree → boost by agreement factor (×1.2)\n  Final confidence = 0.65 × 1.2 = 0.78\n\nContradiction Adjustment:\n  Claim C1: "Coffee improves alertness" (confidence 0.78)\n  Claim C2: "Coffee disrupts sleep" (confidence 0.75)\n  \n  Contradiction detected with strength 0.7\n  Adjustment: Multiply both confidences by contradiction_damping (e.g., 0.8)\n  C1 adjusted: 0.78 × 0.8 = 0.624\n  C2 adjusted: 0.75 × 0.8 = 0.6\n  \n  Reasoning: Both claims may be true (coffee helps now, hurts later),\n  so confidence in either as standalone answer is reduced\n\nFinal Ranking:\n  Sort claims by confidence (C1=0.624, C2=0.6, C3=0.78...)\n  Display top 3-5 claims to user\n  Include: Claim text, confidence score, supporting/contradicting sources'
+      },
+      {
+        type: 'h2',
+        text: 'Component 5: Display and Citation'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Search Result Layout:\n\nQuery: "Is coffee healthy?"\n\nResult 1 (Confidence: 0.78)\n┌─────────────────────────────────────────────┐\n│ Core Claim: "Moderate coffee improves       │\n│             alertness and may have health   │\n│             benefits"                       │\n│                                             │\n│ Confidence: 78 percent                      │\n│ Status: Strong agreement (3 sources)        │\n│                                             │\n│ Supporting sources:                         │\n│ ✓ Medical journal (confidence 0.85)         │\n│ ✓ Mayo Clinic (confidence 0.80)             │\n│ ✓ Harvard Health (confidence 0.82)          │\n│                                             │\n│ Caveat: High consumption (> 4 cups/day)    │\n│         may cause sleep disruption         │\n│ Contradicting sources:                      │\n│ ! Sleep research study (confidence 0.75)    │\n│                                             │\n│ [Show all sources] [Deep dive]              │\n└─────────────────────────────────────────────┘\n\nResult 2 (Confidence: 0.62)\n┌─────────────────────────────────────────────┐\n│ Claim: "High coffee consumption increases   │\n│        blood pressure"                      │\n│                                             │\n│ Confidence: 62 percent                      │\n│ Status: Mixed evidence (some sources        │\n│         disagree, depends on individual)    │\n│                                             │\n│ Strongest source:                           │\n│ • Peer-reviewed study (confidence 0.88)     │\n│   [Link to paper]                           │\n│                                             │\n│ Contradicted by:                            │\n│ • Population study (confidence 0.70)        │\n│   [Link to study]                           │\n│                                             │\n│ Context: Effect varies by genetics and      │\n│          individual sensitivity             │\n└─────────────────────────────────────────────┘\n\nCitation Format:\n  [1] Mayo Clinic. "Coffee and Health." Retrieved June 2026.\n      https://example.com [Credibility: 0.85]\n  \n  [2] Journal of Nutrition. "Meta-analysis of coffee..." 2025\n      https://example.com [Credibility: 0.95, Evidence: RCT]\n  \n  [3] Sleep Research Study. "Caffeine effects on..." 2024\n      https://example.com [Credibility: 0.80, Evidence: Observational]'
+      },
+      {
+        type: 'h2',
+        text: 'Component 6: Handling Uncertainty'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Confidence Tiers:\n\nHigh Confidence (> 0.80)\n  "Strong agreement across credible sources"\n  Show: Top 1-2 most confident claims\n  Example: "Water is essential for human survival"\n\nMedium Confidence (0.50-0.80)\n  "Some sources agree, others present nuances"\n  Show: Primary claim + important caveats\n  Example: Coffee benefits depend on consumption amount\n  Flag: "Note: Experts disagree on optimal consumption"\n\nLow Confidence (< 0.50)\n  "Significant disagreement or limited evidence"\n  Show: All conflicting claims with equal weight\n  Example: "Long-term coffee consumption effects"\n  Flag: "No scientific consensus. More research needed."\n\nInsufficient Data\n  < 3 credible sources found\n  Show: "Insufficient reliable sources to answer question"\n  Suggest: "Try refining your question or check back later"\n\nExplicit Uncertainty Statements:\n  "As of June 2026, research shows [X], but newer studies may change this\n   understanding."\n  \n  "Individual responses to coffee vary. What applies to the general\n   population may not apply to you, especially if you have [relevant condition]."\n  \n  "This is an active area of research. Recommendations may update as new\n   evidence emerges."\n\nUser Education:\n  Tooltip on confidence score: Explains how it\'s calculated\n  \"Why these sources?\" link: Shows credibility factors\n  \"What sources disagree?\" link: Explores alternative claims'
+      },
+      {
+        type: 'h2',
+        text: 'Scale and Implementation'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Per-Query Processing Pipeline:\n\n1. Retrieve Documents\n   Query: "Is coffee healthy?"\n   Retrieve top 20 documents via BM25 + dense retrieval\n   Time: 50-100ms\n\n2. Claim Extraction (Batch LLM calls)\n   For each document: Extract claims\n   Batch size: 20 documents\n   LLM: Gemini or GPT-4 (API call)\n   Time: 1-2 seconds (parallelized)\n   Cost: ~$0.01 per query\n\n3. Credibility Scoring\n   For each document: Score source credibility\n   Lookup: Source database, author reputation, publication date\n   Time: 100-200ms (cached for known sources)\n\n4. Contradiction Detection\n   Compare all claims pairwise\n   Complexity: O(n^2) where n = claims extracted (10-50 claims)\n   LLM calls to detect contradictions: 10-20 calls\n   Time: 1-2 seconds\n\n5. Confidence Aggregation\n   Combine claim confidence + source credibility + agreement\n   Time: 100ms (simple math)\n\n6. Ranking and Display\n   Sort by confidence\n   Generate user-friendly response\n   Time: 200ms\n\nTotal latency: 2-4 seconds per query\nTarget SLA: < 5 seconds (acceptable for search results)\n\nDaily Scale (Google-level):\n  Queries per day: 8.5B\n  Current search (BM25 only): 50-200ms\n  Confidence ranking adds: +2-4 seconds\n  Total: 2-4 seconds per query\n  \n  Cost per query:\n    LLM claim extraction: $0.01\n    LLM contradiction detection: $0.005\n    Total: ~$0.015 per query\n  \n  Daily cost: 8.5B queries × $0.015 = $127.5M\n  Annual: ~$46B\n  \n  Optimization:\n    Cache claims for popular queries (20-30 percent hit rate)\n    Effective cost: $32B/year\n    Reduced to: Only LLM call for cache misses'
+      },
+      {
+        type: 'h2',
+        text: 'Challenges and Edge Cases'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Nuance vs. Contradiction: "Coffee is healthy" and "High coffee is unhealthy" aren\'t contradictory. Need to parse conditions/qualifiers.',
+          'Source selection bias: What if all retrieved sources are biased (e.g., all pro-coffee)? Recommend diverse sources, flag if bias detected.',
+          'LLM hallucination in claim extraction: LLM might invent claims. Verify claims against original text, use source directly when possible.',
+          'Emerging topics: New questions with few sources. Confidence scores may be unreliable. Flag \"limited evidence\" explicitly.',
+          'Cost at scale: LLM calls for claim extraction are expensive. Cache heavily, batch process, use smaller models for simpler tasks.',
+          'Temporal dynamics: Claims become stale. Re-verify popular queries periodically (weekly/monthly).',
+          'Adversarial sources: Misinformation sites confidently state false claims. Require high source credibility bar before boosting confidence.'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Interview Tips'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Problem: Traditional search ranks by relevance. Best answer isn\'t always highest relevance.',
+          'Solution: Extract claims from sources, score claim confidence, detect contradictions, rank by confidence not relevance.',
+          'Claim extraction: Use LLM to identify factual claims from each source (e.g., "High coffee disrupts sleep").',
+          'Contradiction detection: Semantic similarity on claim embeddings + LLM verification. Handle nuance (context-dependent disagreements).',
+          'Source credibility: Journal (0.95) > medical website (0.85) > blog (0.3). Adjust for author expertise, evidence quality, publication date.',
+          'Aggregation: Combine claim confidence × source credibility × agreement bonus (multiple credible sources = higher confidence).',
+          'Display: Show core claim with confidence, supporting sources, contradicting sources. Explain disagreement nuance.',
+          'Uncertainty: High confidence > 0.8 (strong agreement). Low confidence < 0.5 (flag disagreement, no consensus).',
+          'Scale: Claim extraction ~$0.01/query. Cache popular queries to reduce LLM calls. Budget ~$46B/year at Google scale.'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Key Takeaway'
+      },
+      {
+        type: 'divider' },
+      {
+        type: 'paragraph',
+        text: 'AI search with confidence ranking: Retrieve documents (BM25), extract structured claims per source (LLM), score claim confidence + source credibility (peer-reviewed=0.95, blog=0.3), detect contradictions via embeddings + LLM, aggregate confidence across agreeing sources (boost if multiple credible sources align), rank results by confidence not relevance. Display: Core claim with confidence score, supporting sources, contradicting sources with nuance explanation. Uncertainty communication: High confidence > 0.8 (strong agreement), low < 0.5 (flag disagreement). Challenge: Nuance—"high coffee bad, moderate coffee good" isn\'t contradiction. Verify claims against original text, cache extracted claims, handle emerging topics with low evidence carefully. Trade-off: 2-4 second latency per query for higher accuracy. Key insight: Trust and transparency matter more than raw relevance—users want to understand source agreement, see contradictions, and evaluate confidence themselves.'
+      }
+    ]
+  },
 
 ];
