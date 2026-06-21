@@ -23158,5 +23158,179 @@ WELLBEING METRICS (not engagement metrics):
       }
     ]
   },
+  {
+    slug: 'qlora-quantized-lora-fine-tuning',
+    title: 'QLoRA: Efficient Fine-Tuning of Quantized Large Models on Consumer Hardware',
+    subtitle: 'Combine quantization with LoRA to fit 65B models in 48GB GPU memory.',
+    date: 'June 21, 2026',
+    readTime: '8 min read',
+    tags: ['LLMs', 'Fine-tuning', 'Quantization', 'Interview Prep'],
+    coverEmoji: '💾',
+    content: [
+      {
+        type: 'callout',
+        emoji: '🚀',
+        text: 'QLoRA idea: Combine two techniques. (1) Quantization: Store base model in 4-bit (65B model = 16GB). (2) LoRA: Train small adapter layers (0.5GB). Result: 65B parameter model fits in 24GB GPU (consumer hardware). Key insight: Quantized base model weights frozen, only small LoRA adapters trained. Trade-off: Slight quality loss from quantization, but 10x reduction in memory vs. standard LoRA.'
+      },
+      {
+        type: 'h2',
+        text: 'Standard LoRA Baseline'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Train 65B model with LoRA (rank 8): 65B + 0.5GB adapter params',
+          'Problem: 65B base model weights must be in memory (FP32 = 260GB, impossible)',
+          'Typical solution: Use smaller base (7B-13B) for hardware efficiency',
+          'Limitation: Cannot access power of larger models'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'QLoRA Innovation: Double Quantization'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Stage 1: Store base model in 4-bit (65B = 16GB)',
+          'Stage 2: On forward pass, dequantize to needed precision',
+          'Stage 3: Backprop through LoRA adapters (frozen base)',
+          'Result: Access 65B capacity, fit in 24GB GPU'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Key Technique 1: 4-bit Quantization'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Standard: FP32 (4 bytes/param), 65B = 260GB',
+          '4-bit: 65B = 16GB (16x compression)',
+          'Method: NF4 (normal float 4) - encode weights to 0-15 scale',
+          'Trade-off: 1-2 percent quality loss, massive memory savings'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Key Technique 2: Paged Optimizer States'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Optimizer (Adam) stores: m (momentum) and v (variance) per param',
+          'Standard: 65B model = 260GB (param) + 520GB (optimizer states) = 780GB impossible',
+          'QLoRA: Only train LoRA adapters (0.5GB), optimizer states for adapters only (4GB)',
+          'Result: Optimizer overhead negligible'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Key Technique 3: Unified Memory'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'CPU RAM can back GPU memory (slower but sufficient)',
+          'QLoRA leverages: Quantized base model can live in CPU RAM (slow)',
+          'LoRA adapters in GPU VRAM (fast, active training)',
+          'Hybrid setup: Reduce GPU requirement further'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Memory Breakdown: 65B Model on 24GB GPU'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Quantized base: 16GB (frozen, minimal access)',
+          'LoRA adapters: 0.5GB (trained, frequent access)',
+          'Activations: 4GB (intermediate computations)',
+          'Optimizer states: 1GB (Adam momentum/variance)',
+          'Batch/gradients: 2.5GB (training batches)',
+          'Total: 24GB (fits consumer GPU)'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'QLoRA vs. Standard LoRA'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'LoRA: 260GB base (FP32) + 0.5GB adapters = needs massive GPU',
+          'QLoRA: 16GB base (4-bit) + 0.5GB adapters + overhead = 24GB',
+          'Memory saving: 10x reduction (260GB -> 24GB)',
+          'Quality: Slight loss (1-2 percent) from 4-bit quantization'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Why It Works: Adapter Hypothesis'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Assumption: Task-specific knowledge fits in small adapters',
+          'Intuition: Fine-tuning learns delta from base, not full model',
+          'Evidence: LoRA achieves 99+ percent of full fine-tune quality with 0.1 percent params',
+          'QLoRA: Extends this - quantized base still captures knowledge, adapters learn adjustments'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Real-World Example'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Model: Llama 2 70B',
+          'Hardware: Single A100 80GB or 2x RTX 4090 (48GB each)',
+          'Standard LoRA: Would require 280GB base model (impossible)',
+          'QLoRA: 21GB + 3GB overhead = fits single 24GB consumer GPU',
+          'Training speed: ~2 tokens/sec (slower than FP32 but acceptable)'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Trade-offs and Limitations'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Quality: 1-2 percent lower perplexity vs. FP32 LoRA',
+          'Latency: Dequantization overhead adds latency per layer',
+          'Training speed: Slower than dense fine-tuning (acceptable for most)',
+          'Not suitable: Tasks requiring maximum accuracy might prefer dense'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Interview Tips'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'QLoRA: Combine 4-bit quantization + LoRA adapters',
+          'Key idea: Quantized base frozen, only LoRA trained (small overhead)',
+          'Benefit: Fit 65B model in 24GB GPU (consumer hardware)',
+          'Technique: NF4 quantization, paged optimizer states, unified memory',
+          'Trade-off: 1-2 percent quality loss for 10x memory savings'
+        ]
+      }
+    ]
+  },
 
 ];
