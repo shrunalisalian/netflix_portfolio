@@ -23039,5 +23039,124 @@ WELLBEING METRICS (not engagement metrics):
       }
     ]
   },
+  {
+    slug: 'context-window-long-context-llms',
+    title: 'Context Window in LLMs: Understanding Capacity for Long-Form Understanding',
+    subtitle: 'Why longer context enables better reasoning, retrieval, and multimodal processing.',
+    date: 'June 21, 2026',
+    readTime: '5 min read',
+    tags: ['LLMs', 'Context', 'Architecture', 'Interview Prep'],
+    coverEmoji: '📖',
+    content: [
+      {
+        type: 'callout',
+        emoji: '🪟',
+        text: 'Context window: Maximum tokens LLM can process at once. GPT-3.5: 4k tokens (3-4 pages). GPT-4: 8k/32k/128k. Claude: 200k. Limitation: Cannot see input beyond window size. Importance: Long context enables book analysis, code review, RAG retrieval, multimodal reasoning. Benefit: One call handles more input (fewer API calls, better coherence). Challenge: Longer context = higher memory, latency.'
+      },
+      {
+        type: 'h2',
+        text: 'Definition'
+      },
+      {
+        type: 'paragraph',
+        text: 'Context window: Maximum number of tokens (input + output) model can process in single forward pass. Example: 8k window = 8000 tokens. Cannot exceed this limit without new forward pass.'
+      },
+      {
+        type: 'h2',
+        text: 'Window Sizes Across Models'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'GPT-3.5: 4,096 tokens (3-4 pages)',
+          'GPT-4: 8,192 - 128,000 tokens (depending on variant)',
+          'Claude 3: 200,000 tokens (150+ pages)',
+          'Gemini: 1M tokens (in development)',
+          'Llama 2: 4,096 tokens (can extend via positional interpolation)'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Why Long Context Matters'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Document understanding: Analyze entire book or paper at once',
+          'RAG retrieval: Include more documents without chunking loss',
+          'Code review: See full codebase context (dependencies, patterns)',
+          'Conversation: Remember long interaction history (consistency)',
+          'Multimodal: Process many images/videos together (relationships)'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Benefits of Long Context'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Fewer API calls: One pass instead of splitting input',
+          'Better coherence: Model understands full document structure',
+          'Fewer errors: No information loss from chunking/summarization',
+          'Richer reasoning: All context available for reasoning tasks'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Challenges of Long Context'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Memory: Longer input = more GPU memory (O(context_length^2) for attention)',
+          'Latency: More tokens = slower generation (proportional to window)',
+          'Cost: Longer input sequences charged per token (more expensive)',
+          'Quality: Middle-of-context often ignored (lost-in-middle problem)'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Lost-in-Middle Problem'
+      },
+      {
+        type: 'paragraph',
+        text: 'When context very long, model attends more to beginning and end, less to middle. Important info in middle of document may be missed. Mitigations: Relevant chunks at start/end, reorder by importance.'
+      },
+      {
+        type: 'h2',
+        text: 'Extending Context Windows'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Positional interpolation: Extrapolate position embeddings to longer sequences',
+          'ALiBi (Attention with Linear Biases): Enables longer generalization',
+          'RoPE scaling: Rotate position embeddings for extended context',
+          'Fine-tuning: Train on longer sequences (computationally expensive)'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Interview Tips'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Context window: Max tokens (input + output) in single pass',
+          'Importance: Long context for documents, RAG, code, multimodal',
+          'Benefit: No chunking needed, better coherence',
+          'Challenge: Memory (O(n^2)), latency, cost, lost-in-middle',
+          'Trend: Expanding (200k-1M+) for comprehensive document understanding'
+        ]
+      }
+    ]
+  },
 
 ];
