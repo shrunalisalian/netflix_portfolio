@@ -20504,5 +20504,111 @@ WELLBEING METRICS (not engagement metrics):
       }
     ]
   },
+  {
+    slug: 'voice-activity-detection-vad',
+    title: 'Voice Activity Detection (VAD): Separating Speech from Silence and Noise',
+    subtitle: 'Real-time speech detection using energy, spectral features, and neural networks.',
+    date: 'June 21, 2026',
+    readTime: '7 min read',
+    tags: ['Audio Processing', 'Signal Processing', 'Speech', 'Interview Prep'],
+    coverEmoji: '🎤',
+    content: [
+      {
+        type: 'callout',
+        emoji: '🔊',
+        text: 'VAD challenge: Detect presence of human speech in audio stream. Input: raw audio or mel-spectrogram. Output: binary decision (speech/silence) for each frame. Naive: threshold energy. Problem: background noise triggers false positives. Solution: Multi-feature fusion (energy, spectral flux, zero-crossing) or neural net trained on labeled speech/silence.'
+      },
+      {
+        type: 'h2',
+        text: 'Problem: Why Simple Energy Threshold Fails'
+      },
+      {
+        type: 'paragraph',
+        text: 'Naive approach: if frame_energy > threshold, speech detected. Fails in noisy environments (coffee shop, traffic). Background noise and silence have overlapping energy ranges. Need more features to discriminate.'
+      },
+      {
+        type: 'h2',
+        text: 'Approach 1: Handcrafted Features'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Energy: Mean squared amplitude in frame',
+          'Spectral flux: Change in magnitude spectrum frame-to-frame',
+          'Zero-crossing rate: How often signal crosses zero (high in noise, low in speech)',
+          'MFCC: Mel-frequency cepstral coefficients (speech formants)',
+          'Combine via threshold or simple classifier (SVM)'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Approach 2: Neural Networks'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Input: mel-spectrogram (80 freq bins x 10-20 frames)',
+          'Architecture: 1D CNN or RNN (GRU/LSTM) for temporal context',
+          'Output: binary logit (speech/no-speech) per frame',
+          'Training: Labeled data (LibriSpeech silence segments, background noise)',
+          'Inference: O(10ms) per frame on CPU, real-time capable'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Mel-Spectrogram Feature'
+      },
+      {
+        type: 'paragraph',
+        text: 'Transform raw audio to frequency domain on mel scale (mimics human hearing). Typically 80 bins, 10-20ms frames. Speech has energy peaks at formant frequencies (low-mid range). Noise more uniform. Mel-spec is input to modern VAD models.'
+      },
+      {
+        type: 'h2',
+        text: 'Real-World Considerations'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Latency: Process in 10-20ms frames for low-latency stream processing',
+          'Noise robustness: Train on diverse noise (traffic, speech, music)',
+          'Temporal smoothing: Apply median filter on frame predictions to reduce flicker',
+          'Threshold tuning: Adjust decision threshold for precision vs. recall trade-off',
+          'Edge cases: Whispers (low energy), music (falsely triggers speech detector)'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Evaluation Metrics'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Precision: Of detected speech frames, how many are actually speech',
+          'Recall: Of true speech frames, how many detected',
+          'F1-score: Harmonic mean (balance precision and recall)',
+          'ROC curve: Trade-off across thresholds'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Interview Tips'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Problem: Detect speech presence in noisy audio',
+          'Simple: Energy threshold. Limitation: Background noise.',
+          'Better: Mel-spectrogram + neural net (CNN/RNN)',
+          'Key: Temporal context (previous frames inform current decision)',
+          'Trade-off: Precision vs. recall (fewer false positives or fewer missed speech?)'
+        ]
+      }
+    ]
+  },
 
 ];
