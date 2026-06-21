@@ -15594,5 +15594,29 @@ WELLBEING METRICS (not engagement metrics):
       { type: 'paragraph', text: 'Quality is multidimensional. Combine rule-based filters with learned classifiers. Validate on downstream task performance, not surface metrics.' }
     ]
   },
+  {
+    slug: 'data-deduplication-llm-training',
+    title: 'Data Deduplication for LLMs',
+    subtitle: 'Removing duplicates to improve training efficiency.',
+    date: 'June 21, 2026',
+    readTime: '15 min read',
+    tags: ['Data Preparation', 'LLM Training'],
+    coverEmoji: '♻️',
+    content: [
+      { type: 'h2', text: 'The Problem' },
+      { type: 'paragraph', text: '30-50% of internet data is duplicated. Training on duplicates wastes compute.' },
+      { type: 'h2', text: 'Why It Matters' },
+      { type: 'list', ordered: false, items: ['Cost: 40% duplicates = 40% cheaper training', 'Quality: diverse > repeated', 'Performance: 5-10% improvement'] },
+      { type: 'h2', text: 'Types' },
+      { type: 'list', ordered: false, items: ['Exact: identical (5-10%, hash-based)', 'Near: 95%+ similar (15-30%, MinHash+LSH)', 'Semantic: same meaning (2-5%, embeddings)'] },
+      { type: 'h2', text: 'Methods' },
+      { type: 'list', ordered: false, items: ['Hash: 1B docs/hour, 100 bytes/doc', 'MinHash+LSH: 100M docs/hour, 1-5KB/doc', 'Embeddings: 10M docs/hour, 1MB/doc'] },
+      { type: 'h2', text: 'Pipeline' },
+      { type: 'list', ordered: true, items: ['Exact hash dedup (fast)', 'MinHash+LSH near-dup (medium)', 'Embedding-based semantic (slow, optional)'] },
+      { type: 'h2', text: 'Key Takeaway' },
+      { type: 'divider' },
+      { type: 'paragraph', text: 'Deduplication removes duplicates to reduce training cost and improve quality. Use hash for exact, MinHash for near-duplicates at scale.' }
+    ]
+  },
 
 ];
