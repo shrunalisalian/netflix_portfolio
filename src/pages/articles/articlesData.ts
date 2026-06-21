@@ -24069,5 +24069,135 @@ WELLBEING METRICS (not engagement metrics):
       }
     ]
   },
+  {
+    slug: 'lora-problem-adaptation-pretrained-models',
+    title: 'LoRA: Efficient Adaptation of Large Pretrained Models With Minimal Parameters',
+    subtitle: 'Why parameter-efficient fine-tuning beats full model adaptation in practice.',
+    date: 'June 21, 2026',
+    readTime: '5 min read',
+    tags: ['LLMs', 'Fine-tuning', 'Parameter Efficiency', 'Interview Prep'],
+    coverEmoji: '🎯',
+    content: [
+      {
+        type: 'callout',
+        emoji: '💡',
+        text: 'LoRA solves: Full fine-tuning 175B parameter model costs millions. Solution: Train only 0.1% additional parameters (LoRA adapters). Same quality, 1000x cheaper checkpoints, faster training. Why good fit: Pretrained models already capture general knowledge. Task-specific adaptation needs only small tweaks. LoRA hypothesis: Weight updates low-rank (can be factored as A @ B^T). Trade-off: Slight quality loss, massive efficiency gain.'
+      },
+      {
+        type: 'h2',
+        text: 'Full Fine-Tuning Problem'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'GPT-3: 175B params, full fine-tuning = 175B gradients + optimizer states',
+          'Memory: 700GB+ (single A100 GPU only 80GB)',
+          'Cost: $1M+ compute to fine-tune',
+          'Checkpoint: 700GB saved model (impractical to distribute)',
+          'Solution: Only update small subset? But which 0.1% matters?'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'LoRA Insight: Low-Rank Hypothesis'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Observation: Fine-tuning changes weights, but changes are low-rank',
+          'Example: 175B x 0.1% = 175M new parameters needed',
+          'Factor as: A (175B x 8) + B (8 x 175M) = 1.4B + 1.4B = 2.8B total',
+          'Result: Rank-8 factorization reduces from 175M to 2.8B (1000x)'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Why LoRA Works in Practice'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Pretrained knowledge: Model already knows 95% (general understanding)',
+          'Task-specific: Only 5% tweaking needed (task-specific patterns)',
+          'Low-rank assumption: Those tweaks concentrate in few dimensions',
+          'Empirically validated: LoRA achieves 99%+ of full fine-tune quality'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Key Advantages'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Memory: 100x reduction (175B params -> 2.8B LoRA params)',
+          'Cost: 10-100x cheaper training (fewer parameters, smaller checkpoints)',
+          'Speed: 2-5x faster training (fewer gradient updates)',
+          'Flexibility: Multiple tasks, one base model + many small adapters',
+          'Inference: Add LoRA to base model on-the-fly (no recompilation)'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Quality Trade-off'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Full fine-tune: 100% (reference)',
+          'LoRA (rank 8): 99-99.5% quality (1-2% loss)',
+          'Acceptable: Most tasks won\'t notice 1% difference',
+          'Better than: Many competing methods (adapter layers, prefix tuning)'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Practical Setup'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Freeze: Base model weights (no gradient)',
+          'Train: Only LoRA A, B matrices',
+          'Result: 0.1% trainable parameters, 99.9% frozen',
+          'Deployment: Merge or keep separate (LoRA adds ~0.5GB per task)'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'When Full Fine-Tuning Still Needed'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Extreme domain shift: LoRA may not adapt enough',
+          'Maximum quality: If 1% loss unacceptable (rarely)',
+          'Architectural changes: LoRA only adapts weights, not structure'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Interview Tips'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Problem: Full fine-tuning massive (memory, cost, time)',
+          'Solution: Train only 0.1% LoRA adapters on top of base',
+          'Why works: Weight updates low-rank (factorize as A @ B^T)',
+          'Quality: 99%+ of full fine-tune, 100x cheaper',
+          'Use case: Standard for adapting pretrained models at scale'
+        ]
+      }
+    ]
+  },
 
 ];
