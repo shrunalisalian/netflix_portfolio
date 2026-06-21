@@ -22606,5 +22606,150 @@ WELLBEING METRICS (not engagement metrics):
       }
     ]
   },
+  {
+    slug: 'acoustic-semantic-tokens-audio-llm',
+    title: 'Acoustic vs. Semantic Tokens in Audio LLMs: Bridging Continuous Signals and Discrete Language',
+    subtitle: 'Understand two-stage tokenization for audio understanding and generation.',
+    date: 'June 21, 2026',
+    readTime: '7 min read',
+    tags: ['Audio Processing', 'LLMs', 'Tokenization', 'Interview Prep'],
+    coverEmoji: '🎵',
+    content: [
+      {
+        type: 'callout',
+        emoji: '🔊',
+        text: 'Audio LLM problem: LLMs work on discrete tokens, audio is continuous waveform. Solution: Two-stage tokenization. Stage 1 (Acoustic): Compress raw audio into acoustic tokens (preserve sound detail). Stage 2 (Semantic): Extract semantic meaning (what is being said). Example: Speech "hello" -> acoustic tokens (156, 43, 201, 98...) -> semantic tokens (word: hello, emotion: neutral). Benefit: Discrete representation, preserves meaning, enables LLM reasoning.'
+      },
+      {
+        type: 'h2',
+        text: 'Why Tokenization is Necessary'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'LLMs discrete: Process token sequences, not continuous signals',
+          'Audio continuous: Raw waveform 16kHz = 16000 samples/sec (intractable)',
+          'Solution: Discretize via tokenization (100-300 tokens/sec, manageable)',
+          'Analogy: Text uses 50k vocabulary. Audio needs learned "vocabulary" of codes'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Acoustic Tokens'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Definition: Low-level compressed audio representation',
+          'Method: Encoder learns to compress raw waveform to discrete codes',
+          'Example: 16kHz audio -> 50 acoustic tokens/sec',
+          'Vocabulary: 4096-8192 unique tokens (learned via VQ-VAE or similar)',
+          'Properties: Preserves acoustic detail (pitch, tone, noise), invertible (can reconstruct audio)'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Semantic Tokens'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Definition: High-level meaning extracted from acoustic tokens',
+          'Method: Second encoder maps acoustic tokens to semantic tokens',
+          'Example: Acoustic tokens (151, 42, 200...) -> Semantic (HELLO, WORLD)',
+          'Vocabulary: Much smaller (100-512 tokens, human-interpretable)',
+          'Properties: Language-like (can be directly used for text), lossy (loses accent, tone)'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Two-Stage Pipeline'
+      },
+      {
+        type: 'list',
+        ordered: true,
+        items: [
+          'Raw audio: 16kHz waveform (16000 samples/sec)',
+          'Stage 1 (Acoustic encoding): Compress to 50 acoustic tokens/sec (1:320 compression)',
+          'Stage 2 (Semantic encoding): Map to ~5 semantic tokens/sec (further compression)',
+          'LLM input: Semantic tokens (manageable sequence length)',
+          'LLM generates: Semantic tokens (meaning)',
+          'Decoding: Semantic -> acoustic -> audio reconstruction'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Why Two Stages?'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Direct to semantic: Would lose audio detail (tone, accent, prosody)',
+          'Direct to acoustic: Sequence too long (50 tokens/sec = 3000 tokens per minute)',
+          'Two stages: Sweet spot - preserve detail (acoustic) but compress (semantic)',
+          'Trade-off: Acoustic for quality, semantic for LLM tractability'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Acoustic Token Use Cases'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Speech synthesis: Generate high-quality audio (speaker voice, emotion)',
+          'Audio generation: Recreate sound effects, music',
+          'Fine-grained control: Adjust prosody, tone after generation'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Semantic Token Use Cases'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Speech understanding: Transcription, speaker identification',
+          'Reasoning: LLM understands "what was said" not "how it sounded"',
+          'Cross-modal: Mix semantic audio tokens with text for multimodal understanding'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Challenges'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Information loss: Semantic tokens lose speaker identity, emotion',
+          'Inference cost: Two encode stages add latency',
+          'Quality trade-off: Compression limits detail',
+          'Training: Requires large audio datasets with labels'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Interview Tips'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Acoustic tokens: Compress raw audio (preserve detail, larger vocabulary)',
+          'Semantic tokens: Extract meaning (smaller vocabulary, language-like)',
+          'Why two stages: Manage sequence length while preserving quality',
+          'Tokenization necessity: LLMs need discrete tokens, audio is continuous',
+          'Trade-off: Acoustic detail vs. semantic meaning vs. sequence length'
+        ]
+      }
+    ]
+  },
 
 ];
