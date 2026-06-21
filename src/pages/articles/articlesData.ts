@@ -15508,5 +15508,26 @@ WELLBEING METRICS (not engagement metrics):
       { type: 'paragraph', text: 'Different metrics measure different things, and no single metric is universally good. Perplexity, BLEU, and ROUGE are foundational but flawed. BERTScore and semantic similarity are better for open-ended generation. F1 and precision/recall are essential for classification. Always validate automatic metrics against human judgment on a sample of data—automatic metrics are tools for iteration, not ground truth for decisions.' }
     ]
   },
-  
+  {
+    slug: 'non-maximum-suppression-object-detection',
+    title: 'Non-Maximum Suppression (NMS) in Object Detection',
+    subtitle: 'Why removing duplicate predictions is critical for production detection systems.',
+    date: 'June 21, 2026',
+    readTime: '13 min read',
+    tags: ['Object Detection', 'Computer Vision', 'Post-Processing', 'System Design'],
+    coverEmoji: '📦',
+    content: [
+      { type: 'h2', text: 'The Problem: Duplicate Predictions' },
+      { type: 'paragraph', text: 'Object detectors don\'t predict just one box per object. They predict many. A single car might generate 5-50 overlapping bounding boxes with high confidence scores.' },
+      { type: 'h2', text: 'The NMS Algorithm' },
+      { type: 'paragraph', text: 'For each class, suppress low-confidence boxes that overlap with higher-confidence boxes. Keep only the best box in each spatial region.' },
+      { type: 'h2', text: 'Why NMS Is Critical for Production' },
+      { type: 'list', ordered: false, items: ['Too many predictions without NMS', 'Metrics fail without NMS', 'Latency explodes with more boxes', 'User confusion from duplicate detections'] },
+      { type: 'h2', text: 'Modern Variants' },
+      { type: 'list', ordered: false, items: ['Soft-NMS: reduce confidence instead of removing', 'Class-specific NMS: suppress only within same class', 'DIoU-NMS: uses center distance + IOU'] },
+      { type: 'h2', text: 'Key Takeaway' },
+      { type: 'divider' },
+      { type: 'paragraph', text: 'NMS is the bridge between overlapping model predictions and clean distinct detections. Simple but absolutely critical for production object detection.' }
+    ]
+  },
 ];
