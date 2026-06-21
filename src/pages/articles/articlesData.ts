@@ -23487,5 +23487,149 @@ WELLBEING METRICS (not engagement metrics):
       }
     ]
   },
+  {
+    slug: 'kv-cache-transformer-inference',
+    title: 'KV Cache in Transformers: Accelerating Autoregressive Inference Through Reuse',
+    subtitle: 'Store computed keys and values to avoid redundant computation during generation.',
+    date: 'June 21, 2026',
+    readTime: '6 min read',
+    tags: ['Transformers', 'Inference', 'Optimization', 'Interview Prep'],
+    coverEmoji: '💾',
+    content: [
+      {
+        type: 'callout',
+        emoji: '⚡',
+        text: 'KV cache insight: During generation, model outputs one token at a time. At step t, compute attention over all t previous tokens. Problem: Recompute keys/values for tokens 1...t-1 every step (wasteful). Solution: Cache K, V from previous steps, reuse. Only compute K, V for new token t. Result: O(t) computation per token instead of O(t^2). For 100-token generation: 100x speedup.'
+      },
+      {
+        type: 'h2',
+        text: 'Autoregressive Generation Problem'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Step 1: Input "Hello". Compute K, V, output token "world".',
+          'Step 2: Input "Hello world". Compute K, V again, output next token.',
+          'Step 3: Input "Hello world ..." Recompute K, V for all previous.',
+          'Problem: Steps 1-2 waste computation (recompute K, V unnecessarily)'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'How KV Cache Works'
+      },
+      {
+        type: 'list',
+        ordered: true,
+        items: [
+          'Step 1: Compute K, V for "Hello". Cache them.',
+          'Step 2: Retrieve cached K, V from step 1. Compute K, V for "world". Append to cache.',
+          'Step 3: Retrieve cached K, V (all previous). Compute K, V only for new token.',
+          'Step t: Use cached K, V from steps 1...t-1, compute for token t only.',
+          'Result: Each step O(t) computation, total O(t^2) for t steps (better than O(t^3) without cache)'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Computational Savings'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Without cache: Step t computes attention over t positions = O(t^2 d)',
+          'With cache: Step t computes K, V for 1 position, attention = O(t d)',
+          'Savings: O(t) instead of O(t^2) per step',
+          'For 256-token generation: 256x speedup'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'KV Cache Storage Requirements'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Per token: 2 x d_model floats (key + value)',
+          'For sequence length N: 2 x N x d_model floats per head',
+          'Multi-head: 2 x N x (d_model / num_heads) x num_heads = 2 x N x d_model',
+          'Example: 7B model, 2000 tokens = 28GB KV cache (can be prohibitive)'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Memory-Speed Trade-off'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Speed: KV cache reduces computation by 100x',
+          'Memory: Storing cache requires O(N) memory (grows with sequence length)',
+          'At inference: Often memory-constrained (not compute-constrained)',
+          'Trade-off: Spend memory to save computation'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Limitations: Growing Sequence Length'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Long context: 4k or 32k tokens = huge cache (100GB+)',
+          'Batching: Multiple sequences = caches multiply (batch_size x seq_length x d)',
+          'Dynamic batching: Cache size varies (harder to optimize)',
+          'OOM risk: Cache exceeds GPU memory for very long sequences'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Optimizations to KV Cache'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Quantization: Store K, V in int8 or int4 (4-8x reduction)',
+          'Multi-Query Attention: Share K, V across heads (96x reduction)',
+          'Sparse attention: Cache only relevant positions (skip distant tokens)',
+          'Pruning: Delete less-important cached keys (selective retention)'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'KV Cache in Practice'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Typical: Enabled by default in inference (huge speedup)',
+          'Batch size: Limited by cache memory (trade batch for speed)',
+          'Latency: First token slow (full computation), subsequent tokens fast (cached)',
+          'Mobile: KV cache too large, sometimes disabled for on-device models'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Interview Tips'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'KV cache: Store computed keys/values from previous tokens',
+          'Why: Reuse in next step, avoid recomputation',
+          'Speedup: O(t^2) -> O(t) per step, 100x for long sequences',
+          'Trade-off: Memory increases with sequence length',
+          'Optimizations: Quantization, multi-query attention, sparsity'
+        ]
+      }
+    ]
+  },
 
 ];
