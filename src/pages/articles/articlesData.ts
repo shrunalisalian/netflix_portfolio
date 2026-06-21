@@ -19478,5 +19478,137 @@ WELLBEING METRICS (not engagement metrics):
       }
     ]
   },
+  {
+    slug: 'genai-resume-rewrite-real-time',
+    title: 'Real-Time Resume Rewriting with GenAI: Meeting <2 Second Latency with Streaming and Caching',
+    subtitle: 'System design for AI-powered resume optimization that returns personalized suggestions under 2 seconds.',
+    date: 'June 21, 2026',
+    readTime: '10 min read',
+    tags: ['Generative AI', 'Real-Time', 'Latency', 'System Design', 'Interview Prep'],
+    coverEmoji: '⚡',
+    content: [
+      {
+        type: 'callout',
+        emoji: '🎯',
+        text: 'Resume rewriter problem: User uploads resume and job description. AI rewrites resume bullets for that job. Goal: Complete rewrite in <2 seconds (user won\'t wait longer). Challenge: LLM inference is slow (2-5 seconds for full generation), so must optimize hard. Solution: (1) Streaming - return results token-by-token as they generate (user sees content appearing), (2) Caching - cache rephrasing patterns for common resume bullets, (3) Parallel processing - process multiple resume sections simultaneously, (4) Smaller model - use faster model (distilled, quantized) for simple rephrasing. Trade-off: Speed vs. quality (smaller models are less creative). Accept: 90% quality for 100x faster response.'
+      },
+      {
+        type: 'h2',
+        text: 'The Problem: 2-5 Second Latency is Unacceptable'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'User Journey:\n  1. User uploads resume (text or PDF)\n  2. User pastes job description\n  3. User clicks "Rewrite for This Job"\n  4. App calls LLM API: "Rewrite resume for this job"\n  5. LLM takes 2-5 seconds (generating 100-200 tokens)\n  6. After 5 seconds: User gets rewritten resume\n  \nProblem: User perceives latency as slow and frustrating\n  Psychological research: Anything > 2 seconds feels slow\n  User expectation: Should be instant (like auto-correct)\n  Reality: LLM inference ≥ 2 seconds for quality output\n  \nCurrent Latency:\n  Network: 100ms\n  LLM prompt construction: 50ms\n  LLM inference (token generation): 2000-4000ms ← Bottleneck\n  Post-processing: 50ms\n  Network return: 100ms\n  Total: 2.3-4.3 seconds\n  User experience: "This is too slow, I\'ll use something else"\n\nTarget: < 2 seconds\n  Network: 100ms\n  Prompt: 50ms\n  LLM inference: ??? (need to get down to ~1700ms)\n  Post-processing: 50ms\n  Network: 100ms\n  Total: ~2000ms'
+      },
+      {
+        type: 'h2',
+        text: 'Solution: Streaming, Caching, and Model Optimization'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Four Strategies to Hit <2 Seconds:\n\n1. Streaming (Perceived Latency)\n  Don\'t wait for entire response\n  Start returning tokens as soon as LLM starts generating\n  User sees content appearing (like typing animation)\n  Perceived latency: 300-500ms (first token)\n  Actual latency: 2 seconds (full response)\n  Psychology: User happy because something happens immediately\n\n2. Caching (Avoid Re-generation)\n  Common patterns in resume bullets\n  "Led team of 5 → Managed team of 5 people to deliver projects"\n  Cache templates for common transformations\n  For cached queries: Return in <50ms\n  Hit rate: 30-40 percent of queries\n  Effective average latency: (0.35 × 50ms) + (0.65 × 2000ms) ≈ 1350ms ✓\n\n3. Model Selection (Faster LLM)\n  GPT-4: Highest quality, slowest (5+ seconds)\n  GPT-3.5: Good quality, 2-3 seconds\n  DistilBERT: Fast (200-400ms), lower quality\n  Smaller distilled LLM: 500-800ms, acceptable quality\n  Strategy: Use smaller model for resume, accept 5-10% quality loss\n\n4. Parallel Processing (Process Multiple Parts)\n  Resume has 5 sections: Summary, Experience, Skills, Education, Projects\n  Process all 5 in parallel (don\'t wait for one to finish before starting next)\n  Sequential time: 5 × 400ms = 2000ms\n  Parallel time: 400ms (all run together)\n  Speedup: 5x'
+      },
+      {
+        type: 'h2',
+        text: 'Component 1: Streaming Response (Perceived Speed)'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Without Streaming (Bad):\n  Backend: Calls LLM, waits for complete response (2000ms)\n  Backend: Returns entire rewritten resume to frontend\n  Frontend: Displays all text at once\n  User sees: Nothing for 2 seconds, then suddenly all text appears\n  Perceived latency: 2 seconds (bad)\n\nWith Streaming (Good):\n  Backend: Calls LLM with streaming enabled\n  LLM returns tokens one at a time (every 50-100ms a new token)\n  Backend: Streams tokens to frontend via Server-Sent Events (SSE) or WebSocket\n  Frontend: Displays tokens as they arrive (animated typing effect)\n  User sees: Text appearing immediately (after first 100ms), keeps updating\n  Perceived latency: 100-300ms (great!)\n  Actual latency: Still 2000ms (but user doesn\'t wait and watch)\n\nImplementation:\n  Backend API:\n    POST /api/rewrite-resume\n    Response: Stream (content-type: text/event-stream)\n    \n    for token in llm_stream(prompt):\n      send_to_client(data: token)\n      # Token arrives at frontend every ~50ms\n  \n  Frontend:\n    fetch(\'/api/rewrite-resume\', {method: \'POST\'})\n      .then(response => response.body.getReader())\n      .on(\'data\', chunk => {\n        display_on_screen(chunk)  # Show token immediately\n      })\n  \n  Result: User sees resume rewriting in real-time\n  \n  Trade-off: Can\'t edit text as it streams. Sometimes tokens are wrong initially,\n  then corrected. Acceptable (user still perceives it as fast)'
+      },
+      {
+        type: 'h2',
+        text: 'Component 2: Caching and Template Matching'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Insight: Resume bullets often follow patterns\n\nCommon Patterns:\n  Input: "Led team to build X"\n  Output: "Managed team of [N] engineers to deliver X, resulting in Y"\n  \n  Input: "Improved performance"\n  Output: "Enhanced system performance by X%, reducing latency by Y ms"\n  \n  Input: "Fixed bugs"\n  Output: "Resolved production issues, improving system reliability by X"\n\nCaching Strategy:\n\n1. Extract Patterns\n  For every rewritten resume, extract pattern:\n    Pattern_key: extract_pattern(input_text, output_text)\n    Example: \"Led [X] → Managed [size] engineers to deliver [X], resulting in [outcome]\"\n  \n  Store in cache:\n    patterns_cache[pattern_key] = {\n      input_template: \"Led [X]\",\n      output_template: \"Managed [size] engineers to deliver [X], resulting in [outcome]\",\n      hit_count: 1,\n      last_updated: 2026-06-21\n    }\n\n2. On New Resume Bullet\n  Input: "Led team to build recommendation engine"\n  Job description mentions: "Team leadership, ML\"\n  \n  Matching: Does this input match any cached pattern?\n    Similarity score between input and patterns_cache keys\n    Top match: \"Led [X]\" with score 0.85\n  \n  If match_score > 0.8:\n    Use cached output template\n    Fill in variables: [size]=5, [outcome]=\"improved recommendation accuracy\"\n    Return cached result in <50ms ✓\n  Else:\n    Call LLM (takes 2 seconds)\n    Cache the new pattern for next time\n\n3. Cache Hit Rate\n  Tech industry: Common patterns (led team, improved performance, shipped feature)\n  Hit rate: ~30-40 percent of resume bullets\n  \n  Average latency:\n    (0.35 × 50ms) + (0.65 × 2000ms) = 17.5 + 1300 = 1317.5ms ✓ (under 2s!)\n\n4. Cache Invalidation\n  Job description changes → new patterns needed\n  Strategy: Cache per job_description_id\n  Invalidate: If job description updated, clear cache\n  TTL: 24 hours (cache expires, fresh patterns generated)'
+      },
+      {
+        type: 'h2',
+        text: 'Component 3: Model Selection and Distillation'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Latency by Model:\n  GPT-4: 5-7 seconds (highest quality)\n  GPT-3.5 Turbo: 2-3 seconds (good quality)\n  Llama 2 13B: 800-1200ms (decent quality)\n  DistilBERT: 200-400ms (lower quality, specialized task)\n  MiniLM-L6: 100-200ms (very low quality)\n\nStrategy: Use smaller model, fine-tuned for resume rewriting\n\n1. Start with larger model (GPT-3.5 Turbo)\n  Generate dataset: 10k high-quality resume rewrites\n  Store examples: input_bullet → output_bullet\n\n2. Fine-tune smaller model (DistilBERT or similar)\n  Dataset: 10k examples\n  Task: \"Given resume bullet and job description, rewrite for maximum impact\"\n  Training: Supervised learning (input → output)\n  Time: 2-3 hours on GPU\n  Result: Model learns to rewrite resumes\n\n3. Evaluate Quality\n  Test set: 1000 resume bullets\n  Compare: Fine-tuned DistilBERT vs. GPT-3.5\n  Metric: Human raters score quality (1-5)\n  Result:\n    GPT-3.5: 4.5/5 (high quality)\n    DistilBERT (fine-tuned): 4.1/5 (90% of quality)\n    Speed: 2500ms vs. 300ms (8.3x faster)\n  Trade-off: Accept 10% quality loss for 8x speedup ✓\n\n4. Ensemble (Optional)\n  For high-value customers (job_id = important):\n    Use GPT-3.5 (slower, better quality)\n  For casual users:\n    Use DistilBERT (faster, acceptable quality)\n  \n  Route based on customer tier:\n    Premium tier → GPT-3.5 (2-3 seconds allowed)\n    Free tier → DistilBERT (must be < 2 seconds)'
+      },
+      {
+        type: 'h2',
+        text: 'Component 4: Parallel Processing of Resume Sections'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Resume Structure:\n  1. Professional Summary (50 words)\n  2. Experience (5 jobs, 500 words)\n  3. Skills (50 words)\n  4. Education (100 words)\n  5. Projects (200 words)\n  Total: ~900 words\n\nSequential Processing (Bad):\n  For each section:\n    Call LLM, wait for response\n    Process next section\n  \n  Time:\n    Summary: 400ms\n    Experience: 800ms (longer)\n    Skills: 300ms\n    Education: 300ms\n    Projects: 500ms\n    Total: 2300ms (over 2 second limit)\n\nParallel Processing (Good):\n  Start all sections at once:\n    Promise.all([\n      rewrite_section(summary, job_desc),\n      rewrite_section(experience, job_desc),\n      rewrite_section(skills, job_desc),\n      rewrite_section(education, job_desc),\n      rewrite_section(projects, job_desc)\n    ])\n  \n  All 5 sections run simultaneously\n  Total time: max(400, 800, 300, 300, 500) = 800ms\n  Speedup: 2300ms → 800ms (2.9x faster) ✓\n  \n  With caching:\n    Experience (cached): 50ms\n    Skills (cached): 50ms\n    Others: LLM processed\n    Total: max(400, 50, 300, 300, 500) = 500ms ✓✓\n\nConcurrency Limits:\n  Can\'t make unlimited parallel calls (costs money, rate limits)\n  Solution: Batch size = 3-5 sections concurrently\n  If more sections: Queue them\n  \n  For 5 sections, batch into 2 groups:\n    Group 1 (3 sections): 800ms\n    Group 2 (2 sections): 500ms\n    Total: 800 + 500 = 1300ms ✓'
+      },
+      {
+        type: 'h2',
+        text: 'End-to-End Latency Optimization'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Breakdown:\n  1. Network (upload): 50ms\n  2. Parse input: 10ms\n  3. Route to cache or LLM:\n     - Cache hit (30%): 50ms\n     - Cache miss (70%): Parallel LLM calls (500-800ms)\n     Weighted: (0.3 × 50) + (0.7 × 700) = 15 + 490 = 505ms\n  4. Stream to client: 100ms (first chunk)\n  5. Network (download): 100ms\n  \n  Total perceived (user sees first token): ~600ms\n  Total actual (all tokens): ~2000ms (acceptable)\n\nOptimized Build:\n  • Streaming: Perceived latency = 500-700ms ✓\n  • Caching: Average latency = 1317ms ✓\n  • Parallel: Latency = 500-800ms ✓\n  • Model selection: Latency = 300-400ms ✓\n  \n  Conservative estimate: 500ms perceived, 1500ms actual\n  Aggressive estimate: 300ms perceived, 1200ms actual\n  Both under 2 second threshold ✓'
+      },
+      {
+        type: 'h2',
+        text: 'Challenges and Trade-offs'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Streaming UX: Text appears character-by-character. Sometimes LLM generates bad token, then corrects. Shows mistakes in progress.',
+          'Caching accuracy: Pattern matching might miss edge cases. Rare for cache to return worse result than LLM, but possible.',
+          'Model quality: Fine-tuned smaller model is good for resume rewriting but bad for other tasks. Need task-specific models.',
+          'Parallel costs: Each section = separate LLM call. 5 sections × $0.001 per call = $0.005 per resume. Costs add up.',
+          'Job description specificity: Resume should match job desc. Cache can\'t match perfectly to every job. Best-effort matching.',
+          'User editing: With streaming, user starts reading and editing before completion. Might edit while LLM still generating (race condition).'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Scale and Performance'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Load:\n  Daily rewrites: 100k resumes\n  Peak hour: 10k rewrites/hour\n  QPS: 10k / 3600 ≈ 2.8 requests/sec (manageable)\n\nLatency SLA:\n  P50: 600ms (perceived, first token)\n  P95: 1200ms (actual, full response)\n  P99: 1800ms (some cache misses, LLM slow)\n\nCost Optimization:\n  Option 1: Use distilled model (fast, cheap)\n    Cost: $0.001 per resume × 100k = $100/day = $3k/month\n  \n  Option 2: Use GPT-3.5 (better quality)\n    Cost: $0.002 per resume × 100k = $200/day = $6k/month\n  \n  Caching benefit:\n    Cache hit rate: 35%\n    Cost per cache miss: $0.001 (API call)\n    Effective cost: 0.65 × $0.001 = $0.00065 per resume\n    Monthly: $6.5k (higher) but faster\n    \n    Alternative: Use cache + distilled model\n    Cost: Mostly cache (no LLM calls), very cheap\n    Monthly: < $500 (cache infrastructure)'
+      },
+      {
+        type: 'h2',
+        text: 'Interview Tips'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Problem: Rewrite resume in <2 seconds. LLM inference is 2-5 seconds.',
+          'Solution 1 (Streaming): Return tokens as they generate. Perceived latency 300-500ms, actual latency 2s. User happy.',
+          'Solution 2 (Caching): Cache common patterns. 30-40% hit rate. Cache returns in <50ms. Effective average: 1.3s.',
+          'Solution 3 (Smaller model): Fine-tune distilled model on resume examples. 300-400ms latency, 90% quality of GPT-3.5.',
+          'Solution 4 (Parallel): Process 5 resume sections in parallel. 5x speedup (2.3s → 500ms).',
+          'Best practice: Combine all four. Parallel processing with smaller model + caching + streaming = <2s total latency.',
+          'Trade-off: Accept 10% quality loss (distilled model) for 8x speed improvement.',
+          'Cost optimization: Use cache + distilled model. Skip expensive LLM calls. Cost < $500/month for 100k daily rewrites.'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Key Takeaway'
+      },
+      {
+        type: 'divider' },
+      {
+        type: 'paragraph',
+        text: 'Real-time resume rewriting under 2 seconds: (1) Streaming—return tokens as generated, perceived latency 300-500ms (2) Caching—match patterns, 30-40% cache hit rate, cache returns <50ms, (3) Smaller model—fine-tune distilled model on resume examples, 300-400ms vs. 2500ms for GPT-3.5, accept 10% quality loss, (4) Parallel processing—process 5 resume sections concurrently, 5x speedup (2.3s → 500ms). Combine all four: parallel + distilled model + caching + streaming = P50 600ms perceived, P95 1.2s actual. Cache hit rates and parallel batching are critical optimizations. Trade-off: Speed (always <2s) vs. perfect quality (accept distilled model output). Cost: < $1k/month with caching + distilled model for 100k daily rewrites. Key insight: User doesn\'t actually wait for full response if you stream—they start reading immediately. Perceived latency (first token) matters more than actual latency (full response) for this UX.'
+      }
+    ]
+  },
 
 ];
