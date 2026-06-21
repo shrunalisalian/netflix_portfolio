@@ -21484,5 +21484,116 @@ WELLBEING METRICS (not engagement metrics):
       }
     ]
   },
+  {
+    slug: 'book-summarization-nlp',
+    title: 'Building a Book Summarization System: Hierarchical Summarization at Scale',
+    subtitle: 'Summarize long documents (books, papers) using hierarchical and extractive methods.',
+    date: 'June 21, 2026',
+    readTime: '8 min read',
+    tags: ['NLP', 'Summarization', 'System Design', 'Interview Prep'],
+    coverEmoji: '📖',
+    content: [
+      {
+        type: 'callout',
+        emoji: '📚',
+        text: 'Book summarization challenge: Inputs 100,000 tokens, LLM context limit 8k tokens. Naive: Pass all to LLM (fails, truncates). Solution: Hierarchical summarization. (1) Chunk book into sections. (2) Summarize each section (500 tokens -> 100 tokens). (3) Summarize summaries (5 sections x 100 = 500 tokens -> 100 tokens). (4) Result: 1-2 page summary capturing key ideas from 400-page book.'
+      },
+      {
+        type: 'h2',
+        text: 'Problem: Context Window Limits'
+      },
+      {
+        type: 'paragraph',
+        text: 'Book: 100,000 tokens. GPT-3.5 context: 4,000 tokens. LLM can only see first 40 pages, misses plot, themes, conclusions. Need strategy to summarize within constraints.'
+      },
+      {
+        type: 'h2',
+        text: 'Approach 1: Hierarchical Summarization'
+      },
+      {
+        type: 'list',
+        ordered: true,
+        items: [
+          'Chunk book: Split into logical sections (chapters, ~2000 tokens each)',
+          'Level 1: Summarize each section (2000 -> 300 tokens)',
+          'Level 2: Combine section summaries (10 sections x 300 = 3000 tokens)',
+          'Level 3: Summarize combined summaries (3000 -> 500 tokens)',
+          'Result: Coherent book summary capturing all major themes'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Approach 2: Extractive Summarization'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Extract key sentences from each chapter',
+          'Use relevance scoring: TF-IDF, embedding similarity, neural extractors',
+          'Select top sentences across all chapters',
+          'Combine into extractive summary (representative quotes)',
+          'Advantage: Preserves original phrasing. Limitation: May lack coherence'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Approach 3: Hybrid'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Extract key sentences from each chapter (extractive)',
+          'Summarize extracted sentences (abstractive)',
+          'Result: Natural language summary grounded in original text',
+          'Best quality-latency balance'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Quality Metrics'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'ROUGE: Overlap between summary and reference summaries (automatic)',
+          'Human evaluation: Is summary accurate, complete, coherent?',
+          'Compression ratio: Original words / summary words (e.g., 50:1)',
+          'Retention: Key themes and plot points preserved?'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Challenges'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Loss of detail: Hierarchical summarization loses nuance at each level',
+          'Coherence: Summaries of summaries may become disconnected',
+          'Long-term dependencies: Important details spread across chapters',
+          'Inference cost: Multiple LLM calls increase latency and cost'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Interview Tips'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Problem: Summarize long documents exceeding context window',
+          'Solution: Hierarchical summarization (chunk -> summarize -> combine)',
+          'Alternative: Extractive + abstractive (hybrid)',
+          'Quality metric: ROUGE, human evaluation, compression ratio',
+          'Trade-off: Latency (multiple LLM calls) vs. quality'
+        ]
+      }
+    ]
+  },
 
 ];
