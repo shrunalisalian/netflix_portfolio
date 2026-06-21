@@ -24199,5 +24199,158 @@ WELLBEING METRICS (not engagement metrics):
       }
     ]
   },
+  {
+    slug: 'on-policy-distillation-llm-post-training',
+    title: 'On-Policy vs. Off-Policy Distillation: Why LLMs Need Real-Time Knowledge Transfer',
+    subtitle: 'Understand data freshness in knowledge distillation for LLM alignment and reasoning.',
+    date: 'June 21, 2026',
+    readTime: '7 min read',
+    tags: ['LLMs', 'Knowledge Distillation', 'Post-training', 'Interview Prep'],
+    coverEmoji: '🔄',
+    content: [
+      {
+        type: 'callout',
+        emoji: '📊',
+        text: 'Off-policy distillation: Teacher generates data once, student learns from fixed dataset (slow, stale). On-policy distillation: Teacher continuously generates, student learns from fresh data (better, but slower). In LLM post-training, teacher (large model) learns reasoning, student (small model) needs to learn that reasoning in real-time. Off-policy: Student learns outdated reasoning. On-policy: Student tracks teacher\'s improving understanding. Result: Better student quality, especially for complex reasoning tasks.'
+      },
+      {
+        type: 'h2',
+        text: 'Off-Policy (Offline) Distillation'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Process: Teacher generates data once (e.g., 100k samples), frozen',
+          'Student: Trains on this fixed dataset (offline)',
+          'Advantage: Cheap (one teacher run), scalable, parallelizable',
+          'Disadvantage: Data stale (teacher changes, data doesn\'t)'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'On-Policy Distillation'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Process: Teacher and student iterate together',
+          'Loop: (1) Teacher generates responses, (2) Student learns, (3) Repeat',
+          'Advantage: Data fresh (student sees latest teacher reasoning)',
+          'Disadvantage: Expensive (many teacher calls), slower'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Key Difference: Distribution Mismatch'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Off-policy: Student trained on teacher data from day 1, teacher evolves',
+          'Result: Distribution shift (student data vs. teacher current behavior)',
+          'On-policy: Student always learns from current teacher distribution',
+          'Result: No shift (student tracks teacher\'s evolving capability)'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Example: Math Reasoning'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Off-policy: Collect 100k math solutions from teacher day 1',
+          'After RLHF: Teacher now solves 95% correctly (learned from feedback)',
+          'But student still trained on day-1 data (70% correct solutions)',
+          'Result: Student lags teacher, learns suboptimal reasoning patterns'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'On-Policy: Same Example'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Iteration 1: Collect from teacher (70% correct), student learns',
+          'Iteration 2: Teacher improves (80% correct), collect new data, student learns',
+          'Iteration 3: Teacher at 95%, student continuously tracks improvement',
+          'Result: Student learns high-quality reasoning in real-time'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Reason 1: Reasoning Capability Evolves'
+      },
+      {
+        type: 'paragraph',
+        text: 'In LLM post-training (via RLHF, preference learning), teacher model improves at reasoning. Off-policy data becomes stale. On-policy ensures student learns from continuously improving teacher, capturing latest techniques (e.g., chain-of-thought, verification steps).'
+      },
+      {
+        type: 'h2',
+        text: 'Reason 2: Distribution Mismatch Hurts Quality'
+      },
+      {
+        type: 'paragraph',
+        text: 'Student learns from old distribution, but deploys with new teacher distribution. Mismatch causes: (1) Student doesn\'t generalize well to teacher\'s newer reasoning styles. (2) Covariate shift: prompts lead to different responses. On-policy avoids this entirely.'
+      },
+      {
+        type: 'h2',
+        text: 'Reason 3: Emergent Capabilities'
+      },
+      {
+        type: 'paragraph',
+        text: 'Teacher may suddenly acquire new reasoning skills after training (emergent). Off-policy: Student never sees these (frozen data). On-policy: Captures emergent skills as they appear. Critical for chain-of-thought, planning, tool-use reasoning.'
+      },
+      {
+        type: 'h2',
+        text: 'Trade-offs'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'On-policy cost: 10-100x more expensive (many teacher calls)',
+          'Off-policy speed: Fast, scalable, parallelize easily',
+          'Quality: On-policy superior for reasoning, off-policy sufficient for simpler tasks',
+          'Practice: Often hybrid - collect some off-policy, refine with on-policy'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'When to Use Each'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Off-policy: Simple tasks (classification, retrieval), budget-constrained',
+          'On-policy: Complex reasoning (math, code, multi-step), high quality required',
+          'LLM post-training: Use on-policy (reasoning evolves, quality critical)'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Interview Tips'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Off-policy: Teacher data frozen, student learns once (cheap, stale)',
+          'On-policy: Teacher and student iterate (fresh, expensive)',
+          'Key issue: Distribution mismatch (off-policy data drifts from teacher)',
+          'LLM reason 1: Reasoning evolves during post-training (on-policy tracks)',
+          'LLM reason 2: Distribution mismatch hurts student generalization',
+          'LLM reason 3: Emergent capabilities missed by off-policy'
+        ]
+      }
+    ]
+  },
 
 ];
