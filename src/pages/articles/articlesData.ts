@@ -23943,5 +23943,131 @@ WELLBEING METRICS (not engagement metrics):
       }
     ]
   },
+  {
+    slug: 'speculative-decoding-llm-inference',
+    title: 'Speculative Decoding: Accelerating LLM Inference Through Prediction and Verification',
+    subtitle: 'Use smaller model to draft tokens, verify with larger model, accept or reject speculatively.',
+    date: 'June 21, 2026',
+    readTime: '5 min read',
+    tags: ['LLMs', 'Inference Optimization', 'Decoding', 'Interview Prep'],
+    coverEmoji: '⚡',
+    content: [
+      {
+        type: 'callout',
+        emoji: '🎯',
+        text: 'Speculative decoding insight: Autoregressive generation slow (one token per model call). Solution: Small fast model drafts k tokens speculatively. Large model verifies all k tokens at once (parallel). Accept tokens where large model agrees, reject otherwise. Result: 2-3x faster generation with same quality. Trade-off: Need smaller model available, slight quality difference if small/large models diverge.'
+      },
+      {
+        type: 'h2',
+        text: 'Standard Autoregressive Bottleneck'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Generate 1 token, call model, repeat for N tokens',
+          'Latency: N forward passes (serial, slow)',
+          'Example: 100-token sequence = 100 model calls',
+          'Memory-bound: Most latency waiting for compute'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Speculative Decoding Process'
+      },
+      {
+        type: 'list',
+        ordered: true,
+        items: [
+          'Small model: Generates k speculative tokens quickly (draft)',
+          'Large model: Verifies all k tokens simultaneously (parallel)',
+          'Compare: For each token, check if large model agrees',
+          'Accept: Keep token if probabilities match (above threshold)',
+          'Reject: If mismatch, resample from large model distribution',
+          'Repeat: Continue with remaining context'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Key Insight: Batch Verification'
+      },
+      {
+        type: 'paragraph',
+        text: 'Small model drafts k tokens: t1, t2, t3. Feed [t1], [t1, t2], [t1, t2, t3] to large model in parallel (batch). Large model computes all k positions in one forward pass. If k tokens match, accept all k. Cost: 1 small forward + 1 large forward = 2 calls for k tokens (k speedup).'
+      },
+      {
+        type: 'h2',
+        text: 'Speedup Analysis'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Standard: N tokens = N large model calls = N * latency_large',
+          'Speculative (k=4): N/4 draft phases = N/4 * latency_small + N/4 * latency_large',
+          'Typical latency_small = 0.1 * latency_large (4x faster small model)',
+          'Result: ~2-3x speedup (4 tokens per large call, small overhead)'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Correctness: Why It Works'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Small model may predict differently than large',
+          'But large model probabilities still valid (autoregressive property)',
+          'Verification: Reject small prediction if large probability too low',
+          'Resample: From large model conditional on previous accepted tokens',
+          'Result: Distribution identical to standard large-model generation'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Challenges'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Small model quality: Poor predictions waste large model cycles',
+          'Divergence: If small/large models very different, few accepts',
+          'Memory: Need both models in memory (overhead)',
+          'Tuning: Choose k carefully (balance draft length vs. accept rate)'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'When It Works Best'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Large model latency-bound: Most time in inference (typical)',
+          'Small model available: Distilled or pruned version',
+          'Similar model families: Small and large agree often (better accept rate)',
+          'Deterministic tasks: Code, math (small model accurate)'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Interview Tips'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Problem: Autoregressive generation slow (N model calls)',
+          'Solution: Small model drafts k tokens, large model verifies in parallel',
+          'Speedup: 2-3x (k tokens per large forward pass)',
+          'Correctness: Verification ensures distribution identical to large model',
+          'Trade-off: Need small model, quality depends on agreement between models'
+        ]
+      }
+    ]
+  },
 
 ];
