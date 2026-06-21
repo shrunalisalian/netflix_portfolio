@@ -18261,5 +18261,126 @@ WELLBEING METRICS (not engagement metrics):
       }
     ]
   },
+  {
+    slug: 'amazon-shopping-assistant-emotional-queries',
+    title: 'Building Amazon Shopping Assistant: Interpreting Vague Emotional Queries at Scale',
+    subtitle: 'Understanding What Do I Want When Users Say It About Emotion, Budget, Occasion, and Lifestyle.',
+    date: 'June 21, 2026',
+    readTime: '9 min read',
+    tags: ['Recommendation Systems', 'NLP', 'E-commerce', 'LLMs', 'Interview Prep'],
+    coverEmoji: '🛍️',
+    content: [
+      {
+        type: 'callout',
+        emoji: '🎯',
+        text: 'Amazon shopping assistant challenge: User says something my mom would love for $200. No product category, no specifics, just emotion and budget. System must interpret: Who is mom? What does she like? Age, interests, lifestyle? Then search 350M+ products matching hidden intent. This is extreme cold-start recommendation: zero explicit product preference data, only natural language signal.'
+      },
+      {
+        type: 'h2',
+        text: 'The Ambiguity Problem'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'User: Something my mom would love for $200\n\nWhat system needs to infer:\n  1. Demographics: Mom age? Gen X or Boomer?\n  2. Interests: What does mom enjoy? Hobbies?\n  3. Lifestyle: Active, homebody, traveler?\n  4. Relationship: Close to user? Shared interests?\n  5. Occasion: Birthday, thank you, just because?\n  6. Taste: Practical or luxury? Modern or classic?\n  7. Budget: Strict $200 or flexible range?\n  \nPossible Products (all valid for different moms):\n  - $199 Premium coffee machine (coffee lover mom)\n  - $180 Weighted blanket (anxious mom)\n  - $200 Silk pillowcase set (beauty-conscious mom)\n  - $195 Garden tool set (gardening mom)\n  - $190 E-reader (bookish mom)\n  - $200 Noise-cancelling headphones (tech mom)\n  \nChallenge: Zero explicit features. All implicit.'
+      },
+      {
+        type: 'h2',
+        text: 'Solution: Multi-Stage Interpretation Pipeline'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Stage 1: Profile Inference from User Context\n  Sources:\n    - User browsing history (what do THEY like?)\n    - Past purchases (what have they bought mom?)\n    - Purchase occasions (birthdays, holidays)\n    - User demographics (age, location, interests)\n  \n  Inference:\n    If user browsing: Hiking gear -> Mom probably active\n    If past gift: Book -> Mom enjoys reading\n    If search: Jewelry -> Mom likes accessories\n  \nStage 2: NLP Understanding of Query\n  Extract signals from What my mom would love for $200:\n    - Emotional signal: something she would LOVE (positive, engaged)\n    - Budget: $200 (hard constraint)\n    - Recipient: MOM (key relationship)\n    - No category hint (open-ended)\n  \nStage 3: User Engagement (Optional)\n  Quick follow-up questions:\n    - Does your mom prefer practical or indulgent gifts?\n    - What hobbies does she enjoy?\n    - Is she more classic or trendy?\n  \n  User answers narrow search space\n  \nStage 4: Semantic Search\n  Query: mom gifts + budget + inferred interests\n  Search: 350M products with:\n    - Title, description, reviews for relevance\n    - Rating and value-for-price\n    - Popularity among similar users\n  \nStage 5: Personalized Ranking\n  Score each candidate by:\n    - Relevance to mom profile\n    - Value at $200 price point\n    - Uniqueness (avoid obvious/generic)\n    - Fit with user taste (good gift-giver?)'
+      },
+      {
+        type: 'h2',
+        text: 'Component 1: User Profile Inference'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Goal: Build implicit mom profile from user signals\n\nSignals Collected:\n  1. User Demographics\n     Age, location, language, device\n     Example: 30yo in Portland = younger, progressive taste\n  \n  2. Browsing History\n     What user searches and views\n     If user browses: yoga mats, wellness -> mom active?\n     If user browses: cookbooks, kitchen -> mom foodie?\n  \n  3. Purchase History\n     What user has bought (for self or others)\n     Pattern: buys handmade items -> gifts artisanal products\n  \n  4. Gift Giving History\n     When does user give gifts? (birthdays, holidays)\n     What price ranges? (budget profile)\n  \n  5. Wishlist and Saved Items\n     What user bookmarks (taste signal)\n  \nProfile Construction:\n  Combine signals into mom vector:\n    [age_segment, interests[], budget_tier, occasion]\n  \n  Example:\n    Mom profile: 60s, [gardening, cooking, books], mid-budget, birthday'
+      },
+      {
+        type: 'h2',
+        text: 'Component 2: Emotional Intent Parsing'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Parse phrase: Something my mom would love for $200\n\nExtracts:\n  1. Sentiment: POSITIVE (love, not like/want)\n     -> High emotional value sought\n  \n  2. Recipient: MOM (family relationship)\n     -> Different than girlfriend, boss, friend\n     -> Age profile: likely 50-80 years old\n  \n  3. Criteria: LOVE (not just like)\n     -> Aim for delightful, not practical\n     -> Avoid boring/generic\n  \n  4. Budget: $200 (hard constraint)\n     -> Medium luxury (not $20, not $2000)\n  \n  5. Occasion: UNSPECIFIED (just because)\n     -> No time pressure\n     -> General gifting\n  \nLLM Prompt:\n  Given user [profile] and query emotion [LOVE],\n  what categories of gifts delight 60-something moms?\n  \n  Output: [wellness, gardening, books, jewelry, home-decor]\n  \n  Confidence: Which categories most relevant?'
+      },
+      {
+        type: 'h2',
+        text: 'Component 3: Semantic Search and Ranking'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Search Space: 350M Amazon products\n\nFilter 1: Price\n  Range: $180-$220 (flexible around $200)\n  Reduces: 350M -> 50M products\n\nFilter 2: Category\n  From emotional inference: wellness + books + jewelry + home\n  Reduces: 50M -> 5M products\n\nFilter 3: Quality\n  Rating greater than 4.0 stars\n  Reduces: 5M -> 1M products\n\nFilter 4: Semantic Relevance\n  Use embeddings: Search query vs product descriptions\n  Cosine similarity greater than 0.7\n  Reduces: 1M -> 100k products\n\nRanking Top 20:\n  Score = (relevance * 0.4) + (rating * 0.3) + (uniqueness * 0.2) + (user_taste_fit * 0.1)\n  \n  Example top results:\n    1. Luxury weighted blanket $195 (wellness fit, high rating)\n    2. Hardcover book collection $190 (if mom loves books)\n    3. Premium tea set $200 (home + luxury)'
+      },
+      {
+        type: 'h2',
+        text: 'Component 4: User Engagement Loop'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Initial Query -> Quick Follow-Up -> Refined Results\n\nStep 1: Present Top 3 Candidates\n  Show: Image, price, rating, brief description\n  \nStep 2: Ask Clarifying Question\n  Does your mom prefer practical or indulgent?\n  -> Practical: filters to useful gifts\n  -> Indulgent: filters to luxury/luxury experiences\n  \nStep 3: Update Profile\n  User answers: Indulgent\n  Adjust ranking: Luxury items ranked higher\n  \nStep 4: Re-rank and Present\n  Top results now emphasize luxury/experience\n  Example: Luxury spa gift set beats garden tools\n  \nStep 5: Iterate\n  User clicks: Tell us what style she prefers?\n  Options: Classic, Modern, Eclectic\n  \nResult: Progressively narrow search to perfect gift'
+      },
+      {
+        type: 'h2',
+        text: 'Challenges and Edge Cases'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Cold start: New user, no browsing history. Fallback to demographics (age, location) plus generic mom preferences.',
+          'Age ambiguity: When is mom boomer vs gen X? Affects taste profile.',
+          'Relationship variation: Some users buy practical gifts, others indulgent. Infer from user gifting history.',
+          'Cultural differences: Gift preferences vary by culture (some focus practicality, others symbolism).',
+          'Budget flexibility: User says $200 but means $180-$250? Handle range intelligently.'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Real-World Example Flow'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'User Query: Something my mom would love for $200\n\nSystem:\n  1. Infer Profile\n     User: 28yo, Portland, browses wellness + books\n     Mom: Likely 55-70, enjoys reading and self-care\n  \n  2. Parse Emotion\n     Sentiment: POSITIVE (love)\n     Intent: Delightful gift, not practical\n  \n  3. Semantic Search\n     Categories: wellness, books, luxury home\n     Price: $180-$220\n     Quality: 4.0+ stars\n     Top 100k results\n  \n  4. Rank Top 5\n     1. Casper Sleep Pillow ($195, 4.7 stars) - wellness fit\n     2. Hardcover Book Collection ($190, 4.8 stars) - reading fit\n     3. Silk Pillowcase Set ($200, 4.6 stars) - luxury + wellness\n     4. Premium Tea Set ($185, 4.7 stars) - cozy fit\n     5. Weighted Blanket ($199, 4.5 stars) - wellness fit\n  \n  5. Present to User\n     Top 3 shown with images and descriptions\n     User clicks on #1 (pillow)\n     Upsell: Can also recommend matching accessories'
+      },
+      {
+        type: 'h2',
+        text: 'Interview Tips'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Problem: User intent is implicit (emotion + budget), not explicit (category + features).',
+          'Solution: Infer user profile (age, interests, gifting style) from behavioral signals.',
+          'Parse: Extract sentiment, recipient, budget, occasion from natural language.',
+          'Search: Filter down from 350M to relevant candidates via price, category, quality, semantics.',
+          'Rank: Score by relevance (0.4), rating (0.3), uniqueness (0.2), user taste fit (0.1).',
+          'Engage: Ask clarifying questions to progressively narrow search space.',
+          'Cold start: Fallback to demographics when browsing history unavailable.'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Key Takeaway'
+      },
+      {
+        type: 'divider' },
+      {
+        type: 'paragraph',
+        text: 'Vague emotional shopping queries require: (1) User profile inference from browsing, purchase, and gifting history. (2) Emotional intent parsing (extract sentiment, recipient, budget, occasion). (3) Semantic search filtering price, category, quality, relevance. (4) Personalized ranking combining relevance, rating, uniqueness, user taste fit. (5) Engagement loop with clarifying questions to narrow search progressively. Cold-start fallback: demographics-based profiles. Key insight: emotion is a feature—love signals desire for delightful over practical. Trade-off: broader initial search (recall) refined through engagement (precision).'
+      }
+    ]
+  },
 
 ];
