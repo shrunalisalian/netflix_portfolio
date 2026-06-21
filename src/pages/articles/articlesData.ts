@@ -18382,5 +18382,135 @@ WELLBEING METRICS (not engagement metrics):
       }
     ]
   },
+  {
+    slug: 'netflix-personalized-trailers-genai',
+    title: 'Auto-Generating Personalized Netflix Trailers: GenAI for Different Viewer Personas',
+    subtitle: 'Designing system that generates unique trailers highlighting different scenes based on user taste and viewing history.',
+    date: 'June 21, 2026',
+    readTime: '9 min read',
+    tags: ['Generative AI', 'Video Processing', 'Personalization', 'System Design', 'Interview Prep'],
+    coverEmoji: '🎬',
+    content: [
+      {
+        type: 'callout',
+        emoji: '🎯',
+        text: 'Netflix trailer problem: Same 30-second trailer shown to all users but viewers have different tastes. Action fan wants explosions and fight scenes; romance fan wants emotional moments; comedy fan wants laughs. Solution: Generate personalized trailers highlighting different scenes based on viewer persona. Challenge: Video editing at scale (1M+ trailers per day), latency (show trailer within 100ms), quality (coherent narrative per persona).'
+      },
+      {
+        type: 'h2',
+        text: 'The Problem: One Trailer Doesn\'t Fit All'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Current Netflix Approach:\n  One trailer per show: highlights plot, main character, action\n  Shown to all users: action fans, romance fans, comedy fans\n  \nProblem: Different users want different hooks\n  Action fan watches trailer: Too much dialogue, not enough action\n  Romance fan watches trailer: Too much action, not enough emotion\n  Comedy fan watches trailer: No jokes, looks serious\n  \nPersonalization Value:\n  Trailer clicks plus completions: Tailored trailers get 20-30 percent higher engagement\n  Conversion to watch: Personalized hooks increase likelihood to click play\n  Retention: Watching genre-matched trailer improves completion rate'
+      },
+      {
+        type: 'h2',
+        text: 'Solution: GenAI-Powered Personalized Trailers'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Pipeline:\n\n1. User Persona Classification\n   Input: User viewing history, ratings, searches\n   Output: Persona (Action fan, Romance fan, Comedy fan, Drama fan, Thriller fan)\n   Method: Clustering + LLM classification\n\n2. Scene Extraction from Show\n   Input: Full show video (10+ hours)\n   Output: Scene clips (action scenes, emotional scenes, funny scenes, suspenseful scenes)\n   Method: Video understanding model (multimodal) + manual tagging\n\n3. Scene Selection per Persona\n   Input: Scenes tagged with genre and tone + user persona\n   Output: Top 8-12 scenes that appeal to this persona\n   Method: LLM reasoning or learned ranking model\n\n4. Trailer Generation\n   Input: Selected scenes in order\n   Output: 15-30 second coherent trailer with transitions\n   Method: GenAI video editing (generative or template-based)\n\n5. Voiceover plus Music\n   Input: Trailer video, persona, show info\n   Output: Narration, music selection per persona tone\n   Method: TTS + audio synthesis\n\n6. Distribution\n   Store: Personalized trailer cache (video DB)\n   Serve: User-specific trailer on show detail page\n   Analytics: Track clicks, impressions, conversions per persona'
+      },
+      {
+        type: 'h2',
+        text: 'Component 1: User Persona Classification'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Goal: Identify what appeals to this user\n\nData Sources:\n  1. Viewing History: What shows has user watched?\n  2. Ratings: What did they rate highly?\n  3. Search Behavior: What genres do they search for?\n  4. Time Spent: How long per episode?\n  5. Completion Rate: Do they finish shows?\n  6. Wishlist: What shows saved?\n\nPersona Extraction:\n  Use LLM to summarize user taste:\n    Prompt: Analyze this user viewing history...\n            What genres do they prefer? Tone? Pacing?\n    Output: Primary persona (70 percent Action, 20 percent Drama, 10 percent Comedy)\n\nPersonas Available:\n  - Action Junkie: Explosions, fights, stunts\n  - Romance Seeker: Emotional connection, relationships, feelings\n  - Comedy Lover: Jokes, humor, light tone\n  - Drama Fan: Deep character development, intense emotion\n  - Thriller Enthusiast: Suspense, plot twists, tension\n  - Family-Friendly: Wholesome, accessible, no violence'
+      },
+      {
+        type: 'h2',
+        text: 'Component 2: Scene Extraction and Tagging'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Goal: Identify key scenes in show and classify by type\n\nProcess:\n  1. Video Understanding\n     Input: Full show video\n     Model: Multimodal model (vision + audio) like Gemini 2.0\n     Output: Scene boundaries plus content description\n     Time: ~30 min processing for 10-hour show\n\n  2. Scene Classification\n     Each scene tagged with:\n       - Type: Action, emotional, comedic, suspenseful, dialogue\n       - Intensity: Low, medium, high\n       - Genre fit: Which personas does this appeal to?\n       - Quality: Cinematic value, production quality\n\n  3. Manual QA (Fallback)\n     Netflix team spot-checks auto-tagged scenes\n     Adjusts: Reclassifies if needed\n     Validates: Ensures emotional/action/comedy moments are flagged\n\n  4. Storage\n     Each scene: Start time, end time, duration, tags, description\n     Example:\n       Scene 1: [12:34-14:22] Action fight scene, high intensity\n       Scene 2: [22:10-24:45] Emotional confession, romance\n       Scene 3: [35:20-36:45] Comedy punchline, light tone'
+      },
+      {
+        type: 'h2',
+        text: 'Component 3: Scene Selection per Persona'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Goal: Pick best scenes for this user persona\n\nAlgorithm:\n  1. Filter by Persona Appeal\n     Action fan: Select scenes tagged [Action], [Suspenseful]\n     Romance fan: Select scenes tagged [Emotional], [Relationship]\n     Comedy fan: Select scenes tagged [Comedic]\n  \n  2. Rank by Quality\n     Score each scene:\n       - Relevance to persona (0-1)\n       - Production quality (0-1)\n       - Emotional impact or entertainment value (0-1)\n       - Show spoiler level (lower is better)\n     Final score = (relevance * 0.5) + (quality * 0.3) + (impact * 0.2)\n  \n  3. Select Top 8-12 Scenes\n     Choose highest-scoring scenes that:\n       - Fit persona appeal\n       - Don\'t spoil major plot points\n       - Represent show\'s best moments\n       - Maintain narrative flow (chronological-ish order)\n  \n  4. Order for Narrative\n     Sequence selected scenes to feel like coherent trailer\n     Example (Action fan):\n       1. Intro scene (sets up conflict)\n       2. First action sequence\n       3. Character moment (motivation)\n       4. Big action climax\n       5. Hook/cliffhanger (watch now)'
+      },
+      {
+        type: 'h2',
+        text: 'Component 4: Trailer Generation'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Goal: Create 15-30 second edited trailer from selected scenes\n\nApproach 1: Template-Based (Faster)\n  Use pre-defined editing templates:\n    Template A: Intro + Action + Climax + Hook (action persona)\n    Template B: Setup + Emotional moment + Reaction + Hook (romance)\n    Template C: Setup + Jokes + Punchline + Hook (comedy)\n  \n  Fill template:\n    1. Insert top-scored scenes for this persona\n    2. Apply transitions (cuts, fades)\n    3. Add music and sound effects\n    4. Add text overlay (show title, release date)\n    5. Output: Final 30-second trailer\n\nApproach 2: Generative (Higher Quality)\n  Use GenAI video model (future):\n    Input: Selected scenes + persona + narrative goal\n    Output: Smoothly edited trailer with smart transitions\n    Cost: Higher compute, better creative results\n\nTiming Constraints:\n  Total trailer generation: Less than 1 second latency\n  Pre-generate most popular show/persona combos\n  On-demand for long-tail shows'
+      },
+      {
+        type: 'h2',
+        text: 'Component 5: Voiceover and Music'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Goal: Add audio that matches persona tone\n\nVoiceover Selection:\n  Action trailer: Dramatic, intense voiceover\n    Script: \"One hero. One chance. Coming soon.\"\n  Romance trailer: Emotional, warm voiceover\n    Script: \"A love story that will change everything.\"\n  Comedy trailer: Light, funny voiceover\n    Script: \"Coming soon: The comedy event of the year.\"\n  \n  Synthesis: Use TTS with persona-specific tone\n\nMusic Selection:\n  Action: Epic, pounding orchestral music\n  Romance: Soft, emotional piano or strings\n  Comedy: Upbeat, playful instrumental\n  Drama: Intense, moody underscore\n  \n  Source: Licensed music library or generated soundtrack\n\nSound Design:\n  Add sound effects matching persona:\n    Action: Explosions, gun shots, impacts\n    Romance: Heartbeats, whispers, intimate sounds\n    Comedy: Laughs, comedic sound effects'
+      },
+      {
+        type: 'h2',
+        text: 'Scale and Performance'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Netflix Scale:\n  Shows in catalog: 10k plus\n  Personas: 6 main types\n  Users: 250M plus\n  \nPre-generation:\n  Trailers to generate: 10k shows × 6 personas = 60k trailers\n  Time per trailer: 1-2 minutes processing\n  Total time: ~2-3 days on cloud infrastructure\n  Cadence: Weekly regeneration for new shows\n\nServing:\n  Cache: Store all 60k trailers in CDN\n  User personalization: Lookup user persona + fetch matching trailer\n  Latency: Less than 100ms (CDN hit)\n  Cost: ~10-20MB per trailer × 60k = 600GB-1.2TB storage (acceptable)\n\nUpdates:\n  New show: Auto-tag scenes + generate 6 persona trailers (1-2 hours)\n  Popular show: May regenerate if engagement metrics plateau\n  A/B testing: Test new trailer version vs current with subset of users'
+      },
+      {
+        type: 'h2',
+        text: 'Challenges and Edge Cases'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Spoiler avoidance: Selecting scenes without revealing major plot twists is critical.',
+          'Scene quality: Low-quality clips hurt engagement even if persona-relevant.',
+          'Persona ambiguity: User may like multiple genres. Blend multiple personas.',
+          'New shows: Limited viewing data. Fallback to genre-based default trailers.',
+          'Multi-season shows: Trailer should represent season, not entire series.'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Interview Tips'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Problem: Same trailer for all users misses personalization opportunity.',
+          'Solution: Generate trailers highlighting different scenes per persona.',
+          'Persona classification: Use viewing history plus LLM reasoning.',
+          'Scene extraction: Multimodal video understanding model + manual QA.',
+          'Scene selection: Rank by relevance, quality, impact; avoid spoilers.',
+          'Trailer generation: Template-based (fast) or generative (better quality).',
+          'Scale: Pre-generate 60k trailers (10k shows × 6 personas), serve from CDN.'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Key Takeaway'
+      },
+      {
+        type: 'divider' },
+      {
+        type: 'paragraph',
+        text: 'Netflix personalized trailer system: classify user into persona (Action, Romance, Comedy, etc.), extract scenes from show via multimodal video understanding, select top scenes matching persona while avoiding spoilers, generate edited trailer with template or generative approach, add persona-appropriate voiceover and music, cache and serve from CDN. Scale: pre-generate 60k trailers (10k shows × 6 personas) weekly. Trade-off: upfront compute investment for 20-30 percent higher engagement. Key insight: different scenes appeal to different users—same show, different hooks per persona.'
+      }
+    ]
+  },
 
 ];
