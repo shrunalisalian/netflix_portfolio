@@ -23631,5 +23631,152 @@ WELLBEING METRICS (not engagement metrics):
       }
     ]
   },
+  {
+    slug: 'cross-attention-multimodal-models',
+    title: 'Cross-Attention in Multimodal Models: Bridging Different Modalities',
+    subtitle: 'Understand how text attends to images and vice versa in vision-language models.',
+    date: 'June 21, 2026',
+    readTime: '6 min read',
+    tags: ['Multimodal', 'Transformers', 'Vision-Language', 'Interview Prep'],
+    coverEmoji: '🔗',
+    content: [
+      {
+        type: 'callout',
+        emoji: '👁️',
+        text: 'Cross-attention intuition: Self-attention = asking questions within same modality ("which words relate?"). Cross-attention = asking questions across modalities ("which image regions correspond to this word?"). Example: Caption "dog jumping" needs to attend to dog region AND jumping action in image. Query from text, keys/values from image. Result: Text tokens learn to focus on relevant image patches, enabling grounding.'
+      },
+      {
+        type: 'h2',
+        text: 'Self-Attention Recap'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Query, Key, Value from same sequence (text or image)',
+          'Question: "What other positions in THIS sequence relate to me?"',
+          'Example: Word "dog" attends to "brown", "fluffy", "barked" in same sentence',
+          'Result: Each position understands its context within modality'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Cross-Attention Mechanism'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Query from one modality (e.g., text tokens)',
+          'Key and Value from different modality (e.g., image patches)',
+          'Question: "Which image regions are relevant to THIS text token?"',
+          'Example: Query "jumping" attends to image region with motion/action',
+          'Result: Text learns to ground to visual content'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Mathematical Difference'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Self: Q, K, V all from same input X -> Attention(Q, K, V) where Q=K=V',
+          'Cross: Q from X, K and V from Y -> Attention(Q_X, K_Y, V_Y)',
+          'Symmetry: Self-attention symmetric, cross-attention directional'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Vision-Language Example'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Image encoder: Produces image patches (e.g., 196 patches, 768-dim each)',
+          'Text encoder: Produces word tokens (e.g., 20 words, 768-dim each)',
+          'Cross-attention: Text queries image patches',
+          'Word "red" attends to red-colored patches in image',
+          'Word "car" attends to car-shaped regions in image'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Intuitive Analogy'
+      },
+      {
+        type: 'paragraph',
+        text: 'Self-attention: Reading paragraph and understanding which sentences relate. Cross-attention: Reading paragraph while looking at diagram and deciding which diagram parts explain each sentence. Attention is the pointer from words to visual elements.'
+      },
+      {
+        type: 'h2',
+        text: 'Information Flow'
+      },
+      {
+        type: 'list',
+        ordered: true,
+        items: [
+          'Image encoded: Patches extracted, passed to image encoder',
+          'Text encoded: Words passed to text encoder',
+          'Cross-layer: Text attention queries ask "which image patch explains me?"',
+          'Image patches respond: Patch embeddings weighted by attention',
+          'Fusion: Text tokens updated with attended image information',
+          'Output: Grounded text representation (text + visual context)'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Use Cases'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Image captioning: Generate description grounded in image regions',
+          'Visual question answering: Attend to relevant image parts for questions',
+          'Multimodal retrieval: Match images to captions bidirectionally',
+          'Video understanding: Cross-attend between frames and text'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Bidirectional Cross-Attention'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Text-to-image: Text queries attend to image patches (grounding)',
+          'Image-to-text: Image queries attend to text tokens (understanding language)',
+          'Both directions: Richer fusion, mutual understanding'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Key Insight: Alignment Through Attention'
+      },
+      {
+        type: 'paragraph',
+        text: 'Cross-attention learns correspondence between modalities. Without it, image encoder and text encoder work independently (siloed). With cross-attention, representations align - text learns visual grounding, images learn linguistic meaning. Result: Unified semantic space.'
+      },
+      {
+        type: 'h2',
+        text: 'Interview Tips'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Self-attention: Q, K, V from same modality (within-modality)',
+          'Cross-attention: Q from one modality, K/V from another (between-modalities)',
+          'Purpose: Align and ground different modalities (image regions to words)',
+          'Intuition: Text asks "which image parts explain me?" via attention',
+          'Result: Unified multimodal representation with grounding'
+        ]
+      }
+    ]
+  },
 
 ];
