@@ -14,7 +14,11 @@
       "Bash(rm .gitmodules)",
       "Bash(rm -rf .git/modules/netflix_portfolio)",
       "Bash(git submodule *)",
-      "Bash(git checkout *)"
+      "Bash(git checkout *)",
+      "Bash(git reset *)",
+      "Bash(python3)",
+      "Bash(git pull *)",
+      "Bash(brew upgrade *)"
     ]
   }
 }
