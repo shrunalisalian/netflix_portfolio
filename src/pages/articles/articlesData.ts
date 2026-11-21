@@ -31125,5 +31125,322 @@ WELLBEING METRICS (not engagement metrics):
       }
     ]
   },
+  {
+    slug: 'learning-rate-scaling-batch-size-256-to-8192',
+    title: 'You Scaled the Batch 32x: How to Scale the Learning Rate',
+    subtitle: 'ResNet-50 trains well at batch 256. You scale to batch 8,192 (256 GPUs). Same LR = fails. How do you scale LR, and where does it break?',
+    date: 'November 21, 2026',
+    readTime: '14 min read',
+    tags: ['Distributed Training', 'Learning Rate', 'Scaling Laws', 'Optimization'],
+    coverEmoji: '📈',
+    content: [
+      {
+        type: 'h2',
+        text: 'The Problem: Linear Scaling Hypothesis'
+      },
+      {
+        type: 'paragraph',
+        text: 'You trained ResNet-50 on ImageNet with batch size 256. It converged well. Learning rate: 0.1. Final accuracy: 76.5%.'
+      },
+      {
+        type: 'paragraph',
+        text: 'Now you have 256 GPUs. You can process batch size 8,192 (256 GPUs × 32 samples per GPU).'
+      },
+      {
+        type: 'paragraph',
+        text: 'You keep LR = 0.1. The model trains but converges to 73% accuracy. Much worse.'
+      },
+      {
+        type: 'paragraph',
+        text: 'What went wrong?'
+      },
+      {
+        type: 'h3',
+        text: 'The Root Cause: Gradient Noise and Effective Learning Rate'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Batch size 256: Gradients are noisier (more variance).',
+          'Batch size 8,192: Gradients are smoother (less variance, averaging over 32x more samples).',
+          'With smoother gradients, the effective learning rate is higher.',
+          'You take larger, more confident steps. Easy to overshoot or diverge.'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Solution 1: Linear Scaling Rule (The Standard)'
+      },
+      {
+        type: 'h3',
+        text: 'The Formula'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'LR_new = LR_old × (batch_size_new / batch_size_old)\n\nExample:\n  LR_old = 0.1\n  batch_size_old = 256\n  batch_size_new = 8,192\n  \n  LR_new = 0.1 × (8,192 / 256) = 0.1 × 32 = 3.2'
+      },
+      {
+        type: 'h3',
+        text: 'The Intuition'
+      },
+      {
+        type: 'paragraph',
+        text: 'If you process 32x more samples per gradient step, the gradient is 32x more stable. So you can take 32x larger steps.'
+      },
+      {
+        type: 'h3',
+        text: 'Empirical Evidence'
+      },
+      {
+        type: 'paragraph',
+        text: 'Goyal et al. (2017, Facebook AI): "Accurate, Large Batch Training"'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'ResNet-50 on ImageNet with batch sizes up to 8,192',
+          'Linear scaling rule: LR = 0.1 × (batch_size / 256)',
+          'Result: Maintains same accuracy across all batch sizes (up to 8K)',
+          'Key addition: Longer warmup (1,000 steps → 5,000 steps for 8K batch)'
+        ]
+      },
+      {
+        type: 'h3',
+        text: 'Pro & Con'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '✅ Pro: Simple. Single formula.',
+          '✅ Pro: Works remarkably well up to ~8K batch size.',
+          '❌ Con: Breaks at very large batch sizes (>32K).',
+          '❌ Con: Requires careful warmup.'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Solution 2: Square Root Scaling (Alternative)'
+      },
+      {
+        type: 'h3',
+        text: 'The Formula'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'LR_new = LR_old × sqrt(batch_size_new / batch_size_old)\n\nExample:\n  LR_new = 0.1 × sqrt(8,192 / 256)\n         = 0.1 × sqrt(32)\n         = 0.1 × 5.66\n         = 0.566'
+      },
+      {
+        type: 'h3',
+        text: 'When to Use'
+      },
+      {
+        type: 'paragraph',
+        text: 'Square root scaling is more conservative. Use when:'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'You are unsure about the linear scaling rule.',
+          'Your dataset is small (more overfitting risk).',
+          'You care about generalization, not just training speed.'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Solution 3: LARS Optimizer (For Very Large Batches)'
+      },
+      {
+        type: 'h3',
+        text: 'The Idea'
+      },
+      {
+        type: 'paragraph',
+        text: 'LARS (Layer-wise Adaptive Rate Scaling) adapts the learning rate per layer, not globally.'
+      },
+      {
+        type: 'code',
+        language: 'python',
+        code: 'from torch.optim import LARS\n\nbase_lr = 0.1\noptimizer = LARS(\n    model.parameters(),\n    lr=base_lr,\n    momentum=0.9,\n    weight_decay=1e-4\n)\n\n# LARS automatically scales LR per layer:\n# LR_layer = base_lr × ||weight|| / (||gradient|| + weight_decay × ||weight||)\n#\n# Layers with large gradients get smaller LR (conservative).\n# Layers with small gradients get larger LR (aggressive).'
+      },
+      {
+        type: 'h3',
+        text: 'When LARS Wins'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Very large batches (>32K).',
+          'Wide range of gradient magnitudes across layers.',
+          'Deep networks where lower layers have small gradients.'
+        ]
+      },
+      {
+        type: 'h3',
+        text: 'Pro & Con'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '✅ Pro: Works for extremely large batches (up to 32K+).',
+          '✅ Pro: Better generalization than naive linear scaling.',
+          '❌ Con: More complex. Requires careful hyperparameter tuning.',
+          '❌ Con: Not all frameworks support LARS out-of-the-box.'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'The Complete Recipe: 256 → 8,192 Batch Size'
+      },
+      {
+        type: 'list',
+        ordered: true,
+        items: [
+          '**Scale LR:** LR_new = 0.1 × 32 = 3.2 (linear scaling).',
+          '**Extend warmup:** 1,000 steps → 5,000 steps. Ramp LR from 0 → 3.2.',
+          '**Keep momentum:** momentum = 0.9 (unchanged).',
+          '**Keep weight decay:** weight_decay = 1e-4 (unchanged).',
+          '**Keep augmentation:** Strong data augmentation (RandAugment, CutMix).',
+          '**Train longer (optional):** With large batches, train for fewer epochs but more steps.'
+        ]
+      },
+      {
+        type: 'h3',
+        text: 'Example Config'
+      },
+      {
+        type: 'code',
+        language: 'python',
+        code: '# Batch 256 (baseline)\nbatch_size = 256\nlr = 0.1\nwarmup_epochs = 1\ntotal_epochs = 100\n\n# Batch 8,192 (scaled)\nbatch_size_new = 8_192\nlr_new = 0.1 * (batch_size_new / batch_size)  # 3.2\nwarmup_epochs_new = 5  # Extend warmup\ntotal_epochs_new = 100  # Same epochs\n\n# Note: total_epochs is the same, but steps are 32x more\n# Batch 256: 1,281 steps/epoch × 100 epochs = 128K total steps\n# Batch 8,192: 40 steps/epoch × 100 epochs = 4K total steps\n# To match total gradient updates, train 32x longer (3,200 epochs)'
+      },
+      {
+        type: 'h2',
+        text: 'Where Linear Scaling Breaks'
+      },
+      {
+        type: 'h3',
+        text: 'Limit #1: Very Large Batch Sizes (>32K)'
+      },
+      {
+        type: 'paragraph',
+        text: 'Beyond 32K, linear scaling no longer works. Accuracy degradation.'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Batch Size | Linear LR | Accuracy\n256        | 0.1      | 76.5%\n1K         | 0.4      | 76.4%\n4K         | 1.6      | 76.3%\n8K         | 3.2      | 76.1%\n16K        | 6.4      | 75.2%  ← Degrading\n32K        | 12.8     | 73.8%  ← Breaking\n64K        | 25.6     | 70.1%  ← Severe degradation'
+      },
+      {
+        type: 'h3',
+        text: 'Limit #2: Generalization Gap (Sharp vs Flat Minima)'
+      },
+      {
+        type: 'paragraph',
+        text: 'Large batches find sharp minima (good training, bad generalization).'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Small batch (256): Noise helps escape sharp minima. Finds flat region.',
+          'Large batch (8K+): Less noise. Converges to sharper minima. Test accuracy drops.'
+        ]
+      },
+      {
+        type: 'h3',
+        text: 'Limit #3: Different Architectures'
+      },
+      {
+        type: 'paragraph',
+        text: 'Linear scaling works for ResNets but not necessarily for ViTs or other architectures.'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'ResNet-50: Linear scaling up to 8K ✓',
+          'Vision Transformer: Square root scaling preferred',
+          'BERT/Language models: Different regimes entirely'
+        ]
+      },
+      {
+        type: 'h3',
+        text: 'Limit #4: Communication Overhead'
+      },
+      {
+        type: 'paragraph',
+        text: 'With 256 GPUs, synchronization is expensive.'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'All-reduce communication dominates training time.',
+          'Effective learning rate is lower (communication delay).',
+          'Might need even higher LR to compensate.'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'The Interview Answer'
+      },
+      {
+        type: 'paragraph',
+        text: '"Linear scaling rule: scale the LR proportionally to batch size. If you 32x the batch, 32x the LR."'
+      },
+      {
+        type: 'paragraph',
+        text: '"From batch 256 to 8,192: LR = 0.1 × 32 = 3.2. This works well up to ~8K batch."'
+      },
+      {
+        type: 'paragraph',
+        text: '"Critical additions: extend warmup (1K → 5K steps) and monitor for generalization gap."'
+      },
+      {
+        type: 'paragraph',
+        text: '"Linear scaling breaks beyond 8K batch size. At 32K+, accuracy degrades. Reasons:"'
+      },
+      {
+        type: 'list',
+        ordered: true,
+        items: [
+          '**Sharp minima:** Large batches have less gradient noise, converge to sharper minima (bad generalization).',
+          '**Communication overhead:** 256 GPUs means expensive all-reduce. Effective LR is lower than theory predicts.',
+          '**Architecture-dependent:** Works for ResNet-50 but not all architectures.'
+        ]
+      },
+      {
+        type: 'paragraph',
+        text: '"If you must go beyond 8K, use LARS optimizer or other adaptive methods."'
+      },
+      {
+        type: 'h2',
+        text: 'Production Reality'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '**Facebook AI:** Goyal et al. paper (2017) established linear scaling on ImageNet.',
+          '**Google:** Uses linear scaling for large-scale image training (up to 32K batch).',
+          '**Meta:** LARS optimizer developed specifically for 8K+ batches.',
+          '**OpenAI:** GPT models use linear scaling (then adaptively adjust).',
+          '**Most practitioners:** Linear scaling is the first try, then tune based on results.'
+        ]
+      },
+      {
+        type: 'callout',
+        emoji: '📈',
+        text: 'The key insight: **Gradient noise is the tuning knob.** Smaller batches = noisier gradients = need smaller LR. Larger batches = smoother gradients = need larger LR. Linear scaling (batch × LR) maintains the signal-to-noise ratio. But it breaks at very large batches where overfitting dominates and communication becomes expensive. For 256 GPUs at 8K batch, linear scaling is perfect. Beyond that, you need adaptive methods.'
+      }
+    ]
+  },
 
 ];
