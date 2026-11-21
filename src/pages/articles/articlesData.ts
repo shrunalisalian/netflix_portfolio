@@ -32973,5 +32973,188 @@ WELLBEING METRICS (not engagement metrics):
       }
     ]
   },
+  {
+    slug: 'adam-l2-penalty-weight-decay',
+    title: 'You Added L2 Regularization to Adam: Use AdamW Instead',
+    subtitle: 'Using Adam + L2 penalty, but weights do not decay at the rate you set. What is happening, and how do you fix it?',
+    date: 'November 21, 2026',
+    readTime: '12 min read',
+    tags: ['Optimization', 'Regularization', 'Weight Decay', 'Adam'],
+    coverEmoji: '⚖️',
+    content: [
+      {
+        type: 'h2',
+        text: 'The Problem: L2 Penalty and Weight Decay Are NOT the Same with Adam'
+      },
+      {
+        type: 'paragraph',
+        text: 'You are regularizing with L2 penalty:'
+      },
+      {
+        type: 'code',
+        language: 'python',
+        code: 'optimizer = torch.optim.Adam(model.parameters(), lr=1e-3, weight_decay=1e-4)\n\nloss = task_loss(output, target) + 1e-4 * sum(w**2 for w in model.parameters())\nloss.backward()\noptimizer.step()\n\n# You expect: weights decay at rate 1e-4 per step\n# But: they do not decay uniformly'
+      },
+      {
+        type: 'paragraph',
+        text: 'You measure weight norms over time. They are not decaying at the specified rate. Some weights decay fast, others barely at all. Why?'
+      },
+      {
+        type: 'h3',
+        text: 'The Root Cause: L2 Penalty Becomes Adaptive in Adam'
+      },
+      {
+        type: 'paragraph',
+        text: 'Here is what happens:'
+      },
+      {
+        type: 'list',
+        ordered: true,
+        items: [
+          '**L2 penalty:** Add λ * w^2 to loss.',
+          '**Gradient:** loss_grad = task_grad + 2λ * w',
+          '**Adam:** Compute adaptive learning rate based on gradient history.',
+          '**Update:** w_new = w - lr * (task_grad + 2λ * w) / sqrt(v_t)',
+          '**Key issue:** Effective decay = 2λ / sqrt(v_t), where v_t depends on gradient variance.'
+        ]
+      },
+      {
+        type: 'h3',
+        text: 'The Math: Why Decay Rates Vary'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Parameter w1: high gradient variance (v_t = 1.0)\n  Effective decay = λ / sqrt(1.0) = λ\n  Weight: w1 decays at rate λ\n\nParameter w2: low gradient variance (v_t = 0.01)\n  Effective decay = λ / sqrt(0.01) = λ / 0.1 = 10λ\n  Weight: w2 decays at rate 10λ (!)\n\nResult:\n  You set λ = 1e-4\n  w1 (high variance): decays at ~1e-4\n  w2 (low variance): decays at ~1e-3\n  NOT the same decay rate!'
+      },
+      {
+        type: 'h2',
+        text: 'The Solution: AdamW (Adam with Decoupled Weight Decay)'
+      },
+      {
+        type: 'h3',
+        text: 'The Idea'
+      },
+      {
+        type: 'paragraph',
+        text: 'Decouple weight decay from gradient-based updates. Apply weight decay directly, not through the loss.'
+      },
+      {
+        type: 'code',
+        language: 'python',
+        code: '# OLD (wrong): L2 penalty with Adam\noptimizer = torch.optim.Adam(model.parameters(), lr=1e-3, weight_decay=1e-4)\nloss = task_loss(output, target) + 1e-4 * sum(w**2 for w in model.parameters())\nloss.backward()\noptimizer.step()\n# Result: effective decay varies by parameter\n\n# NEW (correct): AdamW\noptimizer = torch.optim.AdamW(model.parameters(), lr=1e-3, weight_decay=1e-4)\nloss = task_loss(output, target)  # NO L2 penalty in loss!\nloss.backward()\noptimizer.step()\n# Result: all weights decay at exactly 1e-4 per step'
+      },
+      {
+        type: 'h3',
+        text: 'What AdamW Does (Under the Hood)'
+      },
+      {
+        type: 'code',
+        language: 'python',
+        code: 'class AdamW:\n    def step(self):\n        for param in model.parameters():\n            # 1. Compute Adam update\n            g_t = compute_gradient(loss)  # Task gradient\n            m_t = beta1 * m + (1 - beta1) * g_t\n            v_t = beta2 * v + (1 - beta2) * g_t**2\n            m_hat = m_t / (1 - beta1**t)\n            v_hat = v_t / (1 - beta2**t)\n            adam_step = m_hat / (sqrt(v_hat) + eps)\n            \n            # 2. Apply update\n            param -= lr * adam_step\n            \n            # 3. DECOUPLE weight decay (key difference!)\n            param -= lr * weight_decay * param  # Direct decay, not adaptive\n\n# Result: weight_decay is applied uniformly, NOT scaled by adaptive learning rate'
+      },
+      {
+        type: 'h3',
+        text: 'Pro & Con'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '✅ Pro: Every weight decays at exactly the specified rate.',
+          '✅ Pro: Drop-in replacement for Adam (use `torch.optim.AdamW` instead).',
+          '✅ Pro: Now the standard in deep learning (transformers, modern models).',
+          '❌ Con: Slight behavior change compared to Adam with L2 (but better).'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Alternative: Manual Weight Decay'
+      },
+      {
+        type: 'h3',
+        text: 'If You Cannot Use AdamW'
+      },
+      {
+        type: 'code',
+        language: 'python',
+        code: 'optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)\nweight_decay_rate = 1e-4\n\nloss = task_loss(output, target)  # NO L2 penalty\nloss.backward()\noptimizer.step()\n\n# Manually apply weight decay AFTER optimizer step\nwith torch.no_grad():\n    for param in model.parameters():\n        param.data *= (1 - weight_decay_rate)'
+      },
+      {
+        type: 'h3',
+        text: 'Pro & Con'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '✅ Pro: Simple. Direct control.',
+          '✅ Pro: Works with any optimizer.',
+          '❌ Con: Manual step (easy to forget or get wrong).',
+          '❌ Con: Slight overhead (extra loop).'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'How to Verify It Works'
+      },
+      {
+        type: 'h3',
+        text: 'Test on a Simple Case'
+      },
+      {
+        type: 'code',
+        language: 'python',
+        code: 'def test_weight_decay():n    """\n    Train on dummy data with no task loss.\n    Only weight decay should matter.\n    """\n    model = nn.Linear(10, 1)\n    optimizer = torch.optim.AdamW(model.parameters(), lr=1e-3, weight_decay=1e-4)\n    \n    initial_norm = torch.norm(model.weight.data).item()\n    \n    # Optimize on zero loss (only weight decay matters)\n    for step in range(1000):\n        loss = torch.tensor(0.0, requires_grad=True)\n        optimizer.zero_grad()\n        # loss.backward()  # skip, only use weight decay\n        optimizer.step()\n        \n        if step % 100 == 0:\n            current_norm = torch.norm(model.weight.data).item()\n            decay_factor = current_norm / initial_norm\n            print(f\"Step {step}: weight norm = {current_norm:.4f}, decay = {decay_factor:.4f}\")\n    \n    # Expected: weight_norm decays exponentially as (1 - 1e-4)^steps\n    expected_norm = initial_norm * (1 - 1e-4) ** 1000\n    actual_norm = torch.norm(model.weight.data).item()\n    \n    print(f\"Expected: {expected_norm:.4f}, Actual: {actual_norm:.4f}\")\n    assert abs(expected_norm - actual_norm) < 0.01, \"Weight decay not working as expected!\"\n\ntest_weight_decay()'
+      },
+      {
+        type: 'h2',
+        text: 'The Interview Answer'
+      },
+      {
+        type: 'paragraph',
+        text: '"L2 penalty and weight decay are different with Adam. L2 penalty gets scaled by Adam adaptive learning rate. Effective decay varies by parameter."'
+      },
+      {
+        type: 'paragraph',
+        text: '"I would use AdamW instead:"'
+      },
+      {
+        type: 'list',
+        ordered: true,
+        items: [
+          '**AdamW decouples weight decay:** Applies decay directly to weights, not through the loss gradient.',
+          '**Every weight decays uniformly:** At exactly the rate you specify (weight_decay parameter).',
+          '**Drop-in replacement:** Just use `torch.optim.AdamW` instead of `torch.optim.Adam`.',
+          '**Modern standard:** Transformers, vision models, all use AdamW now.'
+        ]
+      },
+      {
+        type: 'paragraph',
+        text: '"If you must use Adam, manually apply weight decay after the optimizer step."'
+      },
+      {
+        type: 'h2',
+        text: 'Production Reality'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '**AdamW introduced:** Loshchilov & Hutter 2017 (famous paper).',
+          '**GPT-3, GPT-4:** Use AdamW.',
+          '**LLaMA, Llama 2:** Use AdamW.',
+          '**BERT, RoBERTa:** Use AdamW.',
+          '**Modern PyTorch:** AdamW is included in torch.optim.',
+          '**Old code:** Sometimes still uses Adam + L2 (outdated, suboptimal).'
+        ]
+      },
+      {
+        type: 'callout',
+        emoji: '⚖️',
+        text: 'The key insight: **L2 penalty is not weight decay with adaptive optimizers.** L2 penalty gets scaled by adaptive learning rates, so different parameters decay at different rates. AdamW decouples weight decay—apply it directly to weights, not through the loss. This ensures every weight decays at exactly the specified rate. Use AdamW. It is the standard now, and it works.'
+      }
+    ]
+  },
 
 ];
