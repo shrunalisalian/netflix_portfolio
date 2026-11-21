@@ -35744,5 +35744,239 @@ WELLBEING METRICS (not engagement metrics):
       }
     ]
   },
+  {
+    slug: 'moe-expert-collapse-load-balancing',
+    title: 'MoE Expert Collapse: Why Your 64 Experts Use Only 10 and How to Fix It',
+    subtitle: 'With top-2 routing, the router learns to favor certain experts and ignores others. How do you force it to use all 64 experts without hurting model quality?',
+    date: 'November 21, 2026',
+    readTime: '12 min read',
+    tags: ['Mixture-of-Experts', 'Routing', 'Load Balancing', 'Model Architecture'],
+    coverEmoji: '🎯',
+    content: [
+      {
+        type: 'h2',
+        text: 'The Problem: Expert Collapse in MoE Models'
+      },
+      {
+        type: 'paragraph',
+        text: 'You train a 64-expert MoE model with top-2 routing. Each token is routed to the 2 best experts according to the router. But after a few training steps, the router learns to route to only a subset: maybe experts [1, 5, 7, 12, 23, 45]. The other 58 experts are barely used.'
+      },
+      {
+        type: 'paragraph',
+        text: 'This is called **expert collapse** or **expert imbalance**. You have 64 experts but effectively use 10, wasting parameters and compute.'
+      },
+      {
+        type: 'h3',
+        text: 'Why This Happens'
+      },
+      {
+        type: 'list',
+        ordered: true,
+        items: [
+          '**Greedy optimization:** The router is trained to route to the \"best\" experts. If expert A is slightly better than B, the router prefers A.',
+          '**Positive feedback loop:** A gets routed to more → A trains more → A becomes better → router prefers A even more.',
+          '**No explicit load balancing:** Standard training doesn\'t penalize unused experts. The main loss only cares about accuracy.',
+          '**Winner takes all:** With top-2 routing, there\'s no soft selection. It\'s binary: either routed or not.'
+        ]
+      },
+      {
+        type: 'h3',
+        text: 'The Cost'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: `Expert Utilization Impact\n\nIdeal (balanced):       64 experts, all used equally\n  Expert count:        64\n  Tokens per expert:   10M (uniform)\n  Parameters used:     100% of 64 experts\n  Compute used:        100% of potential\n\nActual (collapsed):     64 experts, only 10 used\n  Expert count:        64\n  Tokens per expert:   64M to top 10 experts, ~0 to others\n  Parameters used:     ~16% (only 10 experts trained)\n  Compute used:        ~16% (rest dormant)\n  Wasted:              ~84% of expert parameters\n\nResult:\n- Model quality: 10-20% degraded (unused experts not helping)\n- Throughput: Compute wasted on routing to 2 experts when could be 2 of 64\n- Scaling: Adding more experts doesn't help if they collapse`
+      },
+      {
+        type: 'h2',
+        text: 'Solution 1: Load Balancing Auxiliary Loss (Standard Approach)'
+      },
+      {
+        type: 'h3',
+        text: 'The Idea'
+      },
+      {
+        type: 'paragraph',
+        text: 'Add an auxiliary loss that penalizes imbalanced routing. Reward the router when load is evenly distributed across experts.'
+      },
+      {
+        type: 'code',
+        language: 'python',
+        code: `def compute_load_balancing_loss(router_logits, routing_indices, num_experts=64):\n    \"\"\"\n    Encourage balanced load across experts.\n    \n    Two components:\n    1. Importance loss: penalize experts with zero routing probability\n    2. Load loss: penalize imbalanced load distribution\n    \"\"\"\n    batch_size, seq_len = routing_indices.shape\n    num_tokens = batch_size * seq_len\n    \n    # Compute importance (sum of router logits per expert)\n    expert_importance = torch.zeros(num_experts)\n    for expert_id in range(num_experts):\n        # Sum of router logits for tokens routed to this expert\n        mask = (routing_indices == expert_id).float()\n        expert_importance[expert_id] = (mask * router_logits).sum()\n    \n    # Normalize importance\n    importance_normalized = expert_importance / (expert_importance.sum() + 1e-8)\n    \n    # Compute load (number of tokens per expert)\n    expert_load = torch.zeros(num_experts)\n    for expert_id in range(num_experts):\n        mask = (routing_indices == expert_id).float()\n        expert_load[expert_id] = mask.sum()\n    \n    # Normalize load\n    load_normalized = expert_load / (expert_load.sum() + 1e-8)\n    \n    # Uniform distribution (ideal)\n    uniform = torch.ones(num_experts) / num_experts\n    \n    # Losses\n    importance_loss = torch.sum((importance_normalized - uniform) ** 2)\n    load_loss = torch.sum((load_normalized - uniform) ** 2)\n    \n    # Combined loss (can weight differently)\n    aux_loss = importance_loss + load_loss\n    \n    return aux_loss\n\n# In training loop\nmain_loss = compute_main_loss(output, target)\naux_loss = compute_load_balancing_loss(router_logits, routing_indices)\n\ntotal_loss = main_loss + 0.01 * aux_loss  # Weight auxiliary loss lightly\ntotal_loss.backward()`
+      },
+      {
+        type: 'h3',
+        text: 'Tradeoffs'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '✅ **Simple to implement:** Just add an auxiliary loss term.',
+          '✅ **Proven effective:** Standard in GLaM, Switch Transformers, PaLM.',
+          '✅ **Explicit control:** Weight α lets you tune fairness vs accuracy.',
+          '❌ **Slight accuracy hit:** Forcing balanced routing might not be optimal for each token.',
+          '❌ **Hyperparameter tuning:** Need to tune loss weight (usually 0.001-0.1).',
+          '❌ **Batch dependency:** Load balance measured per batch, varies with batch size.'
+        ]
+      },
+      {
+        type: 'h3',
+        text: 'Real-world result'
+      },
+      {
+        type: 'paragraph',
+        text: 'Google GLaM: With auxiliary loss α=0.01, achieves <5% expert utilization variance. Switch Transformers: even more aggressive (all tokens to 1 expert, still use >90% of experts with auxiliary loss).'
+      },
+      {
+        type: 'h2',
+        text: 'Solution 2: Noisy Routing (Simpler Alternative)'
+      },
+      {
+        type: 'h3',
+        text: 'The Idea'
+      },
+      {
+        type: 'paragraph',
+        text: 'Add Gaussian noise to router logits before selecting top-2. This injects randomness, preventing deterministic collapse.'
+      },
+      {
+        type: 'code',
+        language: 'python',
+        code: `def noisy_top_k_routing(router_logits, k=2, noise_std=0.01):\n    \"\"\"\n    Top-k routing with noise injection.\n    \"\"\"\n    # Add Gaussian noise to logits\n    noise = torch.randn_like(router_logits) * noise_std\n    noisy_logits = router_logits + noise\n    \n    # Select top-k\n    top_k_logits, top_k_indices = torch.topk(noisy_logits, k, dim=-1)\n    \n    # Optionally: compute weights using original (non-noisy) logits\n    routing_weights = torch.softmax(router_logits[..., top_k_indices], dim=-1)\n    \n    return top_k_indices, routing_weights\n\n# Example\nrouter_logits = model.router(x)  # Shape: [batch, seq_len, num_experts]\ntop_k_indices, routing_weights = noisy_top_k_routing(router_logits, k=2, noise_std=0.01)\n\n# Token now routes to 2 random(ish) experts instead of deterministically best 2\n# Randomness forces router to learn to use more experts`
+      },
+      {
+        type: 'h3',
+        text: 'Tradeoffs'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '✅ **Very simple:** Just add noise, no extra loss computation.',
+          '✅ **Implicit balancing:** Randomness prevents collapse naturally.',
+          '✅ **No accuracy hit:** Noise is small, doesn\'t degrade performance much.',
+          '❌ **Less control:** Noise amount is hyperparameter to tune.',
+          '❌ **Non-deterministic:** Different runs have different routing (harder to debug).',
+          '❌ **Not fully principled:** Relies on randomness, not explicit incentive.'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Solution 3: Router Temperature Annealing (Sophisticated)'
+      },
+      {
+        type: 'h3',
+        text: 'The Idea'
+      },
+      {
+        type: 'paragraph',
+        text: 'Start with high router temperature (soft, diverse routing), gradually decrease to low temperature (sharp, specialized routing). Forces router to learn all experts early, then specializes.'
+      },
+      {
+        type: 'code',
+        language: 'python',
+        code: `def top_k_routing_with_temperature(router_logits, k=2, temperature=1.0):\n    \"\"\"\n    Top-k routing with temperature control.\n    \n    High temperature (e.g., 2.0): soft probabilities, all experts used\n    Low temperature (e.g., 0.1): sharp probabilities, specialization\n    \"\"\"\n    # Scale logits by temperature\n    scaled_logits = router_logits / temperature\n    \n    # Softmax over all experts (soft selection)\n    soft_probs = torch.softmax(scaled_logits, dim=-1)\n    \n    # Select top-k (can use hard top-k or gumbel-softmax)\n    top_k_logits, top_k_indices = torch.topk(scaled_logits, k, dim=-1)\n    \n    return top_k_indices, soft_probs\n\nclass MoEWithTemperatureAnnealing:\n    def __init__(self, model, num_training_steps=100000):\n        self.model = model\n        self.num_training_steps = num_training_steps\n        self.current_step = 0\n    \n    def get_temperature(self):\n        \"\"\"Anneal temperature from 2.0 → 0.1 over training.\"\"\"\n        progress = self.current_step / self.num_training_steps\n        # Exponential annealing\n        temp_start = 2.0\n        temp_end = 0.1\n        temperature = temp_end + (temp_start - temp_end) * np.exp(-3 * progress)\n        return temperature\n    \n    def forward(self, x):\n        router_logits = self.model.router(x)\n        temperature = self.get_temperature()\n        routing_indices, routing_probs = top_k_routing_with_temperature(\n            router_logits, k=2, temperature=temperature\n        )\n        \n        self.current_step += 1\n        return routing_indices, routing_probs\n\n# Timeline:\n# Step 0: temperature=2.0 (soft routing, all 64 experts used)\n# Step 50K: temperature~0.5 (medium)\n# Step 100K: temperature=0.1 (sharp routing, learned specialization)`
+      },
+      {
+        type: 'h3',
+        text: 'Tradeoffs'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '✅ **Curriculum learning:** Early training uses all experts, later specializes.',
+          '✅ **Principled:** Warm start (soft) → cold finish (sharp).',
+          '✅ **No explicit fairness loss:** Implicit encouragement of diversity.',
+          '❌ **More hyperparameters:** Annealing schedule, temperature bounds.',
+          '❌ **Slower early training:** High temperature makes early routing less optimal.',
+          '❌ **Requires tuning:** Different models need different temperature curves.'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Solution 4: Expert-Specific Dropout (Radical but Effective)'
+      },
+      {
+        type: 'h3',
+        text: 'The Idea'
+      },
+      {
+        type: 'paragraph',
+        text: 'Randomly disable unused experts during training. Forces router to learn alternative routing paths.'
+      },
+      {
+        type: 'code',
+        language: 'python',
+        code: `def top_k_routing_with_expert_dropout(router_logits, routing_indices, k=2, dropout_rate=0.1):\n    \"\"\"\n    Randomly dropout experts to force router to learn all of them.\n    \"\"\"\n    num_experts = router_logits.shape[-1]\n    \n    # Randomly select experts to dropout\n    expert_dropout_mask = torch.bernoulli(\n        torch.ones(num_experts) * (1 - dropout_rate)\n    )  # 1 = keep, 0 = dropout\n    \n    # Mask out logits for dropped experts (set to -inf)\n    masked_logits = router_logits.clone()\n    masked_logits[..., expert_dropout_mask == 0] = float('-inf')\n    \n    # Now select top-k from remaining experts\n    top_k_logits, top_k_indices = torch.topk(masked_logits, k, dim=-1)\n    \n    # Fallback: if top-k failed (all experts dropped), use original\n    # (rare, but handle edge case)\n    has_valid = ~torch.isinf(top_k_logits).any(dim=-1)\n    fallback_indices, _ = torch.topk(router_logits[~has_valid], k)\n    top_k_indices[~has_valid] = fallback_indices\n    \n    return top_k_indices\n\n# Effect:\n# If expert 5 is used in 90% of tokens, it gets dropped 10% of the time\n# Router learns to use alternatives (experts 1, 3, 15, etc.)\n# After training, all experts are learned`
+      },
+      {
+        type: 'h3',
+        text: 'Tradeoffs'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '✅ **Forces utilization:** Unused experts MUST be learned.',
+          '✅ **Simple to implement:** Just mask logits during forward pass.',
+          '❌ **Might hurt accuracy:** Forcing suboptimal routing during training.',
+          '❌ **Requires careful tuning:** Too much dropout hurts, too little doesn\'t help.',
+          '❌ **Non-standard:** Less used in production, less understood behavior.'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'The Interview Answer'
+      },
+      {
+        type: 'paragraph',
+        text: `"With 64 experts and top-2 routing, the router learns to route to a subset (maybe 10-20) and ignores the rest. This is **expert collapse**: the greedy optimization (preferring best experts) creates a positive feedback loop where popular experts get more training and become even better."`
+      },
+      {
+        type: 'paragraph',
+        text: `"The standard fix: **auxiliary loss for load balancing**. Add two losses: (1) importance loss (penalize experts with zero routing probability), (2) load loss (penalize imbalanced load distribution). Weight at ~0.01-0.1 of main loss. This encourages the router to distribute tokens evenly across experts without hurting accuracy much."`
+      },
+      {
+        type: 'paragraph',
+        text: `"Why this works: Instead of pure greedy selection, the router learns 'good enough' routing that also spreads load. The auxiliary loss provides explicit incentive for balance."`
+      },
+      {
+        type: 'paragraph',
+        text: `"Alternative approaches: (1) **Noisy routing**: add Gaussian noise to router logits (simpler, implicit balancing), (2) **Temperature annealing**: start with soft routing (uses all experts), gradually sharpen to specialization (curriculum), (3) **Expert dropout**: randomly disable experts, force router to learn alternatives (radical but effective)."`
+      },
+      {
+        type: 'paragraph',
+        text: `"I'd use load balancing loss (standard, proven, controllable). If that doesn't work, add noisy routing (simpler than tuning loss weight). Temperature annealing is good for research but requires more tuning."`
+      },
+      {
+        type: 'h2',
+        text: 'Production Approaches'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '**GLaM (Google, 64K experts):** Auxiliary loss α=0.01, achieves >95% expert utilization.',
+          '**Switch Transformers:** Single-token-per-expert routing (no top-2), still uses >90% experts with auxiliary loss.',
+          '**PaLM (540B, 16 experts):** Load balancing loss + router noise, all experts used.',
+          '**DeepSeek MoE:** Temperature annealing + load balancing, achieves perfect balance.',
+          '**Industry standard:** Load balancing loss is default. Noisy routing as optional add-on.'
+        ]
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: `Comparison: Expert Collapse Solutions\n\nApproach              | Complexity | Accuracy Hit | Control | Standard?\n──────────────────────┼────────────┼──────────────┼─────────┼──────────\nNo balancing          | 0          | None         | None    | ❌ Bad\nLoad balance loss     | 1          | <1%          | High    | ✅ Yes\nNoisy routing         | 1          | <0.5%        | Medium  | ✅ Popular\nTemp annealing        | 2          | 0-2%         | Low     | ⭐ Research\nExpert dropout        | 2          | 1-3%         | Medium  | ❌ Rare\n                      |            |              |         |\nRecommended: Load balance loss (simple + effective)`
+      },
+      {
+        type: 'callout',
+        emoji: '🎯',
+        text: 'The key insight: **Expert collapse happens because routing is greedy (no load balancing).** The router prefers the best experts, ignoring others. Standard fix: add auxiliary loss that penalizes imbalanced load distribution. This forces trade-off between pure accuracy and expert fairness—but the accuracy hit is minimal (<1%) while expert utilization jumps from ~16% to >90%. For 64 experts with top-2 routing, all 64 should be used. If not, your model is wasting 80%+ of capacity. Load balancing loss is the proven standard; use it.'
+      }
+    ]
+  },
 
 ];
