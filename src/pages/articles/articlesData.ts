@@ -33828,5 +33828,220 @@ WELLBEING METRICS (not engagement metrics):
       }
     ]
   },
+  {
+    slug: 'sparse-reward-process-reward-model',
+    title: 'Binary Reward Is Too Sparse: Use a Process Reward Model',
+    subtitle: 'Reward is 1 if correct, 0 if wrong. 95% of episodes get 0. How do you give signal without being unfair?',
+    date: 'November 21, 2026',
+    readTime: '12 min read',
+    tags: ['Reinforcement Learning', 'Reward Shaping', 'RL from Feedback', 'Signal Design'],
+    coverEmoji: '🎯',
+    content: [
+      {
+        type: 'h2',
+        text: 'The Problem: Sparse Rewards Kill Learning'
+      },
+      {
+        type: 'paragraph',
+        text: 'You have a math reasoning model trained with RL. The reward is simple: 1 if the final answer is correct, 0 if wrong.'
+      },
+      {
+        type: 'paragraph',
+        text: 'The model is barely learning. Here is why:'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '**Sparse signal:** 95% of episodes end with reward 0. No gradient information.',
+          '**High variance:** When reward appears (5% of time), gradient is huge. Unstable training.',
+          '**No intermediate feedback:** Model does not know if it is on the right track until the end.',
+          '**Exploration problem:** Why try new reasoning if it will probably end in 0 anyway?',
+          '**Plateau risk:** Model learns to output "I don\'t know" (safe but wrong).'
+        ]
+      },
+      {
+        type: 'h3',
+        text: 'The Math: Why This Is Brutal'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Policy gradient: ∇J ∝ E[∇ log π(a|s) × R]\n\nWith binary reward:\n  95% of trajectories: R = 0\n  5% of trajectories: R = 1\n  Average: E[R] = 0.05\n  Variance: Var[R] = 0.05 × (1-0.05)² + 0.95 × (0-0.05)² ≈ 0.047\n  Signal-to-noise: 0.05 / 0.047 ≈ 1.06 (terrible!)\n\nWith 10K samples:\n  Expected gradient updates that help: 500\n  Expected variance: huge\n  Learning is slow and unstable'
+      },
+      {
+        type: 'h2',
+        text: 'Solution: Process Reward Model (PRM)'
+      },
+      {
+        type: 'h3',
+        text: 'The Idea'
+      },
+      {
+        type: 'paragraph',
+        text: 'Instead of rewarding only the final answer, reward the reasoning process. Train a separate model to predict step-by-step correctness.'
+      },
+      {
+        type: 'h3',
+        text: 'How It Works'
+      },
+      {
+        type: 'list',
+        ordered: true,
+        items: [
+          'Take trajectories from the policy (reasoning chains).',
+          'Break into steps: "Let x = 5", "Then x+2 = 7", "So the answer is 7".',
+          'Human labels each step: correct (1) or incorrect (0).',
+          'Train a PRM: predict step correctness given (problem, step).',
+          'Use PRM to score each step during policy training.',
+          'Reward at every step, not just the end.'
+        ]
+      },
+      {
+        type: 'h3',
+        text: 'Example'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Problem: "What is 2 + 3?"\n\nTrajectory:\n  Step 1: "Let me add 2 and 3" → PRM scores: 0.9 (correct direction)\n  Step 2: "2 + 3 = 5" → PRM scores: 1.0 (correct answer)\n  Step 3: "The answer is 5" → PRM scores: 1.0 (restates)\n\nReward signal:\n  OLD (outcome-only): [0, 0, 1] ← only end matters\n  NEW (process-based): [0.9, 1.0, 1.0] ← every step matters\n\nGradient signal: 3x more feedback, 3x lower variance'
+      },
+      {
+        type: 'h3',
+        text: 'Pro & Con'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '✅ Pro: Dense reward signal. Every step provides feedback.',
+          '✅ Pro: Guides exploration. Early steps that look correct are rewarded.',
+          '✅ Pro: Lower variance in gradient estimates.',
+          '✅ Pro: Fair: still based on actual step correctness.',
+          '❌ Con: Need to train PRM (requires labeled step-level data).',
+          '❌ Con: PRM can be biased or wrong (garbage in, garbage out).'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Alternative: Outcome Reward Model (ORM)'
+      },
+      {
+        type: 'h3',
+        text: 'The Idea'
+      },
+      {
+        type: 'paragraph',
+        text: 'Learn a continuous score for final answers instead of binary 1/0.'
+      },
+      {
+        type: 'code',
+        language: 'python',
+        code: '# ORM: continuous score instead of binary\n# Train on (problem, final_answer) → confidence (0 to 1)\n\nmodel_output = "The answer is 5"\nprm_score = orm_model(problem, model_output)  # 0.95 (high confidence correct)\n\n# Compare to ground truth\nif actual_answer == 5:\n    reward = prm_score  # 0.95 (high reward)\nelse:\n    reward = -prm_score  # -0.95 (penalize confident wrong)\n\n# Result: nuanced signal instead of binary'
+      },
+      {
+        type: 'h3',
+        text: 'Pro & Con'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '✅ Pro: Simpler than PRM (no step-level labels needed).',
+          '✅ Pro: Reward is still based on correctness.',
+          '✅ Pro: Better signal than binary.',
+          '❌ Con: Less interpretable. What does 0.7 mean?',
+          '❌ Con: Can reward confident wrong answers if ORM is bad.'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Why Not Just Add Fake Rewards?'
+      },
+      {
+        type: 'paragraph',
+        text: 'You could add intermediate rewards arbitrarily: +0.1 per step, +0.5 for formatting, etc.'
+      },
+      {
+        type: 'paragraph',
+        text: 'But this violates the "fair baseline" constraint:'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '**Arbitrary bonus points:** Reward is decoupled from correctness.',
+          '**Different answers, same score:** Wrong answer with good formatting scores high.',
+          '**Specification gaming:** Model learns to game the bonus (output correct format, wrong answer).',
+          '**Not fair:** One student formats nicely, gets +5. Another solves correctly, gets +0.'
+        ]
+      },
+      {
+        type: 'paragraph',
+        text: 'PRM is fair: rewards are still grounded in step correctness.'
+      },
+      {
+        type: 'h2',
+        text: 'The Complete Recipe'
+      },
+      {
+        type: 'list',
+        ordered: true,
+        items: [
+          '**Collect step-labeled data:** Take policy trajectories, have humans label each step (correct/incorrect).',
+          '**Train PRM:** Supervised learning to predict step correctness.',
+          '**Use PRM for reward:** Score each step during policy training.',
+          '**Policy RL:** Optimize policy to maximize cumulative step rewards.',
+          '**Validate:** Check that final answer accuracy still improves.'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'The Interview Answer'
+      },
+      {
+        type: 'paragraph',
+        text: '"Binary reward is too sparse. 95% of episodes get 0 reward, so gradients are almost always zero. High variance, slow learning."'
+      },
+      {
+        type: 'paragraph',
+        text: '"I would use a Process Reward Model:"'
+      },
+      {
+        type: 'list',
+        ordered: true,
+        items: [
+          '**Label steps:** Collect trajectories, have humans label each intermediate step (correct/incorrect).',
+          '**Train PRM:** Supervised learning to predict step correctness from (problem, step).',
+          '**Dense rewards:** Use PRM to score each step during policy training.',
+          '**Fair signal:** Rewards still grounded in actual step correctness, not arbitrary bonuses.'
+        ]
+      },
+      {
+        type: 'paragraph',
+        text: '"Result: 3-10x more reward signal, lower variance, better exploration guidance. Still fair: rewards correlate with actual correctness."'
+      },
+      {
+        type: 'h2',
+        text: 'Production Reality'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '**OpenAI o1:** Uses process rewards extensively.',
+          '**Anthropic:** Process-based rewards for reasoning tasks.',
+          '**DeepSeek:** PRM trained on step correctness.',
+          '**Google DeepSeek:** Similar approach.',
+          '**Standard now:** Any reasoning-focused RL uses process rewards.'
+        ]
+      },
+      {
+        type: 'callout',
+        emoji: '🎯',
+        text: 'The key insight: **Binary reward is sparse and high-variance.** Process Reward Models provide dense, fair signal by rewarding intermediate step correctness. This is not arbitrary bonus points—it is principled reward shaping grounded in actual step correctness. PRM enables learning where binary reward cannot. This is why OpenAI o1 and similar systems use them.'
+      }
+    ]
+  },
 
 ];
