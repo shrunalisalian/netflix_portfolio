@@ -34313,5 +34313,213 @@ WELLBEING METRICS (not engagement metrics):
       }
     ]
   },
+  {
+    slug: 'tokenization-strawberry-spelling-bug',
+    title: "Why GPT-4 Says Strawberry Has Two R's: A Tokenization Bug",
+    subtitle: "Models fail at \"how many r's in strawberry\". Tokenizer splits it into ['str', 'aw', 'berry']. Ask to spell it out first → every letter gets a token → counts right.",
+    date: 'November 21, 2026',
+    readTime: '11 min read',
+    tags: ['Tokenization', 'Model Behavior', 'Prompt Engineering', 'Debugging'],
+    coverEmoji: '🍓',
+    content: [
+      {
+        type: 'h2',
+        text: 'The Bug: Models Count Wrong'
+      },
+      {
+        type: 'paragraph',
+        text: "Ask GPT-4 or Claude: \"How many r's are in the word strawberry?\""
+      },
+      {
+        type: 'paragraph',
+        text: 'Many models say: "2" (incorrect). The correct answer: "3" (st**r**awbe**rr**y).'
+      },
+      {
+        type: 'paragraph',
+        text: "But ask: \"Spell out strawberry letter by letter, then count the r's.\""
+      },
+      {
+        type: 'paragraph',
+        text: "Now models say: \"s-t-r-a-w-b-e-r-r-y... there are 3 r's.\" (correct)."
+      },
+      {
+        type: 'h3',
+        text: 'What Just Happened?'
+      },
+      {
+        type: 'paragraph',
+        text: 'The model gained access to character-level information by forcing intermediate steps. The root cause is tokenization.'
+      },
+      {
+        type: 'h2',
+        text: 'The Root Cause: Subword Tokenization'
+      },
+      {
+        type: 'h3',
+        text: 'How Tokenizers Work'
+      },
+      {
+        type: 'paragraph',
+        text: 'Large language models do not operate on raw text. They operate on tokens. A tokenizer splits text into subword units.'
+      },
+      {
+        type: 'code',
+        language: 'python',
+        code: `from transformers import GPTTokenizerFast\n\ntokenizer = GPTTokenizerFast.from_pretrained("gpt2")\n\nword = "strawberry"\ntokens = tokenizer.encode(word)\nprint(tokens)  # [2177, 1450, 44430]  # Token IDs\n\ndecoded = [tokenizer.decode([t]) for t in tokens]\nprint(decoded)  # ["str", "aw", "berry"]  # Subword pieces\n\n# The model never sees "strawberry" as a whole.\n# It sees: ["str", "aw", "berry"]`
+      },
+      {
+        type: 'h3',
+        text: 'The Problem: Character-Level Info Lost'
+      },
+      {
+        type: 'paragraph',
+        text: "The model receives tokens, not characters. When asked \"how many r's\", it has:"
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Token 1: "str" (contains 1 r)',
+          'Token 2: "aw" (contains 0 r)',
+          'Token 3: "berry" (contains 2 r)'
+        ]
+      },
+      {
+        type: 'paragraph',
+        text: 'The model must reason: "1 + 0 + 2 = 3". But at token level, it has lost character-level granularity. The token "berry" is atomic—the model does not decompose it into b-e-r-r-y.'
+      },
+      {
+        type: 'h3',
+        text: 'Why Models Fail'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '**Token opacity:** The model sees "berry" as a single unit, not as characters.',
+          "**Implicit counting:** Counting r's inside \"berry\" requires the model to implicitly decompose the token.",
+          '**Learned pattern override:** Models learn patterns from pretraining. "Strawberry" might appear in contexts where the model learned wrong associations.',
+          '**Attention limitations:** Attention cannot drill into token internals. It operates at token boundaries.'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'The Fix: Force Character-Level Tokens'
+      },
+      {
+        type: 'h3',
+        text: 'Strategy 1: Spell It Out'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: `User: "Spell out strawberry letter by letter, then count the r's."\n\nModel:\n  "s-t-r-a-w-b-e-r-r-y\n   Now counting r's: position 3 (r), position 8 (r), position 9 (r).\n   Total: 3 r's."\n\nTokenizer:\n  Each letter becomes its own token: ["s", "t", "r", "a", "w", "b", "e", "r", "r", "y"]\n  Model can now count token-by-token.`
+      },
+      {
+        type: 'h3',
+        text: 'Strategy 2: Chain-of-Thought'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: `User: "Let's think step by step. The word is strawberry. What are the letters?"\n\nModel:\n  "The letters in strawberry are: s, t, r, a, w, b, e, r, r, y.\n   The r's are at positions: 3, 8, 9.\n   Total: 3 r's."\n\nForcing the model to enumerate letters makes them tokens,\ngiving character-level granularity.`
+      },
+      {
+        type: 'h3',
+        text: 'Why This Works'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'When spelling out, the tokenizer sees individual characters.',
+          'Each character becomes its own token (or a small token).',
+          'Model now has character-level access.',
+          'Counting becomes straightforward: count tokens that are "r".'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Related Tokenization Failures'
+      },
+      {
+        type: 'h3',
+        text: 'Anagram Problems'
+      },
+      {
+        type: 'paragraph',
+        text: 'Q: "Is LISTEN an anagram of SILENT?" Harder for models because letters are split across tokens.'
+      },
+      {
+        type: 'h3',
+        text: 'Palindrome Detection'
+      },
+      {
+        type: 'paragraph',
+        text: 'Q: "Is RACECAR a palindrome?" Models struggle because they cannot see characters.'
+      },
+      {
+        type: 'h3',
+        text: 'Rhyming'
+      },
+      {
+        type: 'paragraph',
+        text: 'Q: "Does TOUGH rhyme with ROUGH?" Models have to reason about character sequences split across tokens.'
+      },
+      {
+        type: 'h2',
+        text: 'The Deeper Issue: Token Bias'
+      },
+      {
+        type: 'paragraph',
+        text: 'Tokenization affects not just spelling tasks, but all model behavior:'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '**Bias toward common tokens:** Common words get single tokens. Rare words are split.',
+          '**Multilingual bias:** English-heavy tokenizers do poorly on other languages.',
+          '**Reasoning bias:** Tasks requiring character-level reasoning are harder.',
+          '**Hidden capability:** Models might be more capable than they appear if forced to work at the right level.'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'The Interview Answer'
+      },
+      {
+        type: 'paragraph',
+        text: `"Models operate on tokens, not characters. GPT-4's tokenizer splits strawberry into [str, aw, berry]. The model cannot access characters inside 'berry'. To count r's, it must implicitly decompose the token—and fails."`
+      },
+      {
+        type: 'paragraph',
+        text: '"The fix: force character-level tokens by asking to spell it out. Then each letter is a token, and counting works."'
+      },
+      {
+        type: 'paragraph',
+        text: '"This reveals two things: (1) tokenization affects model capabilities in non-obvious ways, (2) prompt engineering can work around tokenization limitations by restructuring the problem."'
+      },
+      {
+        type: 'h2',
+        text: 'Production Implications'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '**Character-level tasks are hard:** Spelling, anagrams, rhyming require workarounds.',
+          '**Prompt engineering is a workaround:** Force intermediate steps to get character access.',
+          '**Different tokenizers, different behavior:** Character-level tokenizers would solve this but are slower.',
+          '**Model limitations are often tokenization limitations:** Not capability, but representation.'
+        ]
+      },
+      {
+        type: 'callout',
+        emoji: '🍓',
+        text: 'The key insight: **Models operate on tokens, not characters.** Character-level reasoning fails because characters are hidden inside token boundaries. Forcing intermediate steps (spell it out, enumerate, chain-of-thought) exposes characters as tokens, restoring reasoning. This is not a model bug—it is a tokenization limitation. Understanding tokenization explains many apparent model failures.'
+      }
+    ]
+  },
 
 ];
