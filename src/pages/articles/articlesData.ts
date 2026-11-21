@@ -31687,5 +31687,284 @@ WELLBEING METRICS (not engagement metrics):
       }
     ]
   },
+  {
+    slug: 'grpo-exploration-process-rewards',
+    title: 'GRPO With Final-Answer-Only Reward: How to Keep the Policy Exploring',
+    subtitle: 'Running GRPO on math problems. Verifier only checks the final answer. Policy collapses. How do you fix exploration? Which metric warns you first?',
+    date: 'November 21, 2026',
+    readTime: '13 min read',
+    tags: ['Reinforcement Learning', 'GRPO', 'Exploration', 'Math Reasoning'],
+    coverEmoji: '🔄',
+    content: [
+      {
+        type: 'h2',
+        text: 'The Problem: Mode Collapse in Sparse Reward RL'
+      },
+      {
+        type: 'paragraph',
+        text: 'You are running GRPO (Group Relative Policy Optimization) on math problems. The verifier is simple: it only checks if the final answer is correct (binary 0/1 reward).'
+      },
+      {
+        type: 'paragraph',
+        text: 'After a few thousand steps, the policy stops improving. When you sample trajectories, they all look the same—the model found one shortcut and is outputting it repeatedly.'
+      },
+      {
+        type: 'h3',
+        text: 'Why This Happens'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '**Binary reward collapses exploration:** The model only learns "correct" vs "incorrect". There is no gradient signal for different reasoning paths.',
+          '**Mode collapse:** The model finds a shortcut (e.g., memorized solution, exploiting verifier format) and sticks with it.',
+          '**Dead exploration:** Why try different reasoning if only the final answer matters? All intermediate steps are equally ignored.',
+          '**GRPO amplifies this:** GRPO groups by some metric and applies relative comparisons. If all trajectories in a group get the same reward, the signal is 0.'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Solution 1: Process Reward Model (The Right Fix)'
+      },
+      {
+        type: 'h3',
+        text: 'The Idea'
+      },
+      {
+        type: 'paragraph',
+        text: 'Instead of verifying only the final answer, verify intermediate reasoning steps. Train a process reward model (PRM) to give feedback during the solution.'
+      },
+      {
+        type: 'h3',
+        text: 'How It Works'
+      },
+      {
+        type: 'list',
+        ordered: true,
+        items: [
+          'Take a step during reasoning: "Let x = 5"',
+          'PRM evaluates: "Is this step correct?" (0 to 1 score)',
+          'Policy gets reward for each step, not just the end.',
+          'Policy learns to explore reasoning paths that have high intermediate rewards.'
+        ]
+      },
+      {
+        type: 'code',
+        language: 'python',
+        code: 'class ProcessRewardModel(nn.Module):\n    """Learned reward for intermediate steps"""\n    def __init__(self):\n        super().__init__()\n        self.model = load_pretrained_model()\n    \n    def forward(self, problem, step_text, next_step_text):\n        # Does this step logically lead to the next?\n        # Is this step correct given the problem?\n        score = self.model.score_transition(problem, step_text, next_step_text)\n        return score  # 0 to 1\n\n# In GRPO training:\nfor step_i, step_text in enumerate(reasoning_steps):\n    step_reward = prm(problem, step_text, next_step_text)\n    trajectory_rewards.append(step_reward)\n    # Policy gets immediate feedback on each step'
+      },
+      {
+        type: 'h3',
+        text: 'Pro & Con'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '✅ Pro: Policy explores diverse reasoning paths. Intermediate feedback guides learning.',
+          '✅ Pro: Often leads to better generalization (learns real reasoning, not shortcuts).',
+          '❌ Con: Requires training a PRM (expensive, needs labeled data).',
+          '❌ Con: PRM itself can be biased or wrong.'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Solution 2: Entropy Regularization (Exploration Bonus)'
+      },
+      {
+        type: 'h3',
+        text: 'The Idea'
+      },
+      {
+        type: 'paragraph',
+        text: 'Penalize low-entropy policies. Add a bonus term to the GRPO objective that encourages diverse outputs.'
+      },
+      {
+        type: 'code',
+        language: 'python',
+        code: 'def grpo_loss_with_entropy(policy, trajectories, verifier, beta=0.1):\n    # Standard GRPO loss\n    grpo_loss = compute_grpo_loss(policy, trajectories, verifier)\n    \n    # Entropy regularization\n    entropy = policy.compute_entropy(trajectories)\n    entropy_bonus = -beta * entropy  # Penalty for low entropy\n    \n    # Total loss\n    total_loss = grpo_loss + entropy_bonus\n    return total_loss\n\n# This encourages the policy to maintain diverse outputs\n# Even if two trajectories have the same final reward,\n# the policy is penalized if it makes them too similar'
+      },
+      {
+        type: 'h3',
+        text: 'Pro & Con'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '✅ Pro: Simple to implement. No new models needed.',
+          '✅ Pro: Encourages exploration without changing reward structure.',
+          '❌ Con: Exploration bonus might lead to nonsense outputs.',
+          '❌ Con: Requires tuning the entropy weight (beta).'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Solution 3: Answer Diversity Reward'
+      },
+      {
+        type: 'h3',
+        text: 'The Idea'
+      },
+      {
+        type: 'paragraph',
+        text: 'Directly penalize the policy for outputting the same wrong answer repeatedly.'
+      },
+      {
+        type: 'code',
+        language: 'python',
+        code: 'def compute_diversity_reward(trajectories, ground_truth):\n    rewards = []\n    answer_counts = {}\n    \n    for traj in trajectories:\n        answer = extract_answer(traj)\n        is_correct = answer == ground_truth\n        \n        # Correct answers: always reward\n        if is_correct:\n            rewards.append(1.0)\n        else:\n            # Wrong answers: penalize if repeated\n            answer_counts[answer] = answer_counts.get(answer, 0) + 1\n            # First time seeing this wrong answer: small reward for diversity\n            # Repeated wrong answer: penalty\n            if answer_counts[answer] == 1:\n                rewards.append(0.1)  # Exploration bonus\n            else:\n                rewards.append(-0.5)  # Penalty for repetition\n    \n    return rewards'
+      },
+      {
+        type: 'h3',
+        text: 'Pro & Con'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '✅ Pro: Directly addresses mode collapse on wrong answers.',
+          '✅ Pro: Simple to implement.',
+          '❌ Con: Requires tuning the diversity penalty.',
+          '❌ Con: Can reward nonsensical outputs.'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Solution 4: Confidence-Based Curriculum'
+      },
+      {
+        type: 'h3',
+        text: 'The Idea'
+      },
+      {
+        type: 'paragraph',
+        text: 'Focus GRPO on problems the policy is uncertain about. Skip problems it has memorized.'
+      },
+      {
+        type: 'code',
+        language: 'python',
+        code: 'def select_problems_by_uncertainty(policy, problems, num_samples=5):\n    uncertainties = []\n    for problem in problems:\n        # Sample multiple solutions\n        samples = [policy.generate(problem) for _ in range(num_samples)]\n        # Measure disagreement\n        answers = [extract_answer(s) for s in samples]\n        agreement_ratio = len(set(answers)) / num_samples\n        uncertainty = 1.0 - agreement_ratio  # High = very uncertain\n        uncertainties.append(uncertainty)\n    \n    # Train only on uncertain problems\n    uncertain_problems = sorted(\n        zip(problems, uncertainties),\n        key=lambda x: x[1],\n        reverse=True\n    )[:len(problems)//2]  # Focus on top 50% uncertain\n    \n    return [p for p, u in uncertain_problems]'
+      },
+      {
+        type: 'h3',
+        text: 'Pro & Con'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '✅ Pro: Avoids wasting compute on memorized problems.',
+          '✅ Pro: Encourages exploration on hard problems.',
+          '❌ Con: Requires sampling multiple trajectories per problem.',
+          '❌ Con: Can neglect easy problems (might unlearn).'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'The Early Warning Metrics'
+      },
+      {
+        type: 'h3',
+        text: 'Metric #1: Action Entropy (Warns First!)'
+      },
+      {
+        type: 'paragraph',
+        text: 'Track the entropy of the policy output distribution. This drops sharply when the policy collapses.'
+      },
+      {
+        type: 'code',
+        language: 'python',
+        code: 'def compute_action_entropy(policy, problems, num_samples=100):\n    """Entropy of the policy output distribution"""\n    outputs = []\n    for problem in problems[:10]:  # Sample problems\n        for _ in range(num_samples):\n            output = policy.generate(problem, temperature=1.0)\n            outputs.append(output)\n    \n    # Measure entropy: how many unique outputs?\n    unique_outputs = len(set(outputs))\n    entropy = -sum(p * math.log(p) for p in probabilities_of_outputs)\n    return entropy\n\n# Log this every 100 steps\nfor step in range(total_steps):\n    entropy = compute_action_entropy(policy, problems)\n    if entropy < entropy_threshold:\n        print(f\"⚠️ Action entropy dropped to {entropy:.3f}. Mode collapse detected!\")'
+      },
+      {
+        type: 'h3',
+        text: 'Why This Warns First'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Entropy drops BEFORE accuracy plateaus.',
+          'You will see this long before the model fully converges.',
+          'Early warning allows you to intervene (add entropy bonus, change reward, etc).'
+        ]
+      },
+      {
+        type: 'h3',
+        text: 'Other Warning Metrics'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '**#2: Reward distribution:** Plot histogram of rewards. If it becomes bimodal (all 0s and 1s, nothing in between), signal is weak.',
+          '**#3: Answer repetition rate:** What fraction of answers are repeats? If >80%, mode collapse.',
+          '**#4: KL divergence from base model:** If KL stops increasing, policy stopped updating (stuck).',
+          '**#5: Variance of step-wise rewards:** If you add intermediate rewards, does variance drop to 0?'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'The Complete Fix: Layered Approach'
+      },
+      {
+        type: 'list',
+        ordered: true,
+        items: [
+          '**Add process reward model (PRM):** Intermediate feedback on reasoning steps.',
+          '**Add entropy regularization:** Penalize low-entropy policies (beta = 0.01-0.1).',
+          '**Monitor action entropy:** Set threshold and alert when it drops >50%.',
+          '**Curriculum on uncertainty:** Focus on hard problems, skip memorized ones.',
+          '**Diversity reward:** Small bonus for new answers, penalty for repeated wrong answers.'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'The Interview Answer'
+      },
+      {
+        type: 'paragraph',
+        text: '"Final-answer-only reward leads to mode collapse. The policy finds a shortcut and sticks with it because there is no intermediate signal."'
+      },
+      {
+        type: 'paragraph',
+        text: '"I would add:"'
+      },
+      {
+        type: 'list',
+        ordered: true,
+        items: [
+          '**Process reward model:** Give feedback on intermediate reasoning steps, not just the end.',
+          '**Entropy regularization:** Penalize low-entropy policies. Encourage diversity.',
+          '**Diversity reward:** Bonus for unique wrong answers, penalty for repetition.',
+          '**Curriculum:** Focus GRPO on problems the policy is uncertain about.'
+        ]
+      },
+      {
+        type: 'paragraph',
+        text: '"The first metric to watch: action entropy. It drops sharply before accuracy plateaus. When entropy falls >50%, mode collapse is happening."'
+      },
+      {
+        type: 'h2',
+        text: 'Production Reality'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '**OpenAI o1/o3:** Uses process rewards extensively. Intermediate verification at every step.',
+          '**DeepSeek:** Uses PRM for math reasoning. Intermediate rewards guide exploration.',
+          '**Google DeepSeek:** Similar approach—process rewards for each reasoning step.',
+          '**Most research:** Process rewards are becoming standard for reasoning tasks.'
+        ]
+      },
+      {
+        type: 'callout',
+        emoji: '🔄',
+        text: 'The key insight: **Binary final-answer rewards are too sparse for GRPO.** The policy cannot distinguish between good reasoning and lucky guesses. Add intermediate process rewards to guide exploration. Monitor action entropy—it is the canary in the coal mine. When entropy drops, intervention is needed. This is not optional for math reasoning tasks; it is mandatory.'
+      }
+    ]
+  },
 
 ];
