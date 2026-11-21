@@ -35296,5 +35296,222 @@ WELLBEING METRICS (not engagement metrics):
       }
     ]
   },
+  {
+    slug: 'batch-scheduling-head-of-line-blocking',
+    title: 'Batch Scheduler Head-of-Line Blocking: Why Waiting for the Slowest Request Kills Latency',
+    subtitle: 'Your server batches 32 requests and holds all responses until the slowest finishes. How do you change the scheduler so fast requests don\'t wait for slow ones?',
+    date: 'November 21, 2026',
+    readTime: '13 min read',
+    tags: ['Serving', 'Batching', 'Scheduling', 'Latency', 'Throughput'],
+    coverEmoji: '⚡',
+    content: [
+      {
+        type: 'h2',
+        text: 'The Problem: Head-of-Line Blocking in Synchronous Batching'
+      },
+      {
+        type: 'paragraph',
+        text: 'Your inference server works like this: collect 32 requests, batch them together, run inference, wait for all 32 to finish, return all results.'
+      },
+      {
+        type: 'paragraph',
+        text: 'If 31 requests finish in 100ms but 1 takes 1 second, all 31 wait 900ms for the slowest. This is called **head-of-line blocking**.'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: `Current Scheduler (Synchronous Batching)\n\nT=0ms   | Requests arrive:  [R1, R2, R3, ... R32]\n        | Batch fills, start inference\n────────┼──────────────────────────────────────────\nT=100ms | R1-R31 finish ✓    (100ms latency)\n        | BUT: Can't return yet, waiting for R32\n        | R32 still running...\n────────┼──────────────────────────────────────────\nT=1000ms| R32 finishes ✗    (1000ms latency)\n        | NOW return all 32 responses\n        |\n        | Result:\n        | R1-R31 latency:  1000ms (should be 100ms)\n        | R32 latency:     1000ms\n        | Throughput:      32 requests / 1s = 32 req/s`
+      },
+      {
+        type: 'paragraph',
+        text: 'The fundamental issue: **the server synchronizes on batch completion, not request completion**. Fast requests are trapped waiting for slow ones.'
+      },
+      {
+        type: 'h2',
+        text: 'Solution 1: Continuous Batching (Remove Requests as They Finish)'
+      },
+      {
+        type: 'h3',
+        text: 'The Idea'
+      },
+      {
+        type: 'paragraph',
+        text: 'Instead of waiting for all requests in a batch to finish, **remove requests as they complete and immediately add waiting requests**. The batch size stays constant (32), but requests flow through continuously.'
+      },
+      {
+        type: 'code',
+        language: 'python',
+        code: `class ContinuousBatchScheduler:\n    def __init__(self, batch_size=32, model=None):\n        self.batch_size = batch_size\n        self.active_batch = []  # Current batch\n        self.waiting_queue = []  # Incoming requests\n        self.model = model\n    \n    def add_request(self, request):\n        \"\"\"Add incoming request to queue.\"\"\"\n        self.waiting_queue.append(request)\n    \n    def schedule_step(self):\n        \"\"\"\n        One inference step:\n        1. Process current batch\n        2. Remove completed requests\n        3. Add waiting requests to fill batch\n        \"\"\"\n        # Fill batch with waiting requests (don't wait for batch to be full)\n        while len(self.active_batch) < self.batch_size and self.waiting_queue:\n            request = self.waiting_queue.pop(0)\n            self.active_batch.append(request)\n        \n        if not self.active_batch:\n            return  # Nothing to do\n        \n        # Run inference on current batch\n        batch_inputs = [r.get_next_input() for r in self.active_batch]\n        batch_outputs = self.model.forward(batch_inputs)\n        \n        # Update requests with outputs\n        completed = []\n        for i, request in enumerate(self.active_batch):\n            request.update_with_output(batch_outputs[i])\n            if request.is_complete():\n                completed.append(request)  # Mark for removal\n        \n        # Remove completed requests from batch\n        for request in completed:\n            self.active_batch.remove(request)\n            # Return response immediately (don't wait for batch)\n            self.send_response(request)\n        \n        # Batch size now has slots available; waiting requests will fill them\n        # on next schedule_step()\n    \n    def send_response(self, request):\n        \"\"\"Send completed request response to client.\"\"\"\n        client_socket = request.client_socket\n        client_socket.send(request.result)\n\n# Usage\nscheduler = ContinuousBatchScheduler(batch_size=32, model=model)\n\nwhile True:\n    # Accept new requests\n    for request in incoming_requests():\n        scheduler.add_request(request)\n    \n    # Run one batch iteration\n    scheduler.schedule_step()\n    \n    # Completed requests are returned immediately\n    # No waiting for entire batch to finish`
+      },
+      {
+        type: 'h3',
+        text: 'Example: Continuous Batching in Action'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: `T=0ms   | Active batch: [R1, R2, ... R32]  (all waiting)\nT=5ms   | Forward pass, R1 completes ✓\n        | Active batch now: [R2, ... R32]  (31 items)\n        | Add R33 from queue: [R2, R3, ... R33]  (back to 32)\nT=10ms  | R2, R3 complete ✓\n        | Active batch: [R4, ... R33]  (30 items)\n        | Add R34, R35: [R4, R5, ... R35]  (back to 32)\n        | ...\n        | Meanwhile:\n        | R1 response sent at T=5ms (5ms latency) ✓\n        | R2 response sent at T=10ms (10ms latency) ✓\n        | R32 (slowest, takes 100ms) response sent at T=100ms\n        |\n        | Result:\n        | Avg latency: 50ms (instead of 1000ms with sync batching)\n        | Throughput: Continuous, not bursts`
+      },
+      {
+        type: 'h3',
+        text: 'Tradeoffs'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '✅ **Lower latency:** Fast requests return immediately (5-50ms vs 1000ms).',
+          '✅ **Better throughput:** Continuous flow, no gaps while waiting for slowest.',
+          '✅ **Fair:** Faster requests don\'t subsidize slower ones.',
+          '❌ **More complex:** Need per-request state tracking, not just batch-level.',
+          '❌ **GPU utilization:** Might have unused slots if requests finish unevenly (batch size < 32).',
+          '❌ **Requires model support:** Model must support variable batch sizes or dynamic requests.'
+        ]
+      },
+      {
+        type: 'h3',
+        text: 'Real-world result'
+      },
+      {
+        type: 'paragraph',
+        text: 'vLLM, TensorRT-LLM, and modern inference servers use continuous batching. Latency improvements: 5-10x for p99, 2-3x for average.'
+      },
+      {
+        type: 'h2',
+        text: 'Solution 2: Prefill/Decode Separation (For LLM Inference)'
+      },
+      {
+        type: 'h3',
+        text: 'The Idea'
+      },
+      {
+        type: 'paragraph',
+        text: 'For LLM inference, there are two distinct phases per request: **prefill** (process prompt) and **decode** (generate tokens). These have very different characteristics.'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: `Request Lifecycle in LLM Inference\n\nPhase 1: PREFILL\n  Input:  Prompt (1000 tokens)\n  Process: Full forward pass on 1000 tokens\n  Output:  KV cache for 1000 tokens\n  Cost:    High compute (all 1000 tokens at once)\n  Batch friendly: YES (can process many prefills together)\n  Time:    ~100ms for 1000 tokens\n\nPhase 2: DECODE\n  Input:  Current token (1)\n  Process: Forward pass on 1 token (using KV cache)\n  Output:  Next token + append to KV cache\n  Cost:    Low compute (just 1 token)\n  Batch friendly: YES (can process 128+ requests in one batch)\n  Time:    ~1ms per token\n  Runs until: All requests done generating`
+      },
+      {
+        type: 'h3',
+        text: 'Scheduler Design: Interleaved Prefill/Decode'
+      },
+      {
+        type: 'code',
+        language: 'python',
+        code: `class PrefillDecodeScheduler:\n    def __init__(self, model=None, prefill_batch_size=16, decode_batch_size=128):\n        self.prefill_batch = []  # New requests waiting for prefill\n        self.decode_batch = []   # Requests generating tokens\n        self.model = model\n        self.prefill_batch_size = prefill_batch_size\n        self.decode_batch_size = decode_batch_size\n    \n    def schedule_step(self):\n        \"\"\"\n        Each step: prefill NEW requests, then decode ALL ongoing requests.\n        \"\"\"\n        # PHASE 1: Prefill (process new prompts)\n        prefill_batch = self.prefill_batch[:self.prefill_batch_size]\n        if prefill_batch:\n            prefill_inputs = [r.prompt_tokens for r in prefill_batch]\n            prefill_outputs = self.model.prefill(prefill_inputs)\n            \n            for i, request in enumerate(prefill_batch):\n                request.kv_cache = prefill_outputs[i]['kv_cache']\n                request.start_decoding()  # Move to decode phase\n                self.decode_batch.append(request)\n            \n            # Remove from prefill batch\n            self.prefill_batch = self.prefill_batch[self.prefill_batch_size:]\n        \n        # PHASE 2: Decode (generate tokens for all ongoing requests)\n        decode_batch = self.decode_batch[:self.decode_batch_size]\n        if decode_batch:\n            decode_outputs = self.model.decode(decode_batch)\n            \n            completed = []\n            for i, request in enumerate(decode_batch):\n                request.append_token(decode_outputs[i])\n                if request.should_stop():\n                    completed.append(request)\n                    # Send response immediately\n                    self.send_response(request)\n            \n            # Remove completed requests from decode batch\n            for request in completed:\n                self.decode_batch.remove(request)\n\n# Example timeline\n# T=0ms    | New requests: R1(1000 tokens), R2(500), R3(2000) arrive\n#          | Prefill phase: Process R1, R2, R3 prompts together\n# T=100ms  | Prefill done, R1-R3 move to decode\n#          | Decode phase: Generate token 1 for R1, R2, R3 (all in one batch)\n#          | New requests: R4, R5 arrive\n# T=101ms  | Prefill phase: Process R4, R5 prompts\n#          | Decode phase: Generate token 2 for R1, R2, R3\n#          | (Prefill and decode happen in parallel phases)\n# T=102ms  | R1 finishes generating (say, 100 tokens), response sent ✓\n#          | Latency: 102ms (prompt 100ms + 2 decode steps)\n#          | R2 still generating (more tokens needed)\n#          | R3 still generating`
+      },
+      {
+        type: 'h3',
+        text: 'Tradeoffs'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '✅ **Very high decode throughput:** Can batch 128+ decode requests (decode is cheap).',
+          '✅ **Prefill doesn\'t block decode:** New prefills don\'t stop ongoing generation.',
+          '✅ **Low latency to first token:** Prefill + 1 decode = ~101ms vs 1000+ms with sync batching.',
+          '✅ **Continuous request acceptance:** New prefills keep arriving while decoding happens.',
+          '❌ **More complex:** Requires careful scheduling, KV cache management.',
+          '❌ **LLM-specific:** Only works for autoregressive models with KV caches.',
+          '❌ **Memory overhead:** KV caches for all ongoing requests consume memory.'
+        ]
+      },
+      {
+        type: 'h3',
+        text: 'Real-world result'
+      },
+      {
+        type: 'paragraph',
+        text: 'vLLM, TensorRT-LLM, and Alpa all use prefill/decode separation. Latency to first token: 50-100ms (vs 1000+ms with sync batching). Throughput: 100-200 requests/sec on single GPU.'
+      },
+      {
+        type: 'h2',
+        text: 'Solution 3: Request Tiering by Length (Pragmatic)'
+      },
+      {
+        type: 'h3',
+        text: 'The Idea'
+      },
+      {
+        type: 'paragraph',
+        text: 'Create separate batch queues based on request length. Short requests batch together (batch size 32), long requests batch together (batch size 8). Fast requests don\'t wait for slow ones.'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: `Request Tiering by Length\n\nQueue 1: SHORT requests    (output <100 tokens)\n  Batch size:   32\n  Latency SLA:  <50ms\n  Priority:     HIGH (processed first)\n\nQueue 2: MEDIUM requests   (output 100-500 tokens)\n  Batch size:   16\n  Latency SLA:  <200ms\n  Priority:     MEDIUM\n\nQueue 3: LONG requests     (output >500 tokens)\n  Batch size:   4\n  Latency SLA:  <1000ms\n  Priority:     LOW (processed when others empty)\n\nScheduling:\n  Process Queue 1 (all batches), then Queue 2, then Queue 3\n  Short requests never blocked by long ones`
+      },
+      {
+        type: 'h3',
+        text: 'Tradeoffs'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '✅ **Simple to implement:** Just separate batch queues.',
+          '✅ **SLA-friendly:** Short requests get low latency guaranteed.',
+          '✅ **Fair:** Prevents long requests from blocking short ones.',
+          '❌ **Starvation risk:** Long requests might never get processed if short ones keep arriving.',
+          '❌ **GPU underutilization:** Small batches (size 4) less efficient than large batches.',
+          '❌ **Requires prediction:** Must estimate request length before execution.'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Solution 4: Hybrid Approach (Best for Production)'
+      },
+      {
+        type: 'h3',
+        text: 'Combine Strategies'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: `Hybrid Scheduler (Recommended)\n\n1. Use prefill/decode separation (for LLM inference)\n2. Continuous batching (remove requests as they complete)\n3. Request tiering by priority (SLA-based)\n\nScheduling loop:\n  Step 1: Accept incoming requests\n         Assign to prefill queue (sorted by priority)\n  \n  Step 2: Prefill phase\n         Process HIGH priority requests first (up to prefill_batch_size)\n         Then MEDIUM, then LOW\n  \n  Step 3: Decode phase\n         Process all decode requests (up to decode_batch_size)\n         Remove completed requests immediately\n         Add newly-prefilled requests to decode pool\n  \n  Result:\n  - Short/high-priority requests: <100ms latency\n  - Medium requests: 100-500ms latency\n  - Long/low-priority: 500ms-2s latency\n  - No request blocks another\n  - GPU always full (continuous batching)`
+      },
+      {
+        type: 'h2',
+        text: 'The Interview Answer'
+      },
+      {
+        type: 'paragraph',
+        text: `"The current scheduler has **head-of-line blocking**: fast requests wait for slow ones. The fix is to decouple batch synchronization—don't wait for all requests to finish, remove them as they complete."`
+      },
+      {
+        type: 'paragraph',
+        text: `"**For general serving:** Use continuous batching. Keep batch size constant (32), but as requests finish, remove them immediately and add waiting requests. Fast requests return in 5-50ms instead of 1000ms. This requires tracking per-request state, but it\'s worth it."`
+      },
+      {
+        type: 'paragraph',
+        text: `"**For LLM inference:** Separate prefill and decode phases. Prefill happens on new requests (compute-heavy, batch size 16), then those requests join the decode batch (compute-light, batch size 128+). This way, prefill doesn\'t block decode, new requests can be prefilled while others are generating. Latency to first token: 100ms instead of 1000+ms."`
+      },
+      {
+        type: 'paragraph',
+        text: `"**To handle variance:** Use request tiering (short/medium/long requests in separate queues with different batch sizes). Process high-priority/short requests first so they never wait for long ones."`
+      },
+      {
+        type: 'paragraph',
+        text: `"**Why these changes work:** Synchronous batching optimizes throughput at the cost of latency variance. Continuous batching optimizes both: it maintains GPU utilization (batch stays full) while reducing latency (fast requests don\'t wait). The tradeoff is complexity—you need per-request tracking instead of batch-level, but modern frameworks (vLLM) handle this."`
+      },
+      {
+        type: 'h2',
+        text: 'Comparison: Synchronous vs Continuous'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: `Metric                  | Synchronous  | Continuous   | Improvement\n────────────────────────┼──────────────┼──────────────┼─────────────\nP50 Latency             | 500ms        | 50ms         | 10x\nP99 Latency             | 1000ms       | 300ms        | 3x\nThroughput              | 32 req/s     | 128 req/s    | 4x\nGPU utilization         | 95%          | 98%          | Minimal gain\nVariance in latency     | Very high    | Low          | Much better\nImplementation complexity| Low          | High         | Worth it`
+      },
+      {
+        type: 'callout',
+        emoji: '⚡',
+        text: 'The key insight: **Synchronous batching optimizes throughput, not latency.** The slowest request in the batch determines p99 latency for all requests. Continuous batching decouples completion—requests return individually as they finish, not waiting for batch completion. Combined with prefill/decode separation (for LLMs) and request tiering (by priority), you get low latency variance while maintaining high throughput. This is why vLLM and modern inference servers are dramatically faster than naive batch schedulers.'
+      }
+    ]
+  },
 
 ];
