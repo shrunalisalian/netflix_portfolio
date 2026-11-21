@@ -37260,4 +37260,77 @@ WELLBEING METRICS (not engagement metrics):
     ]
   },
 
+  {
+    slug: 'bert-mask-pretraining-finetuning-mismatch',
+    title: `You're Pretraining a Bidirectional Encoder and Masking 15% of Tokens. How Do You Change the Corruption So Pretraining Matches Fine-Tuning Better?`,
+    subtitle: `A plain-English guide to BERT's 80-10-10 trick: why [MASK] never shows up at fine-tuning, and how a little random noise fixes the mismatch.`,
+    date: 'November 21, 2026',
+    readTime: '8 min read',
+    tags: ['Machine Learning', 'NLP', 'Transformers', 'Interview Prep'],
+    coverEmoji: '🎭',
+    content: [
+      { type: 'callout', emoji: '🎯', text: `Interview question: "You're pretraining a bidirectional encoder and swapping 15% of the tokens for a MASK token. How would you change the corruption so pretraining matches fine-tuning better?"` },
+      { type: 'paragraph', text: `The first time I read this, my brain snagged on one word: *matches*. Pretraining and fine-tuning are supposed to be the same model doing the same job, just at different times. So why would they not match? And what does a little [MASK] token have to do with it?` },
+      { type: 'paragraph', text: `Because stripped of jargon, it's just this: **you train a model to fill in blanks, and then you hand it a test with no blanks on it.**` },
+      { type: 'h2', text: `The setup: how BERT masking actually works` },
+      { type: 'paragraph', text: `A bidirectional encoder, like BERT, learns language by reading in both directions at once. It does not predict the next word, the way a left-to-right model does. Instead it plays a fill-in-the-blank game called masked language modelling.` },
+      { type: 'paragraph', text: `Take a sentence, pick about 15% of its tokens at random, hide them, and ask the model to guess what was there — using only the words around them.` },
+      { type: 'list', ordered: false, items: [
+        `**The model sees:** "The cat sat on the [MASK]."`,
+        `**It has to predict:** "mat" — from "The cat sat on the" and the period after it.`,
+        `**The loss is only on the hidden positions.** The other 85% of tokens are just context. They are not predicted, they are the clues.`
+      ]},
+      { type: 'paragraph', text: `That 15% is a deliberate choice. Mask too little, and the model gets almost no training signal per sentence. Mask too much, and there is not enough context left to guess from. Fifteen percent leaves 85% of the sentence intact as clues, while still giving the model plenty of blanks to learn from.` },
+      { type: 'h2', text: `The problem: [MASK] is a token that doesn't exist in the real world` },
+      { type: 'paragraph', text: `Here is the catch. When you fine-tune BERT — for sentiment classification, question answering, named entity recognition, almost anything — the input is normal text. Real words, in real sentences. There is no [MASK] token anywhere.` },
+      { type: 'paragraph', text: `So if you pretrain by *always* replacing the chosen tokens with [MASK], you have created a mismatch between the two worlds the model lives in.` },
+      { type: 'list', ordered: false, items: [
+        `**In pretraining,** the model only ever has to make a prediction when it sees [MASK]. The token itself becomes a signal: "hey, predict something here."`,
+        `**In fine-tuning,** that signal never appears. The model has to build good representations for ordinary, unmasked words — the exact tokens it was never forced to think hard about.`
+      ]},
+      { type: 'paragraph', text: `Here's the analogy: imagine training a proofreader who only ever sees documents with words blacked out. They get very good at guessing blacked-out words. Then on their first day on the job, you hand them a clean document and ask them to judge whether the writing is good. They have never practised that. They learned to react to the black bar, not to understand the normal text underneath it.` },
+      { type: 'quote', text: `If the model only learns to predict when it sees [MASK], it learns that [MASK] is special — instead of learning good representations for the real tokens it will actually see later.` },
+      { type: 'h2', text: `The fix BERT actually used: 80-10-10` },
+      { type: 'paragraph', text: `BERT does not replace all 15% with [MASK]. It splits those chosen tokens into three groups. This is the answer the interviewer is looking for, and it is worth saying out loud, in numbers.` },
+      { type: 'list', ordered: false, items: [
+        `**80% of the chosen tokens → [MASK].** "The cat sat on the [MASK]." This is the main training signal.`,
+        `**10% of the chosen tokens → a random token.** "The cat sat on the *banana*." The model has to notice this word does not fit, and predict "mat" anyway.`,
+        `**10% of the chosen tokens → left unchanged.** "The cat sat on the mat." The model still has to predict "mat" — even though "mat" is already right there in the input.`
+      ]},
+      { type: 'paragraph', text: `So out of every 100 tokens, roughly 12 get a [MASK], about 1 or 2 get a random word, and about 1 or 2 stay exactly as they are — but all of them still count as positions the model has to predict.` },
+      { type: 'h3', text: `Why 80% [MASK]?` },
+      { type: 'paragraph', text: `Because you still need the main task. Most of the time, the model *should* see a blank and learn to fill it from context. That is what teaches it grammar, facts, and word meaning. If you dropped this to zero, there would be no masked language modelling left at all.` },
+      { type: 'h3', text: `Why 10% random?` },
+      { type: 'paragraph', text: `A random token stops the model from blindly trusting the input. It cannot just copy the word it sees, because sometimes that word is wrong. It has to check: does this token actually fit the sentence around it? If not, what *should* be here instead? That forces it to use context to judge a token, not just to fill a blank.` },
+      { type: 'paragraph', text: `It also teaches the model something useful for later: real text at fine-tuning time will sometimes contain a surprising or slightly odd word, and the model should not fall apart when it does.` },
+      { type: 'h3', text: `Why 10% unchanged?` },
+      { type: 'paragraph', text: `This is the cleverest 10%. If a token is left unchanged, the model could cheat by just copying it. "I see 'mat', so I will predict 'mat'." That would teach it nothing.` },
+      { type: 'paragraph', text: `But the model does not *know* whether a token was left unchanged, replaced with [MASK], or replaced with a random word. From its point of view, every token could be a corrupted one. So it cannot afford to just copy. It has to build a real representation for *every* token, and predict it from context, just in case.` },
+      { type: 'callout', emoji: '💡', text: `The 10% unchanged is what fixes the mismatch. It forces the model to practise predicting real, unmasked tokens — exactly the situation it will face at fine-tuning, when there is no [MASK] anywhere.` },
+      { type: 'h2', text: `What if you did 100% [MASK]?` },
+      { type: 'paragraph', text: `Then the model learns a shortcut. The [MASK] embedding becomes a special "predict here" flag, and the representations for ordinary words stay shallow, because the model never had to work hard on them. At fine-tuning, you remove the flag, and the model is suddenly operating in a world it was never trained for.` },
+      { type: 'paragraph', text: `That is the pretrain-finetune discrepancy in one sentence: **the distribution of inputs changes between the two phases, and the model was overfit to the pretraining distribution.** The 80-10-10 split is a cheap way to narrow that gap without changing the task.` },
+      { type: 'h2', text: `Beyond BERT: how later models pushed this further` },
+      { type: 'paragraph', text: `80-10-10 was the first fix, not the last word. Later models attacked the same mismatch from different angles, and they are worth naming in an interview.` },
+      { type: 'list', ordered: false, items: [
+        `**Whole Word Masking:** BERT masks WordPiece subwords, so masking "play" in "playing" still leaves "ing" as a clue. Whole Word Masking hides the entire word at once, so the model cannot cheat off a sibling piece.`,
+        `**Dynamic masking (RoBERTa):** BERT picks the masked positions once, during preprocessing, so the model sees the same mask every epoch. RoBERTa re-masks the sentence every time it sees it, so the model gets a fresh fill-in-the-blank puzzle on each pass.`,
+        `**ELECTRA — no [MASK] at all:** ELECTRA replaces some tokens with plausible fakes from a small generator, then trains a discriminator to spot which tokens were replaced. The loss is on *every* token, not just 15%, and there is no [MASK] token at all — so pretraining looks much more like fine-tuning.`
+      ]},
+      { type: 'paragraph', text: `ELECTRA is the cleanest answer to "how do you remove the mismatch entirely?" But it is also a different pretraining task. BERT's 80-10-10 is the answer inside the masked-language-modelling setup the question is asking about.` },
+      { type: 'h2', text: `So what's the actual answer?` },
+      { type: 'paragraph', text: `You do not change the 15%. You change *what happens to the 15% you picked*. Keep most of them as [MASK], replace a small slice with a random token, and leave a small slice unchanged — and still ask the model to predict the original token in all three cases.` },
+      { type: 'quote', text: `80% [MASK], 10% random, 10% unchanged. The random 10% stops the model from trusting the input blindly. The unchanged 10% stops it from learning that only [MASK] positions matter. Together, they bias the model toward real tokens — the ones it will actually see at fine-tuning.` },
+      { type: 'divider' },
+      { type: 'h2', text: `The whole thing in five sentences` },
+      { type: 'list', ordered: true, items: [
+        `BERT pretraining hides 15% of tokens and asks the model to predict them from context, but fine-tuning never contains a [MASK] token, so always masking creates a pretrain-finetune mismatch.`,
+        `BERT fixes it with 80-10-10: of the chosen tokens, 80% become [MASK], 10% become a random token, and 10% stay unchanged — and the model must predict the original token in all three cases.`,
+        `The random 10% forces the model to check whether the input token fits the context, instead of blindly copying it.`,
+        `The unchanged 10% is the key part: because the model cannot tell which tokens were left alone, it must build good representations for every real token, not just for [MASK] positions.`,
+        `Later models went further — whole word masking, dynamic masking in RoBERTa, and ELECTRA dropping [MASK] entirely — but 80-10-10 is the classic fix inside masked language modelling.`
+      ]},
+      { type: 'callout', emoji: '📌', text: `A classic BERT interview question. The numbers to remember are 15% selected, then 80-10-10 on the selected tokens.` }
+    ]
+  },
 ];
