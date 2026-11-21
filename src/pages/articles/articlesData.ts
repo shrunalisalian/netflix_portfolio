@@ -29849,5 +29849,332 @@ WELLBEING METRICS (not engagement metrics):
       }
     ]
   },
+  {
+    slug: 'training-memory-adam-gradient-checkpointing',
+    title: 'Training on 64 GPUs and Running Out of Memory: How to Fix Without Changing the Model or Batch',
+    subtitle: '7.5B model, Adam optimizer, mixed precision, data parallel. Memory is maxed out per GPU. How do you cut memory without retuning?',
+    date: 'November 21, 2026',
+    readTime: '14 min read',
+    tags: ['Training', 'Memory Optimization', 'Adam Optimizer', 'Distributed Training'],
+    coverEmoji: '💾',
+    content: [
+      {
+        type: 'h2',
+        text: 'The Memory Breakdown: Where Does It All Go?'
+      },
+      {
+        type: 'paragraph',
+        text: 'You\'re training a 7.5B model with Adam on 64 GPUs (data parallel). Each GPU has ~80GB (A100). But you\'re hitting OOM.'
+      },
+      {
+        type: 'paragraph',
+        text: 'Here\'s where the memory goes:'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Per GPU with data parallelism:\n\n1. Model weights (FP32 master):     7.5B × 4 bytes = 30 GB\n2. Gradients (FP32):                 7.5B × 4 bytes = 30 GB (during backward pass)\n3. Adam state (m + v, both FP32):   7.5B × 8 bytes = 60 GB ← BIGGEST!\n4. Activations (FP16, cached):      Seq length × batch × hidden = 20-40 GB\n5. Temporary buffers (optimizer, kernels): ~10 GB\n\nTotal: ~150 GB per GPU\n\nBut you only have ~80 GB available.\nMemory is dominated by Adam state (60 GB = 40% of total).'
+      },
+      {
+        type: 'h2',
+        text: 'The Problem: Adam\'s Optimizer State Is Huge'
+      },
+      {
+        type: 'paragraph',
+        text: 'Adam stores two states per parameter:'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'm (first moment, momentum): same size as weights',
+          'v (second moment, velocity): same size as weights'
+        ]
+      },
+      {
+        type: 'paragraph',
+        text: 'So Adam uses 3x the memory of the weights alone (weights + m + v).'
+      },
+      {
+        type: 'paragraph',
+        text: 'Compare to SGD with momentum (2x) or SGD (1x). Adam is expensive.'
+      },
+      {
+        type: 'h2',
+        text: 'Solution 1: Gradient Checkpointing (Activation Recomputation)'
+      },
+      {
+        type: 'h3',
+        text: 'The Idea'
+      },
+      {
+        type: 'paragraph',
+        text: 'Don\'t store all activations during forward pass. Store only some (say every other layer). Recompute the rest during backward pass.'
+      },
+      {
+        type: 'paragraph',
+        text: 'Memory saved: ~50-70% of activation memory.'
+      },
+      {
+        type: 'h3',
+        text: 'Example'
+      },
+      {
+        type: 'code',
+        language: 'python',
+        code: 'class GradCheckpointBlock(nn.Module):\n    def __init__(self, block):\n        super().__init__()\n        self.block = block\n\n    def forward(self, x):\n        # Option 1: No checkpointing (high memory)\n        # return self.block(x)\n\n        # Option 2: Gradient checkpointing (save compute, reduce memory)\n        return torch.utils.checkpoint.checkpoint(\n            self.block, x, use_reentrant=True\n        )\n\n# Wrap every other layer:\nfor i in range(0, num_layers, 2):\n    model.layers[i] = GradCheckpointBlock(model.layers[i])'
+      },
+      {
+        type: 'h3',
+        text: 'The Tradeoff'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Memory: -50% of activations',
+          'Compute: +30-50% (recompute during backward)',
+          'Time-to-train: +10-20% (marginal with modern GPUs)'
+        ]
+      },
+      {
+        type: 'h3',
+        text: 'Pro & Con'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '✅ Pro: Drop-in replacement. No hyperparameter tuning.',
+          '✅ Pro: Big memory savings.',
+          '❌ Con: Training is slower.',
+          '❌ Con: Can interact weirdly with dropout/batch norm (use use_reentrant=False if issues).'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Solution 2: 8-Bit Adam (Gradient Compression)'
+      },
+      {
+        type: 'h3',
+        text: 'The Idea'
+      },
+      {
+        type: 'paragraph',
+        text: 'Store Adam state (m and v) in INT8 instead of FP32. Use block-wise quantization.'
+      },
+      {
+        type: 'paragraph',
+        text: 'Memory saved: 75% of Adam state (60 GB → 15 GB).'
+      },
+      {
+        type: 'code',
+        language: 'python',
+        code: 'from bitsandbytes.optim import Adam8bit\n\noptimizer = Adam8bit(\n    model.parameters(),\n    lr=1e-4,\n    block_wise=True  # Quantize in blocks, not globally\n)\n\n# That\'s it. Everything else is the same.'
+      },
+      {
+        type: 'h3',
+        text: 'How It Works'
+      },
+      {
+        type: 'list',
+        ordered: true,
+        items: [
+          'Adam state (m, v) is computed in FP32 as usual.',
+          'Quantize to INT8 for storage: scale each block independently.',
+          'At update time: dequantize back to FP32, compute update, store new state as INT8.',
+          'Dequantization is fast; most time is in the update step.'
+        ]
+      },
+      {
+        type: 'h3',
+        text: 'Pro & Con'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '✅ Pro: Huge memory savings (60 GB → 15 GB).',
+          '✅ Pro: No compute overhead (actually faster due to smaller tensors).',
+          '✅ Pro: Training curves are identical (no accuracy loss).',
+          '❌ Con: Requires bitsandbytes library (CUDA dependency).',
+          '❌ Con: Small numerical artifacts (but doesn\'t matter for training).'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Solution 3: ZeRO-2 (Gradient Sharding)'
+      },
+      {
+        type: 'h3',
+        text: 'The Idea'
+      },
+      {
+        type: 'paragraph',
+        text: 'Don\'t store full gradients and optimizer state on every GPU. Shard them across GPUs.'
+      },
+      {
+        type: 'paragraph',
+        text: 'With 64 GPUs: each GPU stores gradients/state for 1/64 of parameters.'
+      },
+      {
+        type: 'h3',
+        text: 'Memory Saved'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Gradients: 30 GB → 30/64 GB ≈ 0.5 GB per GPU',
+          'Adam state: 60 GB → 60/64 GB ≈ 0.9 GB per GPU',
+          'Total savings: ~91 GB per GPU!'
+        ]
+      },
+      {
+        type: 'h3',
+        text: 'The Catch'
+      },
+      {
+        type: 'paragraph',
+        text: 'All-reduce communication. After each backward pass:'
+      },
+      {
+        type: 'list',
+        ordered: true,
+        items: [
+          'GPUs compute local gradients.',
+          'All-reduce: combine gradients across all 64 GPUs.',
+          'Each GPU gets back only its shard of the full gradient.',
+          'Update optimizer state (only on its own shard).'
+        ]
+      },
+      {
+        type: 'paragraph',
+        text: 'Communication cost: depends on network. With fast interconnect (NVLink), overhead is ~15-20%.'
+      },
+      {
+        type: 'h3',
+        text: 'Pro & Con'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '✅ Pro: Dramatic memory savings. Enables much larger batches or models.',
+          '❌ Con: Requires coordinator support (DeepSpeed, Megatron, Huggingface transformers).',
+          '❌ Con: Communication overhead.',
+          '❌ Con: Can\'t use with PyTorch DataParallel (need DistributedDataParallel).'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Solution 4: FlashAttention (For Attention Layers)'
+      },
+      {
+        type: 'h3',
+        text: 'The Idea'
+      },
+      {
+        type: 'paragraph',
+        text: 'Attention layers (Q, K, V) often dominate activation memory. FlashAttention computes attention without materializing the full attention matrix.'
+      },
+      {
+        type: 'paragraph',
+        text: 'Memory saved: 90% of attention activation memory.'
+      },
+      {
+        type: 'code',
+        language: 'python',
+        code: 'from flash_attn import flash_attn_func\n\n# In your attention layer, replace:\n# attn_scores = Q @ K^T / sqrt(d)\n# attn_probs = softmax(attn_scores)\n# out = attn_probs @ V\n\n# With:\nout = flash_attn_func(\n    Q, K, V,\n    causal=True  # or False, depending on your model\n)\n\n# That\'s it. Output is identical.'
+      },
+      {
+        type: 'h3',
+        text: 'Pro & Con'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '✅ Pro: Drop-in replacement. Actually faster than standard attention.',
+          '✅ Pro: Huge activation savings (attention is 20-40% of activations).',
+          '❌ Con: Only works for certain attention patterns (causal, local, etc).',
+          '❌ Con: Requires specific GPU support (Ada, Hopper, A100 with CUDA 12+).'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'The Recommended Combo'
+      },
+      {
+        type: 'paragraph',
+        text: 'You want to cut memory without retuning. Use this combo:'
+      },
+      {
+        type: 'list',
+        ordered: true,
+        items: [
+          '**8-bit Adam:** Saves 75% of optimizer state (60 GB → 15 GB). Easy, no downside.',
+          '**Gradient Checkpointing:** Saves 50% of activations (20-40 GB → 10-20 GB). +10% training time.',
+          '**FlashAttention:** Saves 90% of attention activations. Free speedup.',
+          '**Optional: ZeRO-2:** If still OOM, shard gradients. Needs coordinator setup.'
+        ]
+      },
+      {
+        type: 'h3',
+        text: 'Memory Impact'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Baseline (before optimization):\n  Weights:    30 GB\n  Gradients:  30 GB\n  Adam state: 60 GB\n  Activations: 30 GB\n  Total:      150 GB → OOM\n\nAfter 8-bit Adam:\n  Weights:    30 GB\n  Gradients:  30 GB\n  Adam state: 15 GB (8-bit)\n  Activations: 30 GB\n  Total:      105 GB → Still OOM\n\nAfter + Gradient Checkpointing:\n  Weights:    30 GB\n  Gradients:  30 GB\n  Adam state: 15 GB\n  Activations: 15 GB (50% saved)\n  Total:      90 GB → Still tight\n\nAfter + FlashAttention:\n  Weights:    30 GB\n  Gradients:  30 GB\n  Adam state: 15 GB\n  Activations: 10 GB (attention compressed)\n  Total:      85 GB → Fits!\n'
+      },
+      {
+        type: 'h2',
+        text: 'The Interview Answer'
+      },
+      {
+        type: 'paragraph',
+        text: '"Adam is expensive: 3x weights (weights + m + v). That\'s 60 GB of the 150 GB problem right there."'
+      },
+      {
+        type: 'paragraph',
+        text: '"Without changing the model or batch, I\'d do:"'
+      },
+      {
+        type: 'list',
+        ordered: true,
+        items: [
+          '**8-bit Adam:** Store state in INT8, not FP32. Saves 75% of Adam memory (60 → 15 GB). No accuracy loss.',
+          '**Gradient checkpointing:** Store only some activations, recompute during backward. Saves 50% of activations. +10% training time.',
+          '**FlashAttention:** IO-efficient attention. Saves 90% of attention memory. Actually faster.',
+          '**If still OOM: ZeRO-2.** Shard gradients across 64 GPUs. Bigger communication cost, but enables much larger models.'
+        ]
+      },
+      {
+        type: 'paragraph',
+        text: '"8-bit Adam alone saves 45 GB (easy win). Add checkpointing + FlashAttention, you\'re down to ~85 GB. Fits."'
+      },
+      {
+        type: 'h2',
+        text: 'Production Reality'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '**Huggingface Transformers:** Gradient checkpointing is a flag. FlashAttention is automatic.',
+          '**DeepSpeed:** ZeRO is built-in. Combined with 8-bit Adam for maximum savings.',
+          '**Meta/Fairseq:** Uses gradient checkpointing + FlashAttention by default.',
+          '**OpenAI:** Uses combination of all techniques for large-scale training.',
+          '**Stability AI:** 8-bit Adam for all training. Gradient checkpointing for large models.'
+        ]
+      },
+      {
+        type: 'callout',
+        emoji: '💾',
+        text: 'The key insight: **Adam state dominates memory (40% of total).** 8-bit Adam is the fastest win. Combine with gradient checkpointing (activations) and FlashAttention (attention) for 50-60% total memory savings without changing the model or batch. If you still need more, go to ZeRO-2, but that requires coordinator infrastructure.'
+      }
+    ]
+  },
 
 ];
