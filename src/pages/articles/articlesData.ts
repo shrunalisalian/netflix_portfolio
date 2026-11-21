@@ -33156,5 +33156,195 @@ WELLBEING METRICS (not engagement metrics):
       }
     ]
   },
+  {
+    slug: 'speculative-decoding-draft-tokens',
+    title: '70B Model Spends Time Reading Weights: Use Speculative Decoding',
+    subtitle: 'Each token read is 70B weights from memory (memory-bound). Why not draft 20 tokens fast, then verify? How and why?',
+    date: 'November 21, 2026',
+    readTime: '12 min read',
+    tags: ['Inference Optimization', 'Speculative Decoding', 'Memory-Bound', 'Throughput'],
+    coverEmoji: '⚡',
+    content: [
+      {
+        type: 'h2',
+        text: 'The Setup: Why Inference Is Memory-Bound'
+      },
+      {
+        type: 'paragraph',
+        text: 'You are serving a 70B parameter LLM. Each token generation requires one full forward pass:'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Generating one token:\n  1. Load 70B weights from memory (280GB of data at FP16)\n  2. Multiply by activations (compute)\n  3. Output one token\n  4. Repeat for next token\n\nMemory bandwidth is the bottleneck:\n  - GPU memory bandwidth: ~2TB/s (A100)\n  - Data to load: 280GB per token\n  - Time to load: 280GB / 2TB/s = 140ms\n  - Compute time: ~20ms\n  - Total: ~160ms per token\n\n140ms is reading weights. 20ms is compute.\nMemory dominates 87% of time.'
+      },
+      {
+        type: 'paragraph',
+        text: 'So: why not generate 20 tokens without loading weights 20 times?'
+      },
+      {
+        type: 'h3',
+        text: 'The Constraint: Autoregressive Dependency'
+      },
+      {
+        type: 'paragraph',
+        text: 'You cannot generate token t+1 until you have token t, because token t+1 depends on the actual output of token t (through the KV cache).'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Autoregressive generation:\n  Token 1: depends on [input]\n  Token 2: depends on [input, token_1_actual]\n  Token 3: depends on [input, token_1_actual, token_2_actual]\n  ...\n  Token 20: depends on [input, token_1_actual, ..., token_19_actual]\n\nCannot generate token 20 until token 1-19 are known.\nCannot parallelize directly.'
+      },
+      {
+        type: 'h2',
+        text: 'The Solution: Speculative Decoding'
+      },
+      {
+        type: 'h3',
+        text: 'The Core Idea'
+      },
+      {
+        type: 'paragraph',
+        text: 'Use a small, fast draft model to speculatively generate 20 tokens. Then verify all 20 with the big model in ONE forward pass.'
+      },
+      {
+        type: 'h3',
+        text: 'The Algorithm'
+      },
+      {
+        type: 'list',
+        ordered: true,
+        items: [
+          '**Draft phase:** Small model generates tokens 1-20 quickly (assume they are correct).',
+          '**Build batch:** Construct a batch with all 20 speculative tokens in the KV cache.',
+          '**Verify phase:** Big model runs ONE forward pass on the full sequence [input, token_1, ..., token_20].',
+          '**Check results:** Compare big model outputs with draft predictions.',
+          '**Accept/reject:** If token i matches, accept it. If not, reject it and earlier predictions, restart from token i.'
+        ]
+      },
+      {
+        type: 'h3',
+        text: 'Example'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Input: "Once upon a time"\n\nDraft model generates (fast):\n  Token 1: "there"\n  Token 2: "was"\n  Token 3: "a"\n  Token 4: "kingdom"\n  ...\n  Token 20: "magical"\n\nBig model verifies (one forward pass on full sequence):\n  Token 1 prediction: "there" ✓ (matches draft)\n  Token 2 prediction: "was" ✓\n  ...\n  Token 15 prediction: "dark" ✗ (draft said "light")\n  → Accept tokens 1-14, reject 15-20\n  → Restart from token 15 with big model\'s prediction\n\nResult:\n  Accepted 14 tokens from draft\n  1 token from big model\n  = 15 tokens in ~1 big model forward pass\n  Normal: 15 passes = 2400ms\n  Speculative: 1-2 passes = 160-320ms\n  12-15x speedup!'
+      },
+      {
+        type: 'h2',
+        text: 'Why This Works: The Math'
+      },
+      {
+        type: 'h3',
+        text: 'Speedup Calculation'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Assumptions:\n  Draft model: 7B (10ms per token, can generate k tokens in k*10ms)\n  Big model: 70B (160ms per token)\n  Acceptance rate: 95% (95% of draft tokens match big model)\n\nScenario: Generate 100 tokens\n\nNaive (1 token at a time):\n  100 tokens × 160ms = 16,000ms\n\nSpeculative (draft 20 at a time):\n  For each batch of 20:\n    - Draft generates 20 tokens: 20 × 10ms = 200ms\n    - Big model verifies all 20 in 1 pass: 160ms\n    - Expected accepted: 20 × 0.95 = 19 tokens\n    - Total: 200 + 160 = 360ms for ~19 tokens\n  \n  For 100 tokens: 360ms × (100/19) ≈ 1,900ms\n  \n  Speedup: 16,000 / 1,900 ≈ 8.4x'
+      },
+      {
+        type: 'h3',
+        text: 'The Key Insight'
+      },
+      {
+        type: 'paragraph',
+        text: 'You pay for draft generation (200ms) + one big verification (160ms) but get ~19 tokens. Normal would be 19 × 160ms = 3,040ms. Net: 8x faster.'
+      },
+      {
+        type: 'h2',
+        text: 'How to Implement It'
+      },
+      {
+        type: 'h3',
+        text: 'High-Level Code'
+      },
+      {
+        type: 'code',
+        language: 'python',
+        code: 'def speculative_decoding(input_ids, big_model, draft_model, k=20):\n    """\n    Speculatively generate tokens using draft model, verify with big model.\n    """\n    all_tokens = input_ids.clone()\n    \n    while len(all_tokens) < max_length:\n        # Phase 1: Draft k tokens\n        draft_tokens = []\n        with torch.no_grad():\n            current = all_tokens.clone()\n            for _ in range(k):\n                logits = draft_model(current)\n                next_token = logits[-1].argmax()\n                draft_tokens.append(next_token)\n                current = torch.cat([current, next_token.unsqueeze(0)])\n        \n        # Phase 2: Verify all k tokens in one big model forward pass\n        proposed_sequence = torch.cat([all_tokens, torch.stack(draft_tokens)])\n        with torch.no_grad():\n            logits = big_model(proposed_sequence)\n        \n        # Phase 3: Check which tokens match\n        accepted = 0\n        for i, draft_token in enumerate(draft_tokens):\n            big_model_choice = logits[len(all_tokens) + i].argmax()\n            if draft_token == big_model_choice:\n                all_tokens = torch.cat([all_tokens, draft_token.unsqueeze(0)])\n                accepted += 1\n            else:\n                # Mismatch: use big model\'s choice and restart\n                all_tokens = torch.cat([all_tokens, big_model_choice.unsqueeze(0)])\n                break\n    \n    return all_tokens'
+      },
+      {
+        type: 'h2',
+        text: 'The Tradeoffs'
+      },
+      {
+        type: 'h3',
+        text: 'What Can Go Wrong'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '**Low acceptance rate:** If draft diverges from big model, most predictions rejected. Speedup disappears.',
+          '**Draft model training:** Need to train draft to match big model (or distill from it).',
+          '**First token latency:** Still need one full big model pass for the first token (no draft available).',
+          '**Quality degradation:** If draft is too weak, it wastes time (high rejection = lots of wasted draft generation).',
+          '**Consistency:** Draft and big model must use same tokenizer, same context window, etc.'
+        ]
+      },
+      {
+        type: 'h3',
+        text: 'How to Maximize Speedup'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '**Train draft carefully:** Distill from big model so predictions align closely (95%+ acceptance).',
+          '**Choose draft size wisely:** 7-13B for 70B big model. Too small = poor predictions. Too large = slow draft.',
+          '**Tune k (draft length):** k=10-20 is usually optimal. Balance draft generation time vs verification time.',
+          '**Use same architecture:** Draft is a smaller version of big model. Same tokenizer, same attention, same everything.'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Production Reality'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '**Medusa (Meta):** One of the first speculative decoding implementations. 2.3x speedup.',
+          '**EAGLE (ByteDance):** Learned draft model. 1.5-2x speedup on LLaMA.',
+          '**Lookahead Decoding:** Google/DeepMind approach, more complex but higher speedup.',
+          '**Production LLM serving:** Most now use some form of speculative decoding.',
+          '**Standard technique:** No longer novel, now expected optimization.'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'The Interview Answer'
+      },
+      {
+        type: 'paragraph',
+        text: '"70B model is memory-bound: 87% time is loading weights, only 13% compute. Autoregressive dependency prevents generating 20 tokens at once."'
+      },
+      {
+        type: 'paragraph',
+        text: '"But speculative decoding works around it:"'
+      },
+      {
+        type: 'list',
+        ordered: true,
+        items: [
+          '**Draft model generates 20 tokens quickly.** Assume they are correct (speculatively).',
+          '**Big model verifies all 20 in ONE forward pass.** Load weights once, check if predictions match.',
+          '**Accept matches, reject mismatches.** If token i matches, keep it. If not, use big model and restart.',
+          '**Result: 8-15x speedup.** Instead of 20 passes of big model, do 1 pass of draft + 1 pass of big model.'
+        ]
+      },
+      {
+        type: 'paragraph',
+        text: '"Key: draft must be trained to match big model closely (95%+ acceptance). Otherwise you waste time on rejections."'
+      },
+      {
+        type: 'callout',
+        emoji: '⚡',
+        text: 'The key insight: **Inference is memory-bound, not compute-bound.** Loading weights dominates. Speculative decoding amortizes this cost: draft speculates tokens, big model verifies all at once. This parallelizes autoregressive generation through verification. 8-15x speedup is achievable with high acceptance rate. This is now standard in production LLM serving.'
+      }
+    ]
+  },
 
 ];
