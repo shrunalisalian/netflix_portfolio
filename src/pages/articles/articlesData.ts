@@ -28467,5 +28467,304 @@ WELLBEING METRICS (not engagement metrics):
       }
     ]
   },
+  {
+    slug: 'context-extension-4k-to-32k',
+    title: '4K Context to 32K: How to Extend Without Breaking, and How to Prove It Works',
+    subtitle: 'An architecture interview question: Your model is pretrained on 4K sequences. Extend to 32K. How do you verify it\'s actually using the end?',
+    date: 'November 21, 2026',
+    readTime: '12 min read',
+    tags: ['Long-Context', 'Position Encoding', 'Evaluation', 'Interview Prep'],
+    coverEmoji: '📜',
+    content: [
+      {
+        type: 'h2',
+        text: 'The Problem: Positional Encoding Doesn\'t Extrapolate'
+      },
+      {
+        type: 'paragraph',
+        text: 'Your model was pretrained on 4,096-token sequences. The positional encoding (usually rotary embeddings, RoPE) learned to handle positions 0-4096.'
+      },
+      {
+        type: 'paragraph',
+        text: 'Now you want it to read 32,768-token documents. But what happens at position 10,000? The model has never seen that position before. The positional encoding will extrapolate, but it\'s untrained territory.'
+      },
+      {
+        type: 'paragraph',
+        text: 'The risks:'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '**Attention breakdown:** Attention scores might not work correctly at extended positions.',
+          '**Lost information:** The model might ignore tokens at the end of the document.',
+          '**Degraded performance:** Quality drops as you go longer.',
+          '**False confidence:** The model claims to have read the whole document, but hasn\'t actually.'
+        ]
+      },
+      {
+        type: 'paragraph',
+        text: 'The interview question: **What do you change to extend context safely? And how do you prove the model is actually using information from position 20K?**'
+      },
+      {
+        type: 'callout',
+        emoji: '🔍',
+        text: 'This is crucial for production. If you claim your model handles 32K context but only actually uses the first 4K, users will get garbage outputs on long documents.'
+      },
+      {
+        type: 'h2',
+        text: 'What to Change: Position Encoding Techniques'
+      },
+      {
+        type: 'h3',
+        text: 'Technique 1: Position Interpolation'
+      },
+      {
+        type: 'paragraph',
+        text: 'Compress the position indices so they fit in the original range.'
+      },
+      {
+        type: 'paragraph',
+        text: 'If the model was trained on 4K positions (0-4096), and you now have 32K tokens (0-32768), you can interpolate:'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items': [
+          'Token at position 0 → position 0 (unchanged)',
+          'Token at position 32768 → position 4096 (max)',
+          'Token at position 16384 → position 2048 (midpoint)'
+        ]
+      },
+      {
+        type: 'paragraph',
+        text: 'The model thinks all tokens are within the original 4K range. The positional encoding works as designed.'
+      },
+      {
+        type: 'paragraph',
+        text: 'Pro: simple, works out-of-the-box. Con: loses precision about absolute position.'
+      },
+      {
+        type: 'h3',
+        text: 'Technique 2: RoPE Frequency Scaling'
+      },
+      {
+        type: 'paragraph',
+        text: 'Adjust the frequency scaling in rotary embeddings to handle longer positions.'
+      },
+      {
+        type: 'paragraph',
+        text: 'RoPE uses: θ_i = base^(-2i/d), where base=10,000 and d is dimension.'
+      },
+      {
+        type: 'paragraph',
+        text: 'If you want to handle 32K positions instead of 4K, scale the base:'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items': [
+          'Old: base = 10,000 (trained on 4K)',
+          'New: base = 10,000 × (32K/4K) = 80,000 (for 32K)'
+        ]
+      },
+      {
+        type: 'paragraph',
+        text: 'Pro: principled, extends to arbitrary context. Con: requires some finetuning to adapt.'
+      },
+      {
+        type: 'h3',
+        text: 'Technique 3: Continued Pretraining'
+      },
+      {
+        type: 'paragraph',
+        text: 'Finetune the model on longer sequences. Take your 4K-trained model, then pretrain it on 32K sequences for a few steps.'
+      },
+      {
+        type: 'paragraph',
+        text: 'Pro: most robust, the model learns what long-context means. Con: expensive, requires a lot of training compute.'
+      },
+      {
+        type: 'h3',
+        text: 'Technique 4: ALiBi (Attention with Linear Biases)'
+      },
+      {
+        type: 'paragraph',
+        text: 'Use relative position encodings instead of absolute. ALiBi is less sensitive to the absolute position, more to relative distance.'
+      },
+      {
+        type: 'paragraph',
+        text: 'Pro: naturally generalizes to any length. Con: different architecture, requires retraining from scratch.'
+      },
+      {
+        type: 'h2',
+        text: 'How to Prove It\'s Using the End: Evaluation'
+      },
+      {
+        type: 'h3',
+        text: 'Test 1: Needle-in-Haystack'
+      },
+      {
+        type: 'paragraph',
+        text: 'Hide a "needle" (a unique fact) somewhere in a long "haystack" (document). Ask the model to retrieve it.'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items': [
+          'Haystack: 32K-token document on a random topic',
+          'Needle: "The secret code is AZURE_SPHINX_42" inserted at a random position',
+          'Query: "What is the secret code?"',
+          'Success: Model retrieves it correctly'
+        ]
+      },
+      {
+        type: 'paragraph',
+        text: 'Vary the needle position (beginning, middle, end, etc.). If the model only uses the end, it fails on beginning needles. If it uses the whole document, it succeeds regardless.'
+      },
+      {
+        type: 'h3',
+        text: 'Test 2: Position-Specific Tasks'
+      },
+      {
+        type: 'paragraph',
+        text: 'Create tasks where the answer depends on content at a specific position.'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items': [
+          'Put a list of facts at position 0 (beginning)',
+          'Put a summary question at position 30K (end)',
+          'Success: Model answers correctly, using beginning facts'
+        ]
+      },
+      {
+        type: 'paragraph',
+        text: 'If the model only reads the end, it can\'t answer. This directly proves it\'s reading earlier positions.'
+      },
+      {
+        type: 'h3',
+        text: 'Test 3: Attention Pattern Analysis'
+      },
+      {
+        type: 'paragraph',
+        text: 'Visualize attention weights. Do attention heads actually attend to tokens at the end?'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items': [
+          'Input: 32K-token document',
+          'Measure: attention weights of final token to all prior tokens',
+          'Success: Attention distributes across the document, not just nearby tokens'
+        ]
+      },
+      {
+        type: 'paragraph',
+        text: 'If attention only looks at recent tokens, the model isn\'t really using long context.'
+      },
+      {
+        type: 'h3',
+        text: 'Test 4: Synthetic Long-Context Benchmarks'
+      },
+      {
+        type: 'paragraph',
+        text: 'Use established benchmarks:'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items': [
+          '**LongBench:** Diverse tasks with varying context lengths',
+          '**InfiniteBench:** Tests on lengths up to 1M tokens',
+          '**ZeroScrolls:** Real long-document tasks'
+        ]
+      },
+      {
+        type: 'paragraph',
+        text: 'Compare your model vs. baseline on these. If your extended model wins, it\'s using the extra context.'
+      },
+      {
+        type: 'h2',
+        text: 'The Interview Answer'
+      },
+      {
+        type: 'paragraph',
+        text: '"The model was trained on 4K positions. At 32K, the positional encoding is in extrapolation territory. I\'d extend context using one of several approaches:"'
+      },
+      {
+        type: 'list',
+        ordered: true,
+        items': [
+          '**Position interpolation:** Compress position indices to fit the 4K range. Simple, works immediately.',
+          '**RoPE frequency scaling:** Adjust the base frequency in rotary embeddings. More principled, requires light finetuning.',
+          '**Continued pretraining:** Finetune on 32K sequences. Most robust but expensive.'
+        ]
+      },
+      {
+        type: 'paragraph',
+        text: '"To prove it\'s using the end, I\'d run:"'
+      },
+      {
+        type: 'list',
+        ordered: true,
+        items': [
+          '**Needle-in-haystack:** Hide facts at different positions, verify retrieval works at all positions.',
+          '**Position-specific tasks:** Put data at the beginning, questions at the end. If answered correctly, it used the whole document.',
+          '**Attention analysis:** Visualize attention weights. Do they span the full 32K, or just recent tokens?',
+          '**Long-context benchmarks:** Run LongBench, InfiniteBench. Compare against baselines.'
+        ]
+      },
+      {
+        type: 'paragraph',
+        text: '"The key: don\'t trust claims. Actually verify that information from different positions is retrieved and used."'
+      },
+      {
+        type: 'h2',
+        text: 'The Lost in the Middle Problem'
+      },
+      {
+        type: 'paragraph',
+        text: 'Even with extended context, models often struggle with middle content. The attention pattern might look like:'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items': [
+          'High attention to beginning tokens (maybe important)',
+          'High attention to recent/end tokens (recency bias)',
+          'Low attention to middle tokens (forgotten)'
+        ]
+      },
+      {
+        type: 'paragraph',
+        text: 'This is called "Lost in the Middle." Your needle-in-haystack test will catch this — it fails when needles are in the middle.'
+      },
+      {
+        type: 'h2',
+        text: 'Production Lessons'
+      },
+      {
+        type: 'paragraph',
+        text: 'Companies extending context:'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items': [
+          '**OpenAI (GPT-4):** Extended to 128K using position interpolation',
+          '**Anthropic (Claude 3):** Extended to 200K using multiple techniques',
+          '**Meta (Llama 2):** Extended to 4K from original, evaluated carefully',
+          '**All:** Use needle-in-haystack and synthetic benchmarks before claiming context extension'
+        ]
+      },
+      {
+        type: 'callout',
+        emoji: '🎯',
+        text: 'The key insight: **Extended context is only as good as your evaluation.** You can claim 32K, but if the model doesn\'t actually use tokens at position 20K, you\'re lying to your users. Needle-in-haystack catches the lie. Use it.'
+      }
+    ]
+  },
 
 ];
