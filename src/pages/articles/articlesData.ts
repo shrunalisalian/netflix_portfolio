@@ -34773,5 +34773,259 @@ WELLBEING METRICS (not engagement metrics):
       }
     ]
   },
+  {
+    slug: 'context-extension-training-mix',
+    title: 'Extending 4K to 128K: What Data Mix Gets You Long-Context Without Forgetting Diversity?',
+    subtitle: 'You have books for long documents. But training on only books risks overfitting to narrative structure. What mix of data sources and how many tokens to spend on context extension?',
+    date: 'November 21, 2026',
+    readTime: '14 min read',
+    tags: ['Context Extension', 'Training Data', 'Pretraining', 'Curriculum'],
+    coverEmoji: '📚',
+    content: [
+      {
+        type: 'h2',
+        text: 'The Problem: Long Documents Alone Isn\'t Enough'
+      },
+      {
+        type: 'paragraph',
+        text: 'Your 4K-context model was trained on a mix: 70% web text, 15% code, 10% papers, 5% other. Most documents are <2K. Now you want to extend to 128K context by continuing pretraining. Books are your main source of long documents.'
+      },
+      {
+        type: 'paragraph',
+        text: 'But if you train exclusively on books at 128K context windows, you face three problems:'
+      },
+      {
+        type: 'list',
+        ordered: true,
+        items: [
+          '**Distribution shift:** Your model learned on web + code + papers. Books have different structure (narrative, implicit context, fewer topic transitions). Training heavily on books can degrade performance on code and web text.',
+          '**Overfitting to book patterns:** Books encourage specific attention patterns (track character arcs, follow linear plots). Code and conversations need different patterns (jump between functions, ignore most history).',
+          '**Missing long-document types:** Long-context happens in code (10K+ line files), papers (supplementary material chains), conversations (long histories), not just books. If you only train on books, you don\'t learn the patterns other long-context tasks need.'
+        ]
+      },
+      {
+        type: 'paragraph',
+        text: 'The question: How do you structure a training mix that teaches long-context without losing generalization?'
+      },
+      {
+        type: 'h2',
+        text: 'Solution 1: Stratified by Document Type (Diversity-First)'
+      },
+      {
+        type: 'h3',
+        text: 'The Idea'
+      },
+      {
+        type: 'paragraph',
+        text: 'Mix long documents from multiple sources, weighted by importance:'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: `Training Mix for Context Extension (128K)\n\nData Source              | Weight | Tokens (50B total) | Notes\n────────────────────────┼────────┼──────────────────┼──────────────────────\nBooks (mixed genres)     | 40%    | 20B               | Long narrative, 32K-128K windows\nCode repositories        | 20%    | 10B               | GitHub, ArXiv, mixed to 128K\nPapers + long-form       | 15%    | 7.5B              | Technical docs, supplementary materials\nSynthetic long sequences | 15%    | 7.5B              | Concatenated articles, mixed topics\nPrevious pretraining     | 10%    | 5B                | Maintain baseline capabilities at 4K\n                         | ────   | ────              |\n                         | 100%   | 50B               | Total context extension budget`
+      },
+      {
+        type: 'h3',
+        text: 'Why This Mix'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '**40% books:** Primary source of long documents, natural narrative structure teaches how to maintain state across long sequences.',
+          '**20% code:** Critical for code context extension (a 10K-line file is a single \"document\"). Different attention patterns than books (jump between functions).',
+          '**15% papers:** Long-form technical writing with citations, references, structure different from books. Important for research use cases.',
+          '**15% synthetic:** Concatenate articles, emails, conversations to create artificially long sequences. Prevents overfitting to any single document type.',
+          '**10% original pretraining:** Validation data at 4K context keeps baseline capabilities (arc, next-token prediction, language understanding).'
+        ]
+      },
+      {
+        type: 'h3',
+        text: 'Tradeoffs'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '✅ **Maintains diversity:** Model doesn\'t overfit to book structure.',
+          '✅ **Covers long-document types:** Code, papers, books all represented.',
+          '✅ **Empirically strong:** Llama-2, PaLM, Yi all used similar ratios.',
+          '❌ **More engineering:** Need to source 4+ data types, process differently.',
+          '❌ **Harder to control:** Books vs code have different token efficiency (books more tokens per document).',
+          '❌ **Validation tricky:** How do you benchmark across 5 different data types?'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Solution 2: Book-Heavy with Synthetic Augmentation (Pragmatic)'
+      },
+      {
+        type: 'h3',
+        text: 'The Idea'
+      },
+      {
+        type: 'paragraph',
+        text: 'Books are your bottleneck (you have lots), so make them the primary source. But **augment with synthetic sequences** to maintain diversity without needing to source multiple long-document types.'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: `Training Mix (Book-Heavy + Synthetic)\n\nBooks (diverse genres)        | 60%  | Natural long documents, mix of lengths\nSynthetic long sequences      | 25%  | Concatenate: articles + code + conversations\nPrevious pretraining (4K)     | 15%  | Maintain baseline capabilities\n                              | ──── |\n                              | 100% | 50B tokens total`
+      },
+      {
+        type: 'h3',
+        text: 'How to Build Synthetic Sequences'
+      },
+      {
+        type: 'code',
+        language: 'python',
+        code: `def build_synthetic_long_sequence(articles, code_files, conversations, target_length=128*1024):\n    \"\"\"\n    Concatenate diverse documents to create artificial long sequences.\n    \"\"\"\n    sequence = []\n    sequence_tokens = 0\n    \n    while sequence_tokens < target_length:\n        # Pick a document type\n        doc_type = random.choice(['article', 'code', 'conversation'])\n        \n        if doc_type == 'article':\n            # Random article from news, blogs, etc.\n            article = random.choice(articles)\n            # Add separator token\n            sequence.append(ARTICLE_START)\n            sequence.extend(article['tokens'])\n            sequence.append(ARTICLE_END)\n            sequence_tokens += len(article['tokens']) + 2\n            \n        elif doc_type == 'code':\n            # Random code file\n            code = random.choice(code_files)\n            sequence.append(CODE_START)\n            sequence.extend(code['tokens'])\n            sequence.append(CODE_END)\n            sequence_tokens += len(code['tokens']) + 2\n            \n        else:\n            # Random conversation with history\n            convo = random.choice(conversations)\n            sequence.append(CONVO_START)\n            sequence.extend(convo['tokens'])\n            sequence.append(CONVO_END)\n            sequence_tokens += len(convo['tokens']) + 2\n    \n    # Truncate to exact target length\n    return sequence[:target_length]\n\n# Results in: article text [ARTICLE_END] code snippet [CODE_END] conversation [CONVO_END] article...\n# Model learns to reason across different document types within single 128K context window`
+      },
+      {
+        type: 'h3',
+        text: 'Tradeoffs'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '✅ **Simple sourcing:** Books are abundant, synthetic is cheap to generate.',
+          '✅ **Flexible:** Can adjust book:synthetic ratio based on performance.',
+          '✅ **Avoids domain-specific overfitting:** Synthetic mixes prevent book-specific patterns.',
+          '❌ **Synthetic data quality:** Concatenated sequences are less natural than real long documents.',
+          '❌ **Information cascades:** Early documents in sequence might not matter (model learns to ignore).',
+          '❌ **Unknown how much helps:** Is synthetic 25% as good as real 25%? Empirically unclear.'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Solution 3: Curriculum Learning (Staged Extension)'
+      },
+      {
+        type: 'h3',
+        text: 'The Idea'
+      },
+      {
+        type: 'paragraph',
+        text: 'Don\'t jump straight to 128K context. Train in stages, gradually extending the context window:'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: `Stage | Context | Mix                    | Tokens | Rationale\n──────┼─────────┼────────────────────────┼────────┼─────────────────────────────\n1     | 4K-8K   | 50% web, 30% books,    | 10B    | Warm up to longer contexts\n      |         | 20% code               |        | \n──────┼─────────┼────────────────────────┼────────┼─────────────────────────────\n2     | 8K-32K  | 40% books, 30% code,   | 20B    | Medium-length extended learning\n      |         | 20% papers, 10% web    |        | \n──────┼─────────┼────────────────────────┼────────┼─────────────────────────────\n3     | 32K-128K| 50% books, 20% code,   | 20B    | Full 128K context learning\n      |         | 15% papers, 15% syn    |        | \n──────┼─────────┼────────────────────────┼────────┼─────────────────────────────\n      |         | Total                  | 50B    | Smooth progression to 128K`
+      },
+      {
+        type: 'h3',
+        text: 'Why Curriculum Learning Works'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '**Smoother learning:** Model gradually learns long-range dependencies instead of shock from 4K→128K.',
+          '**Less forgetting:** Each stage builds on previous, maintains baseline capabilities.',
+          '**Better position embeddings:** RoPE / ALiBi doesn\'t need extreme extrapolation if you interpolate first.',
+          '**Empirically validated:** LongChat, LLaMA-2 extended used staged approaches.'
+        ]
+      },
+      {
+        type: 'h3',
+        text: 'Tradeoffs'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '✅ **Smoother training:** Avoids loss spikes from context shock.',
+          '✅ **Better generalization:** Each stage reinforces learning from previous stage.',
+          '✅ **Flexible:** Can pause and evaluate at each stage.',
+          '❌ **More infrastructure:** Need to manage 3 checkpoints, 3 training runs.',
+          '❌ **Longer wall-clock time:** 50B tokens over 3 phases vs 1 phase.',
+          '❌ **Hyperparameter tuning:** Learning rate, batch size might differ per stage.'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'How Many Tokens? The Compute Budget Question'
+      },
+      {
+        type: 'paragraph',
+        text: 'If your base model was trained on 1T tokens, how much to spend on context extension?'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: `Budget Level | Tokens  | Expected Capability        | Tradeoff\n─────────────┼─────────┼────────────────────────────┼──────────────────────\nMinimal      | 5B      | 128K works, noisy retrieval | Cheap, but limited robustness\nReasonable   | 20-50B  | Solid 128K, good retrieval | Sweet spot for most teams\nThorough     | 50-100B | Excellent 128K, stable     | For long-context optimized models\nOverkill     | >100B   | Diminishing returns (~0.5%) | Only if compute is free\n             |         |                            |\nGuide: 2-5% of base pretraining tokens → Llama-2 spent ~1-2% for 4K→32K`
+      },
+      {
+        type: 'h3',
+        text: 'Why Not More Tokens?'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '**Diminishing returns:** After 50B tokens on context extension, each additional 10B yields <1% improvement.',
+          '**Core capabilities already learned:** Model learned language, reasoning, facts in first 1T. Context extension is teaching "how to use longer context", not relearning language.',
+          '**Position encoding interpolation:** Most of long-context learning happens in first 20-30B tokens. Beyond that, it\'s refinement.',
+          '**Empirical:** Llama-2 (4K→32K) with ~20B extension tokens; PaLM (8K→32K) similar. Limited public data on 4K→128K, but estimates suggest 50-100B.',
+          '**Opportunity cost:** Those tokens could improve your base model (1T→1.05T) might yield better overall performance.'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Production Reality: What Do Real Teams Do?'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '**Llama-2 (4K→32K):** Stratified mix (books, code, papers), ~40B tokens, single stage.',
+          '**LongChat (4K→8K→32K):** Staged curriculum, synthetic augmentation, ~50B total.',
+          '**Code Llama (4K→16K):** Code-heavy focus (GitHub, ArXiv), ~30B tokens on context extension.',
+          '**Yi-34B (4K→200K):** Aggressive extension, ~100B tokens estimated, mostly books + synthetic.',
+          '**Industry consensus:** 20-50B tokens, stratified mix, single or staged approach depending on target length.'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'The Interview Answer'
+      },
+      {
+        type: 'paragraph',
+        text: `"Extending 4K to 128K is about teaching the model long-range reasoning. The temptation is to train only on books (your long-document source), but that creates distribution shift and overfitting to narrative patterns."`
+      },
+      {
+        type: 'paragraph',
+        text: `"I'd use a **stratified mix**: 40% books (primary long-document source), 20% code (different long-context patterns), 15% papers (long-form technical writing), 15% synthetic sequences (mix of articles/code/conversations), and 10% original pretraining data to maintain baseline."`
+      },
+      {
+        type: 'paragraph',
+        text: `"Why this mix? Books teach sequential reasoning, code teaches jumping-between-functions patterns, papers teach cross-reference patterns, and synthetic prevents overfitting to any single type. The 10% original pretraining is validation—ensures you don't degrade performance on what the model already knew."`
+      },
+      {
+        type: 'paragraph',
+        text: `"For token budget: **20-50B tokens is the sweet spot.** That's 2-5% of your base 1T pretraining. Beyond 50B, diminishing returns kick in. I'd spend 10B on stage 1 (4K-8K context), 20B on stage 2 (8K-32K), and 20B on stage 3 (32K-128K) if doing curriculum learning. This is smoother than jumping straight to 128K."`
+      },
+      {
+        type: 'paragraph',
+        text: `"Why not spend more? The core language capability is already learned. You're teaching 'how to use long context', which requires fewer tokens than the initial pretraining. Books only training would work but risks degrading code/web performance. Mixture is worth the engineering overhead."`
+      },
+      {
+        type: 'h2',
+        text: 'Key Tradeoffs'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: `Approach              | Mix Complexity | Diversity | Generalization | Infrastructure\n──────────────────────┼────────────────┼───────────┼────────────────┼────────────────\nBooks only            | Low            | Low       | Medium         | Low\nStratified mix        | High           | High      | High           | Medium\nBook + synthetic      | Medium         | Medium    | High           | Low-Medium\nCurriculum staged     | High           | High      | Highest        | High\n                      |                |           |                |\nBest overall: Stratified (single stage) or Curriculum (if >100B tokens)`
+      },
+      {
+        type: 'callout',
+        emoji: '📚',
+        text: 'The key insight: **Context extension is about learning new patterns, not relearning language.** Books are your main resource but insufficient alone—they create distribution shift. A stratified mix (40% books, 20% code, 15% papers, 15% synthetic, 10% baseline) prevents overfitting while teaching long-range reasoning across different document types. Budget 20-50B tokens (2-5% of base pretraining). Use curriculum staging if you have >100B tokens available. The goal is a model that handles 128K context robustly across all domains, not just books.'
+      }
+    ]
+  },
 
 ];
