@@ -33610,5 +33610,223 @@ WELLBEING METRICS (not engagement metrics):
       }
     ]
   },
+  {
+    slug: 'flashattention-long-context-memory',
+    title: 'Attention Moves 500MB Four Times: Use FlashAttention',
+    subtitle: 'At 16K tokens, attention score matrix is 500MB+. Standard attention loads/unloads it 4x. Which optimization works best?',
+    date: 'November 21, 2026',
+    readTime: '12 min read',
+    tags: ['Attention', 'Long Context', 'Memory Optimization', 'Inference'],
+    coverEmoji: '🧠',
+    content: [
+      {
+        type: 'h2',
+        text: 'The Problem: Attention Is Memory-Bound'
+      },
+      {
+        type: 'paragraph',
+        text: 'You are running attention on 16K tokens:'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Standard attention computation:\n\nQ: (16K, 128) @ K^T: (128, 16K) → Scores: (16K, 16K)\n\nIn FP16:\n  Scores matrix = 16K × 16K × 2 bytes = 512 MB\n\nMemory moves during forward pass:\n  1. Compute: allocate 512MB score matrix\n  2. Softmax: load 512MB, compute, store back\n  3. Dropout: might require extra 512MB copy\n  4. Multiply by V: load 512MB again\n\nTotal memory movement: ~2GB for one head\'s forward pass\nBackward pass: another 2GB (reload for gradients)\n\nWith 8 heads: 32GB memory moves for one attention layer'
+      },
+      {
+        type: 'h3',
+        text: 'Why This Is Slow'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '**GPU memory bandwidth:** ~2TB/s (A100)',
+          '**Moving 2GB:** 2GB / 2TB/s = 1ms per pass',
+          '**4 moves:** 4ms wasted on memory I/O',
+          '**Actual compute:** ~200μs',
+          '**Efficiency:** 200μs compute vs 4ms I/O = 5% utilization!'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Solution: FlashAttention (The Right Answer)'
+      },
+      {
+        type: 'h3',
+        text: 'The Core Idea'
+      },
+      {
+        type: 'paragraph',
+        text: 'Compute attention in blocks (tiles). Never materialize the full 16K × 16K score matrix. Stream blocks through GPU memory.'
+      },
+      {
+        type: 'h3',
+        text: 'How FlashAttention Works'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Standard (materializes full matrix):\n  Compute Q @ K^T → (16K, 16K) matrix → Softmax → Multiply by V\n  Memory: O(N²) = 512MB\n\nFlashAttention (tiling):\n  Block Q: (128, 128)  ← Load once\n  For each block of K:\n    Compute local scores: (128, 128)\n    Softmax: compute, discard after use\n    Multiply by corresponding V block\n    Accumulate output\n    Move to next block\n  \n  Memory: O(N) = never keep full 512MB matrix\n  Only keep (128, 128) tiles in fast memory'
+      },
+      {
+        type: 'h3',
+        text: 'The Algorithm (High Level)'
+      },
+      {
+        type: 'code',
+        language: 'python',
+        code: 'def flash_attention(Q, K, V, block_size=128):\n    """\n    Compute attention by tiling Q, K, V.\n    Never materialize full attention matrix.\n    """\n    N = Q.shape[0]  # sequence length\n    output = torch.zeros_like(Q)\n    \n    for i in range(0, N, block_size):\n        # Load block of Q\n        Q_block = Q[i:i+block_size]\n        \n        # Stream through K, V in blocks\n        for j in range(0, N, block_size):\n            K_block = K[j:j+block_size]\n            V_block = V[j:j+block_size]\n            \n            # Compute local scores (never store full matrix)\n            scores = Q_block @ K_block.T  # (128, 128)\n            # Softmax (compute in-place, discard)\n            probs = softmax(scores)\n            # Multiply by V\n            out_block = probs @ V_block  # (128, 128)\n            # Accumulate\n            output[i:i+block_size] += out_block\n    \n    return output\n\n# Key: scores matrix is never 16K × 16K, only 128 × 128'
+      },
+      {
+        type: 'h3',
+        text: 'Pro & Con'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '✅ Pro: 2-4x faster than standard attention.',
+          '✅ Pro: Enables longer context (memory is O(N) not O(N²)).',
+          '✅ Pro: Backward pass also optimized.',
+          '✅ Pro: Drop-in replacement (same API).',
+          '❌ Con: Slight numerical differences due to blocking (usually negligible).',
+          '❌ Con: Implementation is complex (but libraries handle it).'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Other Options (Why They Are Not the Answer)'
+      },
+      {
+        type: 'h3',
+        text: 'Option 1: Sparse Attention'
+      },
+      {
+        type: 'paragraph',
+        text: 'Only compute attention for nearby tokens (local window + strided). Reduces memory from O(N²) to O(N log N) or O(N sqrt(N)).'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '❌ Con: Loses long-range dependencies. Quality drops.',
+          '❌ Con: Requires retraining model.',
+          '❌ Con: Implementation is complex.'
+        ]
+      },
+      {
+        type: 'h3',
+        text: 'Option 2: Gradient Checkpointing'
+      },
+      {
+        type: 'paragraph',
+        text: 'Don\'t store attention scores during forward pass. Recompute during backward.'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '❌ Con: Saves memory but INCREASES compute (recompute during backward).',
+          '❌ Con: Training becomes slower, not faster.',
+          '✓ Use case: When memory is critical but compute is cheap.'
+        ]
+      },
+      {
+        type: 'h3',
+        text: 'Option 3: Lower Precision (INT8 or FP8)'
+      },
+      {
+        type: 'paragraph',
+        text: 'Store attention scores in INT8 instead of FP16. Reduces 512MB to 256MB.'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '❌ Con: Numerical precision loss. Softmax amplifies errors.',
+          '❌ Con: Requires careful calibration.',
+          '✓ Use case: When memory is super tight.'
+        ]
+      },
+      {
+        type: 'h3',
+        text: 'Option 4: Multi-Head Attention with Grouped Query'
+      },
+      {
+        type: 'paragraph',
+        text: 'Share K and V across multiple query heads. Reduces total computation.'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '❌ Con: Requires retraining. Changes model architecture.',
+          '✓ Use case: New model design, not retrofit.'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Why FlashAttention Is the Answer'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '**Directly solves the problem:** Reduces memory movement from 4x to 1x.',
+          '**2-4x speedup:** Observable in practice.',
+          '**No quality loss:** Same outputs as standard attention.',
+          '**Drop-in replacement:** No retraining, no architecture changes.',
+          '**Scales to long context:** O(N) memory enables 32K+ tokens.',
+          '**Backward pass too:** Also optimized (FlashAttention-2).'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'The Interview Answer'
+      },
+      {
+        type: 'paragraph',
+        text: '"Standard attention computes full 16K × 16K score matrix (512MB), then moves it in memory 4 times. Total: 2GB I/O per forward pass."'
+      },
+      {
+        type: 'paragraph',
+        text: '"I would use FlashAttention:"'
+      },
+      {
+        type: 'list',
+        ordered: true,
+        items: [
+          '**Tile attention computation:** Process Q and K in blocks (128x128).',
+          '**Never materialize full matrix:** Only keep small tiles in fast GPU memory.',
+          '**Stream computation:** One pass through data, all compute done.',
+          '**Result:** 2-4x faster. Memory from O(N²) to O(N).'
+        ]
+      },
+      {
+        type: 'paragraph',
+        text: '"Why not sparse attention? Loses long-range deps. Why not gradient checkpointing? Slower training (recompute). Why not lower precision? Numerical issues. FlashAttention is perfect: fast, same quality, drop-in replacement."'
+      },
+      {
+        type: 'h2',
+        text: 'Production Reality'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '**FlashAttention paper (Dao et al.):** Published 2022. Game-changer.',
+          '**FlashAttention-2:** 2023. Even faster (4-5x speedup).',
+          '**Industry adoption:** vLLM, llama.cpp, Huggingface, all use it.',
+          '**Enabled long context:** GPT-4 Turbo (128K), Claude (200K) leverage FlashAttention.',
+          '**Standard now:** Any new attention implementation should use tiling.'
+        ]
+      },
+      {
+        type: 'callout',
+        emoji: '🧠',
+        text: 'The key insight: **Standard attention materializes the full score matrix (O(N²) memory).** For 16K tokens, that is 512MB moved 4 times = 2GB I/O. FlashAttention tiles computation: never materialize full matrix, only small blocks. Same outputs, 2-4x faster, enables long context. This is not a minor optimization—it changed what is possible in LLMs.'
+      }
+    ]
+  },
 
 ];
