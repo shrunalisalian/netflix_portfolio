@@ -33346,5 +33346,269 @@ WELLBEING METRICS (not engagement metrics):
       }
     ]
   },
+  {
+    slug: 'fine-tuning-data-strategy-65b-assistant',
+    title: 'Fine-Tuning a 65B Model: Where to Spend Data Effort and How Much',
+    subtitle: 'Turning a base model into an assistant. Data is expensive. Where should you focus, and roughly how many examples per category?',
+    date: 'November 21, 2026',
+    readTime: '13 min read',
+    tags: ['Fine-Tuning', 'Data Strategy', 'LLMs', 'Practical ML'],
+    coverEmoji: '📊',
+    content: [
+      {
+        type: 'h2',
+        text: 'The Challenge: Data is the Bottleneck'
+      },
+      {
+        type: 'paragraph',
+        text: 'You have a 65B base model. It is a good general-purpose foundation. Now you want to fine-tune it into an assistant (instruction-following, reasoning, safety, personality).'
+      },
+      {
+        type: 'paragraph',
+        text: 'The question: where should you spend your data annotation budget, and how much?'
+      },
+      {
+        type: 'paragraph',
+        text: 'You have three options:'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '**Option A:** 100K generic instruction-following examples (cheap, broad)',
+          '**Option B:** 10K high-quality examples + 20K preference pairs (expensive, narrow)',
+          '**Option C:** Mix: 5K instruction + 2K reasoning + 1K safety + 5K preferences'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Understanding Diminishing Returns'
+      },
+      {
+        type: 'paragraph',
+        text: 'More data always helps, but with diminishing returns:'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Instruction-Following Examples vs Downstream Quality\n\n1K examples:   20-30% improvement over base\n5K examples:   40-50% improvement\n10K examples:  55-65% improvement\n50K examples:  70-75% improvement\n100K examples: 75-78% improvement (plateauing)\n\nNotice: going 1K → 5K (5x) gives 30% gain\nGoing 50K → 100K (2x) gives 3-5% gain\n\nQuality matters: 1K high-quality examples > 10K mediocre ones'
+      },
+      {
+        type: 'h2',
+        text: 'Data Categories and Their Value'
+      },
+      {
+        type: 'h3',
+        text: 'Category 1: Instruction-Following (Supervised Fine-Tuning)'
+      },
+      {
+        type: 'paragraph',
+        text: 'Pairs of (instruction, response). Train the model to follow instructions.'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '**Cost per example:** $0.50-2 (crowdsource or use templates)',
+          '**Quality impact:** High. Foundation for everything.',
+          '**ROI:** Excellent. First priority.',
+          '**Recommended amount:** 5K-10K examples'
+        ]
+      },
+      {
+        type: 'h3',
+        text: 'Category 2: Complex Reasoning'
+      },
+      {
+        type: 'paragraph',
+        text: 'Multi-step reasoning, math, code, logic. (instruction, detailed_response with reasoning).'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '**Cost per example:** $5-20 (requires subject matter expertise)',
+          '**Quality impact:** High. Improves reasoning.',
+          '**ROI:** Good, but expensive.',
+          '**Recommended amount:** 1K-5K examples'
+        ]
+      },
+      {
+        type: 'h3',
+        text: 'Category 3: Preference Data / RLHF'
+      },
+      {
+        type: 'paragraph',
+        text: 'Pairs of (instruction, response_A, response_B, preference). Train reward model, then RL.'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '**Cost per example:** $1-5 (simpler than reasoning, just choose)',
+          '**Quality impact:** Medium. Improves alignment.',
+          '**ROI:** Moderate. Second priority.',
+          '**Recommended amount:** 10K-50K examples'
+        ]
+      },
+      {
+        type: 'h3',
+        text: 'Category 4: Safety / Jailbreak Resistance'
+      },
+      {
+        type: 'paragraph',
+        text: 'Adversarial inputs, refusals, safety constraints.'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '**Cost per example:** $2-10 (requires policy understanding)',
+          '**Quality impact:** Medium. Prevents bad outputs.',
+          '**ROI:** Necessary but not for improvement.',
+          '**Recommended amount:** 1K-5K examples'
+        ]
+      },
+      {
+        type: 'h3',
+        text: 'Category 5: Long-Context'
+      },
+      {
+        type: 'paragraph',
+        text: 'If targeting long contexts (>8K tokens), examples that demonstrate it.'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '**Cost per example:** $5-20 (hard to generate)',
+          '**Quality impact:** Low if not targeting long-context. High if you are.',
+          '**ROI:** Only if needed.',
+          '**Recommended amount:** 1K-5K examples (if needed)'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'The Recommended Data Strategy'
+      },
+      {
+        type: 'h3',
+        text: 'Starting Point: Assess Base Model'
+      },
+      {
+        type: 'list',
+        ordered: true,
+        items: [
+          'Take your 65B base model.',
+          'Test it on instruction-following (simple Q&A, writing, brainstorming).',
+          'Test on reasoning (math, logic, multi-step).',
+          'Test on safety (can you jailbreak it?).',
+          'Identify weakest areas.'
+        ]
+      },
+      {
+        type: 'h3',
+        text: 'Round 1: Foundation (3-4 weeks)'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Instruction-Following: 8K examples\n  Budget: $8K-16K\n  Covers: writing, QA, brainstorming, summarization\n  Expected improvement: 40-50%\n\nSafety: 2K examples\n  Budget: $4K-10K\n  Covers: refusals, boundary cases\n  Expected improvement: eliminate bad outputs\n\nTotal: ~10K examples, $12K-26K, 40-50% improvement'
+      },
+      {
+        type: 'h3',
+        text: 'Round 2: Depth (4-6 weeks)'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Complex Reasoning: 3K examples\n  Budget: $15K-60K\n  Covers: math, code, logic, multi-step\n  Expected improvement: 15-20% from round 1 baseline\n\nPreferences: 20K examples\n  Budget: $20K-100K\n  Covers: response quality, style, alignment\n  Expected improvement: 10-15% from round 1\n\nTotal: ~23K new examples, $35K-160K, 25-35% cumulative improvement'
+      },
+      {
+        type: 'h3',
+        text: 'Round 3: Polish (Optional, 4-6 weeks)'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Domain-Specific or Edge Cases: 5K examples\n  Budget: $25K-100K\n  Covers: your specific use case\n  Expected improvement: 5-10%\n\nTotal: ~38K total examples'
+      },
+      {
+        type: 'h2',
+        text: 'The Reality: Quality > Quantity'
+      },
+      {
+        type: 'paragraph',
+        text: 'Here is what matters:'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '**1 high-quality example > 10 mediocre ones.** Spend time on instruction clarity, response quality.',
+          '**Use templates when possible.** Don\'t annotate everything from scratch.',
+          '**Synthetic data helps.** Use base model to generate candidates, human edit/filter.',
+          '**Preference data can be cheaper.** Easier to compare responses than generate them.',
+          '**Start small, iterate.** 5K well-chosen examples will teach you more than 50K random ones.'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'The Interview Answer'
+      },
+      {
+        type: 'paragraph',
+        text: '"Data is expensive, so prioritize by ROI. For a 65B base model becoming an assistant:"'
+      },
+      {
+        type: 'list',
+        ordered: true,
+        items: [
+          '**Foundation (8K instruction + 2K safety):** Get to 50% quality lift. $12-26K.',
+          '**Depth (3K reasoning + 20K preferences):** Push to 75-80% quality. Additional $35-160K.',
+          '**Polish (5K domain-specific):** Final 5-10% if needed. Additional $25-100K.'
+        ]
+      },
+      {
+        type: 'paragraph',
+        text: '"Total: ~38K examples across categories, with heavy emphasis on instruction-following and preferences. Quality over quantity: 1K excellent examples > 10K average ones."'
+      },
+      {
+        type: 'h2',
+        text: 'Pro Tips'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '**Measure, do not guess.** After each round, measure on your own benchmarks (not just public leaderboards).',
+          '**Focus on your use case.** If you care about code, weight code examples. If you care about reasoning, weight reasoning.',
+          '**Human-in-the-loop is fast.** Generate candidates with base model + human edit is 10x faster than from-scratch.',
+          '**Synthetic bootstrapping works.** Use base model on examples, ask human to improve. This becomes your training data.',
+          '**Diminishing returns hit fast.** After 50K high-quality examples, additional data gives <1% improvement per 10K more.'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Production Reality'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '**OpenAI InstructGPT:** 13K supervised + 50K preference pairs. Total ~63K examples.',
+          '**Anthropic Claude:** 150K+ supervised + 150K+ preference pairs. Total ~300K+ examples.',
+          '**LLaMA-2-Chat:** Smaller, more focused dataset. Emphasis on quality.',
+          '**Mistral 7B-Instruct:** ~200K examples (smaller model, needs more).',
+          '**Rule:** Larger models need less data, smaller models need more.'
+        ]
+      },
+      {
+        type: 'callout',
+        emoji: '📊',
+        text: 'The key insight: **Data ROI is inverse-exponential.** First 10K examples give 50% improvement. Next 20K gives 25%. Next 40K gives 10%. Diminishing returns are brutal. Spend first on broad instruction-following (8K), then safety (2K), then reasoning (3K), then preferences (20K). Quality beats quantity every time. Synthetic data with human polish is your friend.'
+      }
+    ]
+  },
 
 ];
