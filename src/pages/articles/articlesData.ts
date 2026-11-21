@@ -30502,5 +30502,378 @@ WELLBEING METRICS (not engagement metrics):
       }
     ]
   },
+  {
+    slug: 'fp16-mixed-precision-loss-scaling',
+    title: 'You Switched to FP16 and Lost Convergence: How to Fix It',
+    subtitle: 'FP32 → FP16 for speed and memory, but training diverges. What do you change, and how do you verify it worked?',
+    date: 'November 21, 2026',
+    readTime: '13 min read',
+    tags: ['Mixed Precision', 'FP16', 'Numerical Stability', 'Training'],
+    coverEmoji: '📊',
+    content: [
+      {
+        type: 'h2',
+        text: 'The Problem: Why FP16 Training Breaks'
+      },
+      {
+        type: 'paragraph',
+        text: 'You switch from FP32 to FP16 for the speed and memory gains (tensor cores, 2x speedup). But training diverges or plateaus.'
+      },
+      {
+        type: 'paragraph',
+        text: 'Here\'s what goes wrong:'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '**Gradient underflow:** Gradients are tiny (1e-4 to 1e-6). FP16 range is 1e-5 to 6e4. Many gradients round to zero.',
+          '**Loss scale collapse:** Without scaling, loss = 0.1. Backprop gives gradients = 0.001. In FP16, this becomes zero.',
+          '**Weight updates are silent:** Weights don\'t change, training stalls.',
+          '**No loss scaling:** Loss plateaus or diverges after a few steps.'
+        ]
+      },
+      {
+        type: 'h3',
+        text: 'The Root Cause: Floating-Point Range'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'FP32 range: 1.17e-38 to 3.4e38 (huge dynamic range)\nFP16 range: 6.1e-5 to 6.5e4   (narrow dynamic range)\n\nTypical gradients during training:\n  Learning rate: 1e-3\n  Loss: 0.1\n  dL/dW ≈ 1e-4 (chain rule)\n\nIn FP32: 1e-4 is well-represented\nIn FP16: 1e-4 is at the edge of underflow. Next step it rounds to zero.'
+      },
+      {
+        type: 'h2',
+        text: 'Solution 1: Loss Scaling (The Core Fix)'
+      },
+      {
+        type: 'h3',
+        text: 'The Idea'
+      },
+      {
+        type: 'paragraph',
+        text: 'Scale the loss up before backprop. Gradients become larger, stay in FP16 range. After computing gradients, scale them back down before the update.'
+      },
+      {
+        type: 'code',
+        language: 'python',
+        code: 'loss_scale = 1024.0  # Pick a scale\n\n# Forward pass\noutput = model(x)\nloss = criterion(output, y)\n\n# Scale loss\nscaled_loss = loss * loss_scale\n\n# Backward pass (gradients are now larger)\nscaled_loss.backward()\n\n# Unscale gradients before update\nfor param in model.parameters():\n    if param.grad is not None:\n        param.grad.data /= loss_scale  # Scale back down\n\n# Optimizer step (normal FP32 update on master weights)\noptimizer.step()'
+      },
+      {
+        type: 'h3',
+        text: 'The Math'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Original: loss = 0.1 → gradient = 1e-4 → underflow to 0 in FP16',
+          'With scaling: loss_scaled = 0.1 × 1024 = 102.4 → gradient = 1e-4 × 1024 = 0.1 → safe in FP16',
+          'After unscaling: gradient becomes 1e-4 again (but was safely represented)'
+        ]
+      },
+      {
+        type: 'h3',
+        text: 'Pro & Con'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '✅ Pro: Simple. Single number (the scale).',
+          '✅ Pro: Recovers convergence immediately.',
+          '❌ Con: Need to pick the right scale. Too small: still underflow. Too large: overflow.',
+          '❌ Con: Static scale doesn\'t adapt to changing gradient distributions.'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Solution 2: Dynamic Loss Scaling (Recommended)'
+      },
+      {
+        type: 'h3',
+        text: 'The Idea'
+      },
+      {
+        type: 'paragraph',
+        text: 'Adjust the loss scale dynamically. If gradients are small, increase scale. If NaN, decrease scale.'
+      },
+      {
+        type: 'code',
+        language: 'python',
+        code: 'from torch.cuda.amp import GradScaler\n\nscaler = GradScaler(\n    init_scale=65536.0,        # Starting loss scale\n    growth_factor=2.0,         # Double if no NaN\n    backoff_factor=0.5,        # Halve if NaN detected\n    growth_interval=2000,      # Check every 2000 steps\n)\n\nfor step, (x, y) in enumerate(dataloader):\n    optimizer.zero_grad()\n    \n    # Forward pass in FP16\n    with torch.cuda.amp.autocast():\n        output = model(x)\n        loss = criterion(output, y)\n    \n    # Backward pass with scaling\n    scaler.scale(loss).backward()\n    \n    # Unscale gradients before clipping\n    scaler.unscale_(optimizer)\n    \n    # Optional: gradient clipping\n    torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)\n    \n    # Optimizer step\n    scaler.step(optimizer)\n    \n    # Update scale for next step\n    scaler.update()\n    \n    if step % 100 == 0:\n        print(f\"Loss scale: {scaler.get_scale()}\")'
+      },
+      {
+        type: 'h3',
+        text: 'How It Works'
+      },
+      {
+        type: 'list',
+        ordered: true,
+        items: [
+          'Start with loss_scale = 65536.',
+          'Each step, compute loss_scaled = loss × scale.',
+          'If gradients look good (no NaN, reasonable magnitudes): keep or grow scale.',
+          'If NaN detected: backoff scale by 0.5, skip this step.',
+          'As training progresses, scale adapts to changing gradient distributions.'
+        ]
+      },
+      {
+        type: 'h3',
+        text: 'Pro & Con'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '✅ Pro: Automatic. No hyperparameter tuning.',
+          '✅ Pro: Recovers from NaN gracefully.',
+          '✅ Pro: Adapts to changing gradient distributions.',
+          '❌ Con: Slight overhead (gradient norm checking).',
+          '❌ Con: Can skip steps on NaN (slight slowdown).'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Solution 3: Mixed Precision (Not Pure FP16)'
+      },
+      {
+        type: 'h3',
+        text: 'The Key Insight'
+      },
+      {
+        type: 'paragraph',
+        text: 'You shouldn\'t use pure FP16. Use **mixed precision**: FP16 for forward/backward, FP32 for the optimizer step and weight updates.'
+      },
+      {
+        type: 'code',
+        language: 'python',
+        code: 'scaler = GradScaler()\n\nfor x, y in dataloader:\n    optimizer.zero_grad()\n    \n    # Forward & backward in FP16 (via autocast)\n    with torch.cuda.amp.autocast(dtype=torch.float16):\n        output = model(x)\n        loss = criterion(output, y)\n    \n    # Gradients computed in FP16, but...\n    scaler.scale(loss).backward()\n    \n    # ...weights are stored in FP32 (master weights)\n    # Optimizer step happens in FP32\n    scaler.step(optimizer)\n    scaler.update()'
+      },
+      {
+        type: 'h3',
+        text: 'The Breakdown'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Model weights: FP32 (stored in memory)',
+          'Forward pass: FP32 weights → cast to FP16 → compute in FP16',
+          'Backward pass: compute gradients in FP16',
+          'Optimizer step: FP32 weights updated based on FP32 gradients (upcast from FP16)'
+        ]
+      },
+      {
+        type: 'h3',
+        text: 'Pro & Con'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '✅ Pro: Best of both worlds. Tensor core speedup, numerical stability.',
+          '✅ Pro: This is the standard for production training.',
+          '❌ Con: Need to maintain two copies of weights (FP16 + FP32). ~1.5x memory overhead.',
+          '❌ Con: PyTorch GradScaler is built for this, so it\'s the \"right\" way.'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Solution 4: Additional Stabilization Tricks'
+      },
+      {
+        type: 'h3',
+        text: 'Gradient Clipping'
+      },
+      {
+        type: 'paragraph',
+        text: 'FP16 can cause gradient spikes. Clip them:'
+      },
+      {
+        type: 'code',
+        language: 'python',
+        code: 'scaler.unscale_(optimizer)  # Unscale before clipping\ntorch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)\nscaler.step(optimizer)'
+      },
+      {
+        type: 'h3',
+        text: 'BatchNorm in FP32'
+      },
+      {
+        type: 'paragraph',
+        text: 'BatchNorm is sensitive to precision. Keep it in FP32:'
+      },
+      {
+        type: 'code',
+        language: 'python',
+        code: '# Configure autocast to skip BatchNorm\nwith torch.cuda.amp.autocast(dtype=torch.float16, \n                              ignore_list=[torch.nn.modules.batchnorm.BatchNorm1d,\n                                           torch.nn.modules.batchnorm.BatchNorm2d]):\n    output = model(x)'
+      },
+      {
+        type: 'h3',
+        text: 'Warmup + Lower LR'
+      },
+      {
+        type: 'paragraph',
+        text: 'FP16 is noisier. Use longer warmup and potentially lower learning rate:'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Warmup: 10,000 steps instead of 1,000',
+          'Learning rate: Might need to reduce by 10-20%'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'How to Verify It Worked'
+      },
+      {
+        type: 'h3',
+        text: 'Check 1: Loss Curves Match'
+      },
+      {
+        type: 'paragraph',
+        text: 'Plot FP32 baseline vs FP16 mixed precision. They should track closely:'
+      },
+      {
+        type: 'code',
+        language: 'python',
+        code: 'import matplotlib.pyplot as plt\n\nplt.plot(fp32_losses, label=\"FP32\", linewidth=2)\nplt.plot(fp16_losses, label=\"FP16 Mixed Precision\", linewidth=2, alpha=0.7)\nplt.ylabel(\"Loss\")\nplt.xlabel(\"Step\")\nplt.legend()\nplt.savefig(\"loss_comparison.png\")\n\n# Should be almost identical, maybe +1-2% variance early'
+      },
+      {
+        type: 'h3',
+        text: 'Check 2: Final Accuracy'
+      },
+      {
+        type: 'paragraph',
+        text: 'Validate on a held-out set. FP32 vs FP16 accuracy should be within 0.1-0.5%:'
+      },
+      {
+        type: 'code',
+        language: 'python',
+        code: '# After training completes\nfp32_accuracy = evaluate(fp32_model, val_set)  # e.g., 92.3%\nfp16_accuracy = evaluate(fp16_model, val_set)  # e.g., 92.1%\n\nprint(f\"FP32: {fp32_accuracy:.2f}%\")\nprint(f\"FP16: {fp16_accuracy:.2f}%\")\nprint(f\"Delta: {abs(fp32_accuracy - fp16_accuracy):.2f}%\")  # Should be < 0.5%'
+      },
+      {
+        type: 'h3',
+        text: 'Check 3: Gradient Distribution'
+      },
+      {
+        type: 'paragraph',
+        text: 'Log gradient norms. They should be reasonable (not all zeros, no huge spikes):'
+      },
+      {
+        type: 'code',
+        language: 'python',
+        code: 'total_norm = torch.nn.utils.clip_grad_norm_(\n    model.parameters(), max_norm=float(\'inf\')\n)\n\nif step % 100 == 0:\n    print(f\"Step {step}: Grad norm = {total_norm:.4f}, Loss scale = {scaler.get_scale()}\")\n\n# Expected output:\n# Step 100: Grad norm = 0.5231, Loss scale = 65536\n# Step 200: Grad norm = 0.4821, Loss scale = 131072\n# (Norms are reasonable, scale grows over time)'
+      },
+      {
+        type: 'h3',
+        text: 'Check 4: No NaN or Inf'
+      },
+      {
+        type: 'paragraph',
+        text: 'Monitor for numerical issues:'
+      },
+      {
+        type: 'code',
+        language: 'python',
+        code: 'if torch.isnan(loss) or torch.isinf(loss):\n    print(\"NaN/Inf detected!\")\n    break\n\n# With GradScaler, it handles NaN automatically.\n# But you can log if it happens:\nskip_step = scaler._has_overflow  # True if overflow detected'
+      },
+      {
+        type: 'h3',
+        text: 'Check 5: Training Speed'
+      },
+      {
+        type: 'paragraph',
+        text: 'FP16 should be faster (tensor cores). Measure wall-clock time per step:'
+      },
+      {
+        type: 'code',
+        language: 'python',
+        code: 'import time\n\nstart = time.time()\nfor step in range(1000):\n    # Training step\n    pass\nend = time.time()\n\nfp32_time = end - start\nfp16_time = ...  # Measure separately\n\nprint(f\"FP32: {fp32_time:.2f}s / 1000 steps\")\nprint(f\"FP16: {fp16_time:.2f}s / 1000 steps\")\nprint(f\"Speedup: {fp32_time / fp16_time:.1f}x\")  # Should be 1.5x - 2x'
+      },
+      {
+        type: 'h3',
+        text: 'Check 6: Memory Usage'
+      },
+      {
+        type: 'paragraph',
+        text: 'FP16 should use less memory per activation (not weights, since mixed precision keeps FP32 weights):'
+      },
+      {
+        type: 'code',
+        language: 'python',
+        code: 'print(f\"FP32 memory: {torch.cuda.memory_allocated() / 1e9:.1f} GB\")\n# Switch to FP16\nprint(f\"FP16 memory: {torch.cuda.memory_allocated() / 1e9:.1f} GB\")\n\n# Should be ~20-30% less (not 50%, because weights are still FP32)'
+      },
+      {
+        type: 'h2',
+        text: 'The Complete Recipe'
+      },
+      {
+        type: 'code',
+        language: 'python',
+        code: 'from torch.cuda.amp import GradScaler, autocast\n\nmodel = get_model()  # Weights in FP32\noptimizer = torch.optim.Adam(model.parameters())\nscaler = GradScaler()  # Handles dynamic loss scaling\n\nfor epoch in range(num_epochs):\n    for step, (x, y) in enumerate(dataloader):\n        optimizer.zero_grad()\n        \n        # Forward pass in FP16\n        with autocast(dtype=torch.float16):\n            output = model(x)\n            loss = criterion(output, y)\n        \n        # Scale loss, backward in FP16\n        scaler.scale(loss).backward()\n        \n        # Unscale and clip\n        scaler.unscale_(optimizer)\n        torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)\n        \n        # Update with FP32 weights\n        scaler.step(optimizer)\n        scaler.update()\n        \n        # Log\n        if step % 100 == 0:\n            print(f\"Loss: {loss:.4f}, Scale: {scaler.get_scale()}\")'
+      },
+      {
+        type: 'h2',
+        text: 'The Interview Answer'
+      },
+      {
+        type: 'paragraph',
+        text: '"FP16 is fast but fragile. Gradients are tiny and underflow in FP16\'s narrow range."'
+      },
+      {
+        type: 'paragraph',
+        text: '"I\'d use dynamic loss scaling:"'
+      },
+      {
+        type: 'list',
+        ordered: true,
+        items: [
+          '**GradScaler:** Use PyTorch\'s GradScaler. It handles everything automatically.',
+          '**Scale the loss:** Multiply loss by 65536 before backprop, unscale gradients after.',
+          '**Dynamic adjustment:** If NaN detected, halve the scale. Otherwise, grow it.',
+          '**Mixed precision, not pure FP16:** Keep weights in FP32, activations in FP16.',
+          '**Gradient clipping:** Prevent spikes from causing NaN.',
+          '**Longer warmup:** FP16 is noisier, needs gradual ramp-up.'
+        ]
+      },
+      {
+        type: 'paragraph',
+        text: '"Then verify:"'
+      },
+      {
+        type: 'list',
+        ordered: true,
+        items: [
+          '**Loss curves:** FP32 vs FP16 should track (within 1-2%).',
+          '**Final accuracy:** <0.5% difference.',
+          '**Gradient norms:** Reasonable (not all zeros, no huge spikes).',
+          '**Speed:** 1.5-2x faster on modern GPUs.',
+          '**Memory:** ~20-30% reduction (not 50%, weights are FP32).'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Production Reality'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '**PyTorch:** torch.cuda.amp with GradScaler is standard.',
+          '**TensorFlow:** tf.mixed_precision is built-in.',
+          '**Huggingface Transformers:** Automatic mixed precision is a flag.',
+          '**All large-scale training:** Uses mixed precision by default. Pure FP32 is considered wasteful.'
+        ]
+      },
+      {
+        type: 'callout',
+        emoji: '📊',
+        text: 'The key insight: **FP16 isn\'t actually FP16.** It\'s mixed precision: FP16 for compute (speed), FP32 for weights and updates (stability). Loss scaling prevents gradient underflow. Dynamic loss scaling is automatic. Use GradScaler and you\'re done. The only thing that changes is 3 lines of code (autocast context, scaler.scale, scaler.step).'
+      }
+    ]
+  },
 
 ];
