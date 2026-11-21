@@ -36874,5 +36874,198 @@ WELLBEING METRICS (not engagement metrics):
       }
     ]
   },
+  {
+    slug: 'trigram-backoff-kneser-ney-smoothing',
+    title: 'Trigram Backoff Fallacy: Why Unigram Counts Fail on Unseen Context',
+    subtitle: 'Your trigram model backs off to unigram probabilities. But unigrams lie: "my reading glasses" should use continuation probability, not raw counts.',
+    date: 'November 21, 2026',
+    readTime: '12 min read',
+    tags: ['Language Models', 'Smoothing', 'N-grams', 'Kneser-Ney', 'Probability'],
+    coverEmoji: '📊',
+    content: [
+      {
+        type: 'h2',
+        text: 'The Problem: Naive Backoff'
+      },
+      {
+        type: 'paragraph',
+        text: 'You build a trigram language model: P(word_i | word_{i-2}, word_{i-1}). It encounters the phrase "my reading glasses" which never appeared in training.'
+      },
+      {
+        type: 'h3',
+        text: 'What Happens'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: `Query: P(glasses | my, reading)\n\nTrigram check: "my reading glasses" not in training data ✗\n\nBackoff to unigram:\nP(glasses) = count(glasses) / total_words\n           = 100 / 1,000,000  [glasses appears 100 times]\n           = 0.0001\n\nResult: Assign probability 0.0001 to "glasses" in unseen context "my reading"`
+      },
+      {
+        type: 'h3',
+        text: 'Why This Seems Reasonable'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'If trigram not seen, unigram is a safe fallback',
+          'Uses data we do have',
+          'Doesn\'t hallucinate context',
+          'Simple to implement'
+        ]
+      },
+      {
+        type: 'h3',
+        text: 'But It Fails'
+      },
+      {
+        type: 'h2',
+        text: 'The Root Problem: Unigram Probability ≠ Context Probability'
+      },
+      {
+        type: 'h3',
+        text: 'The Paradox'
+      },
+      {
+        type: 'paragraph',
+        text: 'Imagine two words with the same unigram probability but different meanings:'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: `Word A: "the"\n  - Appears 10,000 times in corpus\n  - Appears after MANY different word pairs (diverse contexts)\n  - P_unigram(the) = 10,000 / 1,000,000 = 0.01 (very common)\n  - Should have HIGH probability in unseen contexts\n\nWord B: "glasses"\n  - Appears 100 times in corpus\n  - Appears after ONLY 3-4 different word pairs (narrow contexts)\n  - P_unigram(glasses) = 100 / 1,000,000 = 0.0001 (rare)\n  - Should have LOW probability in unseen contexts\n  \nBut both trigger same backoff: use unigram probability\nResult: "glasses" gets 0.0001 everywhere, even where it might be appropriate`
+      },
+      {
+        type: 'h3',
+        text: 'The Real Issue'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '**"glasses" appears 100 times total:** High unigram probability suggests it\'s common',
+          '**But only after specific words:** "my glasses", "reading glasses", "solar glasses"',
+          '**In unseen context "my reading":** "glasses" might be perfect, but unigram probability doesn\'t capture this',
+          '**Problem:** Unigram counts how often a word appears, not how diverse its contexts are',
+          '**Solution needed:** Measure context diversity, not just word frequency'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Solution 1: Backoff Hierarchy (Better But Not Best)'
+      },
+      {
+        type: 'h3',
+        text: 'The Idea'
+      },
+      {
+        type: 'paragraph',
+        text: 'Instead of jumping from trigram to unigram, use a hierarchy: try bigrams first.'
+      },
+      {
+        type: 'code',
+        language: 'python',
+        code: `def backoff_trigram(w3, w2, w1):\n    # Level 1: Trigram\n    if (w1, w2, w3) in trigrams:\n        return P_trigram(w3 | w1, w2)\n    \n    # Level 2: Bigram (backoff to most recent word)\n    elif (w2, w3) in bigrams:\n        return P_bigram(w3 | w2)\n    \n    # Level 3: Unigram (final fallback)\n    else:\n        return P_unigram(w3)\n\n# Example: "my reading glasses"\nP(glasses | my, reading):\n  Trigram not seen → try bigram\n  P(glasses | reading):  "reading glasses" might be in data ✓\n  Return 0.05 (much better than unigram 0.0001)\n\n# If even bigram not seen:\n  P(glasses):  unigram 0.0001 ✓ (last resort)`
+      },
+      {
+        type: 'h3',
+        text: 'Improvement'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Captures recent context (word immediately before)',
+          'Better than pure unigram',
+          'Perplexity improvement: 5-10%',
+          'Standard practice before Kneser-Ney'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Solution 2: Kneser-Ney Smoothing (Gold Standard)'
+      },
+      {
+        type: 'h3',
+        text: 'The Key Insight'
+      },
+      {
+        type: 'paragraph',
+        text: 'The unigram fallback should use **continuation probability**, not raw counts. Continuation probability measures: how many different words can precede this word?'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: `Traditional unigram probability:\nP_unigram(word) = count(word) / total_words\n\nContinuation probability:\nP_continue(word) = count(# different words preceding word) / total_unique_predecessors\n\nExample: "glasses"\n  - Appears 100 times total → P_unigram(glasses) = 100 / 1M = 0.0001\n  - Preceded by 4 different words: "my", "reading", "solar", "blue"\n    → P_continue(glasses) = 4 / (# total unique predecessors) ≈ much lower\n\nExample: "is"\n  - Appears 10,000 times total → P_unigram(is) = 10,000 / 1M = 0.01\n  - Preceded by 50,000 different words (almost everything precedes "is")\n    → P_continue(is) = 50,000 / (# total unique predecessors) ≈ very high\n\nResult:\n- "glasses": High unigram, LOW continuation → low probability in unseen contexts ✓\n- "is": High unigram, HIGH continuation → high probability in unseen contexts ✓`
+      },
+      {
+        type: 'h3',
+        text: 'Why This Works'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '**Continuation probability captures context diversity:** Words appearing after many different predecessors are more likely in novel contexts',
+          '**Specialized vs generic words:** "glasses" is specialized (narrow contexts), gets lower probability; "is" is generic (broad contexts), gets higher probability',
+          '**Prevents overfitting:** Rare but specific words don\'t get artificially boosted in unseen contexts',
+          '**Improves perplexity:** 10-20% improvement over backoff hierarchy'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Comparison: Which Word Gets Higher Continuation Probability?'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: `Word: "and"\n  - Appears 20,000 times\n  - Preceded by 40,000 different word types (very diverse)\n  - Continuation probability: HIGH\n  - Use in unseen contexts: "X and Y" for ANY X? YES ✓\n\nWord: "yesterday"\n  - Appears 500 times\n  - Preceded by 300 different word types (diverse)\n  - Continuation probability: MEDIUM-HIGH\n  - Use in unseen contexts: "X yesterday"? YES, reasonably ✓\n\nWord: "glasses"\n  - Appears 100 times\n  - Preceded by 4 different word types (narrow)\n  - Continuation probability: LOW\n  - Use in unseen contexts: "X glasses"? NO, usually ✗\n\nWord: "myopia" (medical term)\n  - Appears 50 times\n  - Preceded by 40 different word types (specialized but diverse)\n  - Continuation probability: MEDIUM\n  - Use in unseen contexts: "X myopia"? RARELY ✗\n\nConclusion: "and" gets highest continuation probability, "glasses" lowest\nThis matches intuition: "and" goes with anything, "glasses" is specialized`
+      },
+      {
+        type: 'h2',
+        text: 'The Interview Answer'
+      },
+      {
+        type: 'paragraph',
+        text: 'When a trigram is unseen, most models back off to unigram probability P(glasses). But this is misleading: "glasses" might have high unigram probability (100 times in corpus) but appear after only 4 different words. Using raw unigram counts assigns it too much probability in truly novel contexts.'
+      },
+      {
+        type: 'paragraph',
+        text: 'Better approach: use **continuation probability**, which counts how many different words precede the target word. Words appearing after diverse predecessors (like "is" or "and") get high continuation probability and high probability in unseen contexts. Words appearing after few predecessors (like "glasses") get low continuation probability and low probability in unseen contexts. This is **Kneser-Ney smoothing**, the gold standard for n-gram language models.'
+      },
+      {
+        type: 'paragraph',
+        text: 'The key insight: frequency ≠ generalizability. Measure context diversity, not just word count.'
+      },
+      {
+        type: 'h2',
+        text: 'Mathematical Formulation'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: `Kneser-Ney smoothing (simplified):\n\nP_KN(w | history) =\n  if (history, w) seen enough times:\n    max(count(history, w) - discount, 0) / count(history)\n  else:\n    interpolation_weight * P_KN_lower(w)\n\nWhere:\n- discount: small value (usually 0.5-0.9)\n- P_KN_lower: lower-level probability\n  - At bigram level: P_KN(w | w_prev) uses continuation probability\n  - At unigram level: P_continue(w) instead of P_unigram(w)\n\nResult: smooth, well-calibrated probabilities across all backoff levels`
+      },
+      {
+        type: 'h2',
+        text: 'Production Impact'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '**Speech recognition:** Kneser-Ney reduces WER (word error rate) by 5-10% over naive backoff',
+          '**Machine translation:** Better probability estimates for OOV words',
+          '**Information retrieval:** More relevant ranking of documents with unseen n-grams',
+          '**Modern systems:** Still used in LLM decoding (temperature sampling needs good probabilities)'
+        ]
+      },
+      {
+        type: 'callout',
+        emoji: '📊',
+        text: 'The key insight: **Unigram probability counts word frequency, not context diversity.** When backing off to unigrams, use continuation probability instead: how many different words precede this word? This captures generalizability. "glasses" has high frequency but low continuation (narrow contexts), so gets low probability in unseen contexts. "is" has high frequency and high continuation (broad contexts), gets high probability. Kneser-Ney smoothing implements this idea and reduces language model perplexity by 10-20% compared to naive backoff. The principle: measure how well-established a word is across diverse contexts, not just its raw frequency.'
+      }
+    ]
+  },
 
 ];
