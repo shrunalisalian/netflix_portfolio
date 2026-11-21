@@ -32738,5 +32738,240 @@ WELLBEING METRICS (not engagement metrics):
       }
     ]
   },
+  {
+    slug: 'knowledge-distillation-loss-weighting',
+    title: 'Knowledge Distillation: How to Balance Two Losses So They Keep Their Weight',
+    subtitle: 'Student matches teacher softened outputs + cross-entropy on labels. Both losses have weight α and β. But they drift. How do you keep them balanced?',
+    date: 'November 21, 2026',
+    readTime: '12 min read',
+    tags: ['Distillation', 'Loss Weighting', 'Multi-Task Learning', 'Training Dynamics'],
+    coverEmoji: '🎓',
+    content: [
+      {
+        type: 'h2',
+        text: 'The Problem: Loss Magnitudes Drift Over Time'
+      },
+      {
+        type: 'paragraph',
+        text: 'You are training a student model with knowledge distillation:'
+      },
+      {
+        type: 'code',
+        language: 'python',
+        code: 'alpha = 0.7  # Distillation loss weight\nbeta = 0.3   # Cross-entropy loss weight\n\nloss_total = alpha * KL(student_soft, teacher_soft) + beta * CE(student, labels)\n\n# You intend:\n#   70% of gradient comes from distillation\n#   30% of gradient comes from cross-entropy'
+      },
+      {
+        type: 'paragraph',
+        text: 'But in practice, the effective weight drifts:'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Early training: CE loss = 5.0, KL loss = 0.5. Even with weights, CE dominates.',
+          'Mid training: CE loss = 1.0, KL loss = 0.3. KL shrinks faster.',
+          'Late training: CE loss = 0.1, KL loss = 0.05. Balance flips.',
+          'Result: effective weight balance is 30%/70%, not 70%/30%.'
+        ]
+      },
+      {
+        type: 'h3',
+        text: 'Why This Happens'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '**Different loss scales:** KL divergence and cross-entropy have different natural magnitudes.',
+          '**Temperature effect:** Higher temperature T reduces KL divergence (softens outputs).',
+          '**Training dynamics:** Losses improve at different rates.',
+          '**Gradient magnitudes:** Even with same loss value, gradients can have different norms.'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Solution 1: Loss Normalization by Scale'
+      },
+      {
+        type: 'h3',
+        text: 'The Idea'
+      },
+      {
+        type: 'paragraph',
+        text: 'Estimate the typical magnitude of each loss. Divide by it before weighting.'
+      },
+      {
+        type: 'code',
+        language: 'python',
+        code: 'def compute_distillation_loss(student_logits, teacher_logits, labels, T=4.0):\n    # Compute both losses\n    kl_loss = F.kl_div(\n        F.log_softmax(student_logits / T, dim=-1),\n        F.softmax(teacher_logits / T, dim=-1),\n        reduction="batchmean"\n    )\n    ce_loss = F.cross_entropy(student_logits, labels)\n    \n    # Normalize by typical scale\n    # KL divergence is typically 0.1 to 2.0 (depends on T)\n    # Cross-entropy is typically 1.0 to 5.0 (depends on num_classes)\n    kl_scale = 1.0  # or estimate from first batch\n    ce_scale = math.log(num_classes)  # Rough estimate\n    \n    # Normalize\n    kl_loss_normalized = kl_loss / kl_scale\n    ce_loss_normalized = ce_loss / ce_scale\n    \n    # Apply intended weights\n    alpha = 0.7\n    beta = 0.3\n    total_loss = alpha * kl_loss_normalized + beta * ce_loss_normalized\n    \n    return total_loss'
+      },
+      {
+        type: 'h3',
+        text: 'Pro & Con'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '✅ Pro: Simple. Scale losses by their typical magnitude.',
+          '✅ Pro: Weights now have predictable meaning.',
+          '❌ Con: Need to estimate typical scales (requires tuning or measuring on first batch).',
+          '❌ Con: Scales might change as training progresses.'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Solution 2: Gradient Norm Matching'
+      },
+      {
+        type: 'h3',
+        text: 'The Idea'
+      },
+      {
+        type: 'paragraph',
+        text: 'Compute gradients for each loss separately. Scale so they have similar norms. Then combine.'
+      },
+      {
+        type: 'code',
+        language: 'python',
+        code: 'def compute_distillation_loss_gradient_matched(student_logits, teacher_logits, labels, T=4.0, target_norm=1.0):\n    student_logits.requires_grad_(True)\n    \n    # Compute KL loss\n    kl_loss = F.kl_div(\n        F.log_softmax(student_logits / T, dim=-1),\n        F.softmax(teacher_logits / T, dim=-1),\n        reduction="batchmean"\n    )\n    kl_grads = torch.autograd.grad(kl_loss, student_logits, create_graph=True)[0]\n    kl_norm = torch.norm(kl_grads)\n    \n    # Compute CE loss\n    ce_loss = F.cross_entropy(student_logits, labels)\n    ce_grads = torch.autograd.grad(ce_loss, student_logits, create_graph=True)[0]\n    ce_norm = torch.norm(ce_grads)\n    \n    # Scale losses so gradients have similar norms\n    kl_loss_scaled = kl_loss * (target_norm / kl_norm)\n    ce_loss_scaled = ce_loss * (target_norm / ce_norm)\n    \n    # Now apply intended weights\n    alpha = 0.7\n    beta = 0.3\n    total_loss = alpha * kl_loss_scaled + beta * ce_loss_scaled\n    \n    return total_loss'
+      },
+      {
+        type: 'h3',
+        text: 'Pro & Con'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '✅ Pro: Principled. Ensures gradient norms are comparable.',
+          '✅ Pro: Automatically adapts as training progresses.',
+          '❌ Con: Expensive (requires computing gradients twice per step).',
+          '❌ Con: Overkill for most applications.'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Solution 3: Temperature Tuning'
+      },
+      {
+        type: 'h3',
+        text: 'The Idea'
+      },
+      {
+        type: 'paragraph',
+        text: 'The temperature T controls the magnitude of KL divergence. Higher T makes KL smaller. Tune T so both losses have similar scale.'
+      },
+      {
+        type: 'code',
+        language: 'python',
+        code: 'def find_temperature_for_balance(student_logits, teacher_logits, labels):\n    """\n    Find temperature T such that KL loss ≈ CE loss\n    Then apply weights to balanced losses\n    """\n    ce_loss = F.cross_entropy(student_logits, labels).item()\n    \n    # Try different temperatures\n    best_T = 1.0\n    best_balance = float("inf")\n    \n    for T in [1.0, 2.0, 4.0, 8.0, 16.0]:\n        kl_loss = F.kl_div(\n            F.log_softmax(student_logits / T, dim=-1),\n            F.softmax(teacher_logits / T, dim=-1),\n            reduction="batchmean"\n        ).item()\n        \n        # How balanced are they?\n        ratio = kl_loss / ce_loss if ce_loss > 0 else 1.0\n        balance_error = abs(ratio - 1.0)  # Ideally ratio = 1\n        \n        if balance_error < best_balance:\n            best_balance = balance_error\n            best_T = T\n    \n    return best_T\n\n# Use best_T in training\nbest_T = find_temperature_for_balance(student_logits, teacher_logits, labels)\nloss_total = 0.7 * kl_loss(T=best_T) + 0.3 * ce_loss'
+      },
+      {
+        type: 'h3',
+        text: 'Pro & Con'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '✅ Pro: Simple. T is often tuned anyway.',
+          '✅ Pro: Makes physical sense (control softness of teacher).',
+          '❌ Con: One-time tuning, not adaptive.',
+          '❌ Con: Assumes CE and KL should be equal (not always true).'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Solution 4: Dynamic Weighting (Advanced)'
+      },
+      {
+        type: 'h3',
+        text: 'The Idea'
+      },
+      {
+        type: 'paragraph',
+        text: 'Monitor loss values in real-time. Adjust weights so both losses remain balanced.'
+      },
+      {
+        type: 'code',
+        language: 'python',
+        code: 'class DynamicLossWeighter:\n    def __init__(self, target_ratio=1.0, momentum=0.99):\n        self.target_ratio = target_ratio  # Want KL/CE ≈ 1.0\n        self.momentum = momentum\n        self.alpha = 0.5\n        self.beta = 0.5\n    \n    def update_weights(self, kl_loss, ce_loss):\n        """\n        Adjust alpha and beta so KL and CE contribute equally\n        """\n        current_ratio = kl_loss / (ce_loss + 1e-8)\n        \n        # If KL is too large, reduce alpha (reduce KL weight)\n        if current_ratio > self.target_ratio:\n            self.alpha *= 0.99\n        else:\n            self.alpha *= 1.01\n        \n        # Normalize\n        total = self.alpha + self.beta\n        self.alpha /= total\n        self.beta /= total\n    \n    def compute_loss(self, kl_loss, ce_loss):\n        total = self.alpha * kl_loss + self.beta * ce_loss\n        self.update_weights(kl_loss, ce_loss)\n        return total\n\nweighter = DynamicLossWeighter()\nfor batch in dataloader:\n    kl = compute_kl(...)\n    ce = compute_ce(...)\n    loss = weighter.compute_loss(kl, ce)\n    loss.backward()\n    # Weights automatically adjust!'
+      },
+      {
+        type: 'h3',
+        text: 'Pro & Con'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '✅ Pro: Automatically maintains balance over time.',
+          '✅ Pro: No manual tuning of alpha/beta.',
+          '❌ Con: Can diverge if not carefully implemented.',
+          '❌ Con: Adds complexity.'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'The Recommended Approach: Layered'
+      },
+      {
+        type: 'list',
+        ordered: true,
+        items: [
+          '**Step 1: Tune temperature T.** Find T so KL and CE losses are similar in magnitude on a validation batch.',
+          '**Step 2: Normalize by typical scale.** Divide KL by estimated scale (depends on T), divide CE by log(num_classes).',
+          '**Step 3: Monitor both losses separately.** Log KL and CE during training. If ratio drifts >2x, adjust weights or T.',
+          '**Step 4 (optional): Dynamic weighting.** If static weights do not work, use adaptive scheme.'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'The Interview Answer'
+      },
+      {
+        type: 'paragraph',
+        text: '"KL divergence and cross-entropy have different scales. Even with weights α and β, one dominates if not normalized."'
+      },
+      {
+        type: 'paragraph',
+        text: '"I would:"'
+      },
+      {
+        type: 'list',
+        ordered: true,
+        items: [
+          '**Tune temperature T:** KL loss shrinks with higher T. Find T so KL and CE are similar magnitude.',
+          '**Normalize before weighting:** Divide KL by typical scale (0.1-2.0), CE by log(num_classes). Then apply α and β.',
+          '**Monitor both losses separately:** Log KL and CE. If ratio drifts, adjust T or weights.',
+          '**Use dynamic weighting (optional):** Automatically adjust weights to maintain ratio.'
+        ]
+      },
+      {
+        type: 'paragraph',
+        text: '"The key: loss magnitudes drift over training. Static weights do not preserve intended balance. Either normalize before weighting or dynamically adjust."'
+      },
+      {
+        type: 'h2',
+        text: 'Practical Tips'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '**Log both losses.** Plot them over time. If one dominates, adjust.',
+          '**Validate on both metrics.** Check student accuracy (from CE) and distillation quality (from KL).',
+          '**Start conservative.** Use α=β=0.5 initially. Only use 0.7/0.3 after tuning.',
+          '**Remember T=1 is no softening.** Use T>1 to soften teacher, reduce KL magnitude.'
+        ]
+      },
+      {
+        type: 'callout',
+        emoji: '🎓',
+        text: 'The key insight: **Loss magnitude ≠ loss importance.** Smaller loss does not mean smaller weight. When combining losses, normalize by typical scale first, then apply weights. Temperature T is a free knob to adjust KL magnitude. Monitor loss ratio during training. If it drifts >2x from intended ratio, something needs adjustment (T, scale estimate, or dynamic weighting).'
+      }
+    ]
+  },
 
 ];
