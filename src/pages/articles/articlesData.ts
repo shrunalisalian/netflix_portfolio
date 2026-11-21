@@ -26409,7 +26409,7 @@ WELLBEING METRICS (not engagement metrics):
       {
         type: 'list',
         ordered: false,
-        items': [
+        items: [
           'Original softmax: [0.993, 0.007]',
           'Temperature-scaled: softmax([2.5, 0.25]) = [0.89, 0.11]'
         ]
@@ -26539,7 +26539,7 @@ WELLBEING METRICS (not engagement metrics):
       {
         type: 'list',
         ordered: false,
-        items': [
+        items: [
           '**False alarms:** Overconfident models flag too many false positives. Factory workers get fatigued.',
           '**Risk assessment:** If you use confidence for risk-based decisions, overconfidence leads to wrong decisions.',
           '**User trust:** When a model claims 99% and is wrong 10% of the time, users stop trusting it.'
@@ -26724,7 +26724,7 @@ WELLBEING METRICS (not engagement metrics):
       {
         type: 'list',
         ordered: false,
-        items': [
+        items: [
           'Back-translating: translate English → low-resource language → English, keep the low-resource version',
           'Paraphrasing: generate variations of original sentences',
           'Noise injection: add small perturbations to sentences (keep meaning, vary words)'
@@ -26793,7 +26793,7 @@ WELLBEING METRICS (not engagement metrics):
       {
         type: 'list',
         ordered: false,
-        items': [
+        items: [
           'Medical imaging: limited labeled examples, high compute budget',
           'Scientific domains: small datasets, lots of compute',
           'Any domain-specific task with data scarcity'
@@ -26953,7 +26953,7 @@ WELLBEING METRICS (not engagement metrics):
       {
         type: 'list',
         ordered: false,
-        items': [
+        items: [
           'KV cache per token: 2 × 32 layers × hidden_dim ≈ 256 KB (fp16)',
           'KV cache for 32 users × 2000 tokens avg ≈ 16 GB',
           'This is now competing with model weights for memory bandwidth'
@@ -27050,7 +27050,7 @@ WELLBEING METRICS (not engagement metrics):
       {
         type: 'list',
         ordered: false,
-        items': [
+        items: [
           '**vLLM:** Uses paged attention to reduce KV cache memory and improve batching',
           '**TensorRT-LLM:** Optimizes attention kernels for memory efficiency',
           '**SGLang:** Dynamic scheduling to group requests by length'
@@ -27319,7 +27319,7 @@ WELLBEING METRICS (not engagement metrics):
       {
         type: 'list',
         ordered: false,
-        items': [
+        items: [
           '**OpenAI:** High β (strong KL penalty) to prevent divergence',
           '**Anthropic:** Iterative RLHF with RM retraining, later moved to DPO',
           '**Meta:** Process-based rewards emphasizing reasoning and honesty',
@@ -27447,7 +27447,7 @@ WELLBEING METRICS (not engagement metrics):
       {
         type: 'list',
         ordered: false,
-        items': [
+        items: [
           'Sparse feature #542: fires ONLY on academic citations',
           'Sparse feature #1203: fires ONLY on HTTP requests',
           'Sparse feature #3891: fires ONLY on English dialogue',
@@ -27541,7 +27541,7 @@ WELLBEING METRICS (not engagement metrics):
       {
         type: 'list',
         ordered: false,
-        items': [
+        items: [
           '**Safety:** Identify neurons responsible for dangerous behaviors',
           '**Steering:** Use monosemantic features to steer model behavior',
           '**Debugging:** Understand what causes hallucinations or failures',
@@ -27560,7 +27560,7 @@ WELLBEING METRICS (not engagement metrics):
       {
         type: 'list',
         ordered: false,
-        items': [
+        items: [
           'SAEs can scale to larger models (GPT-2 scale and beyond)',
           'Sparse features are surprisingly human-interpretable',
           'You can steer model behavior using monosemantic features',
@@ -27706,7 +27706,7 @@ WELLBEING METRICS (not engagement metrics):
       {
         type: 'list',
         ordered: false,
-        items': [
+        items: [
           '**ReLU:** Simple but can cause dead neurons (gradients → 0). Can be unstable.',
           '**GELU:** Smooth, no dead neurons. More stable gradients.',
           '**SiLU (Swish):** Even smoother. Used in modern models like T5, GPT-3.',
@@ -27728,7 +27728,7 @@ WELLBEING METRICS (not engagement metrics):
       {
         type: 'list',
         ordered: false,
-        items': [
+        items: [
           'First 10% of training: gradually increase LR from 0 to 1e-3',
           'Rest of training: use 1e-3, optionally decay',
           'This gives the model time to adjust to higher gradients'
@@ -27749,7 +27749,7 @@ WELLBEING METRICS (not engagement metrics):
       {
         type: 'list',
         ordered: false,
-        items': [
+        items: [
           'Gradient norms stay roughly constant across layers',
           'No sudden spikes (indicates instability)',
           'Smooth decay as training progresses (normal)'
@@ -27782,7 +27782,7 @@ WELLBEING METRICS (not engagement metrics):
       {
         type: 'list',
         ordered: false,
-        items': [
+        items: [
           'Mean should stay close to 0 (LayerNorm does this)',
           'Variance should stay close to 1 (LayerNorm does this)',
           'Large variance or mean drift = instability'
@@ -27799,7 +27799,7 @@ WELLBEING METRICS (not engagement metrics):
       {
         type: 'list',
         ordered: false,
-        items': [
+        items: [
           'Baseline (LR 1e-4): 1000 steps to target loss',
           'High LR (1e-3) with unstable model: 500 steps but spiky',
           'High LR + stable architecture: 500 steps, smooth curve'
@@ -27820,7 +27820,7 @@ WELLBEING METRICS (not engagement metrics):
       {
         type: 'list',
         ordered: false,
-        items': [
+        items: [
           'Baseline model: 92% accuracy',
           'High LR unstable: 90% accuracy (oops, overfitting or instability hurt)',
           'High LR + stable architecture: 92% accuracy (success!)'
@@ -27837,7 +27837,7 @@ WELLBEING METRICS (not engagement metrics):
       {
         type: 'list',
         ordered: true,
-        items': [
+        items: [
           '**Add Layer Normalization:** Normalize activations at each layer. Keeps values bounded, prevents explosion.',
           '**Better initialization:** Use He or Xavier initialization instead of random. Sets a stable starting point.',
           '**Residual connections:** Let gradients flow via skip connections. Prevents gradient explosion in deep networks.',
@@ -27852,7 +27852,7 @@ WELLBEING METRICS (not engagement metrics):
       {
         type: 'list',
         ordered: true,
-        items': [
+        items: [
           '**Gradient norms:** Should stay constant across layers, no spikes.',
           '**Loss stability:** Smooth curve, no frequent jumps.',
           '**Activation statistics:** Mean ≈ 0, variance ≈ 1 (LayerNorm ensures this).',
@@ -27875,7 +27875,7 @@ WELLBEING METRICS (not engagement metrics):
       {
         type: 'list',
         ordered: false,
-        items': [
+        items: [
           '**Transformers:** LayerNorm + residual connections built-in',
           '**GPT/BERT:** Pre-LayerNorm (apply norm before attention/FFN)',
           '**Modern optimizers:** Adam, AdamW already have some stability properties',
@@ -27960,7 +27960,7 @@ WELLBEING METRICS (not engagement metrics):
       {
         type: 'list',
         ordered: false,
-        items': [
+        items: [
           'It clips the gradient norm, but the direction can still be bad',
           'It prevents divergence, but not loss spikes',
           'It\'s a band-aid on a deeper problem: some batches are genuinely problematic'
@@ -27981,7 +27981,7 @@ WELLBEING METRICS (not engagement metrics):
       {
         type: 'list',
         ordered: false,
-        items': [
+        items: [
           'Monitor loss at each batch. If it increases by more than a threshold (e.g., >20%), flag it.',
           'Look ahead: compute loss on small sample from batch before full training step',
           'Analyze batches that cause spikes — identify outliers (rare tokens, long sequences, corrupted data)'
@@ -27994,7 +27994,7 @@ WELLBEING METRICS (not engagement metrics):
       {
         type: 'list',
         ordered: false,
-        items': [
+        items: [
           'No retraining needed. Continue from current checkpoint.',
           'Quick fix. Implement batch-skipping logic in training loop.',
           'Preserves model architecture and all prior learning.'
@@ -28007,7 +28007,7 @@ WELLBEING METRICS (not engagement metrics):
       {
         type: 'list',
         ordered: false,
-        items': [
+        items: [
           'You skip some data. The model never learns from these examples.',
           'If outlier batches represent real data distribution, you\'re undertraining.',
           'You\'re masking the problem, not fixing it.'
@@ -28028,7 +28028,7 @@ WELLBEING METRICS (not engagement metrics):
       {
         type: 'list',
         ordered: false,
-        items': [
+        items: [
           '**Stronger normalization:** Add more LayerNorm. Pre-norm at every layer instead of post-norm.',
           '**Lower LR + longer warmup:** Give the model time to adapt, reduce per-step changes.',
           '**Residual scaling:** Scale residual connections by 1/√N (N = number of layers) to prevent gradient explosion.',
@@ -28043,7 +28043,7 @@ WELLBEING METRICS (not engagement metrics):
       {
         type: 'list',
         ordered: false,
-        items': [
+        items: [
           'Fix the root cause, not the symptom.',
           'Train on all data. No batches skipped.',
           'Once fixed, the model is more robust to future spikes.'
@@ -28056,7 +28056,7 @@ WELLBEING METRICS (not engagement metrics):
       {
         type: 'list',
         ordered: false,
-        items': [
+        items: [
           'Have to retrain from scratch or from an earlier checkpoint.',
           'Might need to tune hyperparameters again (LR, warmup schedule, etc.).',
           'Expensive. PaLM 540B training is months-long, TPU-intensive.'
@@ -28073,7 +28073,7 @@ WELLBEING METRICS (not engagement metrics):
       {
         type: 'list',
         ordered: false,
-        items': [
+        items: [
           '**Short-term:** Skip loss-spike batches during the run. Continue training without interruption.',
           '**Long-term:** For future models (like Chinchilla), redesign initialization and normalization to prevent spikes.'
         ]
@@ -28097,7 +28097,7 @@ WELLBEING METRICS (not engagement metrics):
       {
         type: 'list',
         ordered: true,
-        items': [
+        items: [
           '**Short-term: Skip spiky batches.** Detect batches that cause loss spikes and skip them. This is fast, requires no retraining, and gets the current run to completion.',
           '**Long-term: Change the model.** Add stronger normalization, residual scaling, and better initialization. This prevents spikes in future runs and ensures all data is used.'
         ]
@@ -28121,7 +28121,7 @@ WELLBEING METRICS (not engagement metrics):
       {
         type: 'list',
         ordered: false,
-        items': [
+        items: [
           'Simpler loss landscape. Fewer extreme regions.',
           'Lower gradient magnitudes. Smaller models produce smaller gradients overall.',
           'More forgiving numerics. Precision is less critical at smaller scales.',
@@ -28143,7 +28143,7 @@ WELLBEING METRICS (not engagement metrics):
       {
         type: 'list',
         ordered: false,
-        items': [
+        items: [
           '**PaLM:** Had loss spikes, used batch skipping + stronger normalization.',
           '**Chinchilla/Gopher:** Designed with this in mind. Stronger pre-norm, better initialization.',
           '**GPT-4:** Rumored to use multiple stabilization techniques to prevent spikes.',
@@ -28220,7 +28220,7 @@ WELLBEING METRICS (not engagement metrics):
       {
         type: 'list',
         ordered: false,
-        items': [
+        items: [
           'Step 1: "Identify the variables" — correct or incorrect?',
           'Step 2: "Set up the equation" — correct or incorrect?',
           'Step 3: "Solve for x" — correct or incorrect?'
@@ -28241,7 +28241,7 @@ WELLBEING METRICS (not engagement metrics):
       {
         type: 'list',
         ordered: false,
-        items': [
+        items: [
           'Clarity: Is the explanation understandable?',
           'Justification: Does the step follow logically from prior steps?',
           'Efficiency: Is this the most direct approach?',
@@ -28259,7 +28259,7 @@ WELLBEING METRICS (not engagement metrics):
       {
         type: 'list',
         ordered: false,
-        items': [
+        items: [
           '"I\'m confident in this step" vs. "I\'m less sure here"',
           'Whether the model correctly identifies what it doesn\'t know',
           'Whether it asks for clarification or suggests alternatives'
@@ -28276,7 +28276,7 @@ WELLBEING METRICS (not engagement metrics):
       {
         type: 'list',
         ordered: false,
-        items': [
+        items: [
           'Whether evidence is provided',
           'Quality of evidence',
           'Whether evidence actually supports the claim'
@@ -28297,7 +28297,7 @@ WELLBEING METRICS (not engagement metrics):
       {
         type: 'list',
         ordered: false,
-        items': [
+        items: [
           'Step correctness: 50% (most important)',
           'Reasoning quality: 25%',
           'Uncertainty acknowledgment: 15%',
@@ -28323,7 +28323,7 @@ WELLBEING METRICS (not engagement metrics):
       {
         type: 'list',
         ordered: false,
-        items': [
+        items: [
           'Input: vector of [step_score, reasoning_score, uncertainty_score, evidence_score]',
           'Output: single reward score',
           'Train on human judgments: does this combination correlate with what humans prefer?'
@@ -28344,7 +28344,7 @@ WELLBEING METRICS (not engagement metrics):
       {
         type: 'list',
         ordered: false,
-        items': [
+        items: [
           '**Correctness score:** average of step-level correctness',
           '**Clarity score:** average of clarity across steps',
           '**Confidence score:** how well uncertainty is handled',
@@ -28366,7 +28366,7 @@ WELLBEING METRICS (not engagement metrics):
       {
         type: 'list',
         ordered: false,
-        items': [
+        items: [
           'Right/wrong: humans spend 10 seconds per solution',
           'Step-level + reasoning: humans spend 2-3 minutes per solution',
           'Full process labels: humans spend 5-10 minutes per solution'
@@ -28387,7 +28387,7 @@ WELLBEING METRICS (not engagement metrics):
       {
         type: 'list',
         ordered: false,
-        items': [
+        items: [
           'Can\'t just fake the final answer. Must show correct reasoning.',
           'Learns to explain clearly. Ambiguity gets lower scores.',
           'Learns when to be uncertain. False confidence gets penalized.',
@@ -28409,7 +28409,7 @@ WELLBEING METRICS (not engagement metrics):
       {
         type: 'list',
         ordered: true,
-        items': [
+        items: [
           '**Step-level correctness:** Is each intermediate step right?',
           '**Reasoning quality:** Is the logic clear and well-justified?',
           '**Uncertainty handling:** Does the model admit when it\'s unsure?',
@@ -28423,7 +28423,7 @@ WELLBEING METRICS (not engagement metrics):
       {
         type: 'list',
         ordered: false,
-        items': [
+        items: [
           'Step correctness: 50% (most critical)',
           'Reasoning: 25%',
           'Uncertainty: 15%',
@@ -28449,7 +28449,7 @@ WELLBEING METRICS (not engagement metrics):
       {
         type: 'list',
         ordered: false,
-        items': [
+        items: [
           '**OpenAI:** Process reward models for reasoning tasks',
           '**Anthropic:** Constitutional AI with process feedback',
           '**DeepSeek:** Process-focused reward signals for math and code',
@@ -28530,7 +28530,7 @@ WELLBEING METRICS (not engagement metrics):
       {
         type: 'list',
         ordered: false,
-        items': [
+        items: [
           'Token at position 0 → position 0 (unchanged)',
           'Token at position 32768 → position 4096 (max)',
           'Token at position 16384 → position 2048 (midpoint)'
@@ -28563,7 +28563,7 @@ WELLBEING METRICS (not engagement metrics):
       {
         type: 'list',
         ordered: false,
-        items': [
+        items: [
           'Old: base = 10,000 (trained on 4K)',
           'New: base = 10,000 × (32K/4K) = 80,000 (for 32K)'
         ]
@@ -28611,7 +28611,7 @@ WELLBEING METRICS (not engagement metrics):
       {
         type: 'list',
         ordered: false,
-        items': [
+        items: [
           'Haystack: 32K-token document on a random topic',
           'Needle: "The secret code is AZURE_SPHINX_42" inserted at a random position',
           'Query: "What is the secret code?"',
@@ -28633,7 +28633,7 @@ WELLBEING METRICS (not engagement metrics):
       {
         type: 'list',
         ordered: false,
-        items': [
+        items: [
           'Put a list of facts at position 0 (beginning)',
           'Put a summary question at position 30K (end)',
           'Success: Model answers correctly, using beginning facts'
@@ -28654,7 +28654,7 @@ WELLBEING METRICS (not engagement metrics):
       {
         type: 'list',
         ordered: false,
-        items': [
+        items: [
           'Input: 32K-token document',
           'Measure: attention weights of final token to all prior tokens',
           'Success: Attention distributes across the document, not just nearby tokens'
@@ -28675,7 +28675,7 @@ WELLBEING METRICS (not engagement metrics):
       {
         type: 'list',
         ordered: false,
-        items': [
+        items: [
           '**LongBench:** Diverse tasks with varying context lengths',
           '**InfiniteBench:** Tests on lengths up to 1M tokens',
           '**ZeroScrolls:** Real long-document tasks'
@@ -28696,7 +28696,7 @@ WELLBEING METRICS (not engagement metrics):
       {
         type: 'list',
         ordered: true,
-        items': [
+        items: [
           '**Position interpolation:** Compress position indices to fit the 4K range. Simple, works immediately.',
           '**RoPE frequency scaling:** Adjust the base frequency in rotary embeddings. More principled, requires light finetuning.',
           '**Continued pretraining:** Finetune on 32K sequences. Most robust but expensive.'
@@ -28709,7 +28709,7 @@ WELLBEING METRICS (not engagement metrics):
       {
         type: 'list',
         ordered: true,
-        items': [
+        items: [
           '**Needle-in-haystack:** Hide facts at different positions, verify retrieval works at all positions.',
           '**Position-specific tasks:** Put data at the beginning, questions at the end. If answered correctly, it used the whole document.',
           '**Attention analysis:** Visualize attention weights. Do they span the full 32K, or just recent tokens?',
@@ -28731,7 +28731,7 @@ WELLBEING METRICS (not engagement metrics):
       {
         type: 'list',
         ordered: false,
-        items': [
+        items: [
           'High attention to beginning tokens (maybe important)',
           'High attention to recent/end tokens (recency bias)',
           'Low attention to middle tokens (forgotten)'
@@ -28752,7 +28752,7 @@ WELLBEING METRICS (not engagement metrics):
       {
         type: 'list',
         ordered: false,
-        items': [
+        items: [
           '**OpenAI (GPT-4):** Extended to 128K using position interpolation',
           '**Anthropic (Claude 3):** Extended to 200K using multiple techniques',
           '**Meta (Llama 2):** Extended to 4K from original, evaluated carefully',
@@ -28807,7 +28807,7 @@ WELLBEING METRICS (not engagement metrics):
       {
         type: 'list',
         ordered: false,
-        items': [
+        items: [
           '**Early mistakes cascade:** A bad token early makes all downstream reasoning wrong.',
           '**No backtracking:** Once committed to a path, you can\'t correct.',
           '**Narrow exploration:** You only see one reasoning trajectory per problem.'
@@ -28844,7 +28844,7 @@ WELLBEING METRICS (not engagement metrics):
       {
         type: 'list',
         ordered: false,
-        items': [
+        items: [
           'p = 0.57 (baseline)',
           'N = 10 runs with majority vote',
           'Accuracy ≈ P(≥5 out of 10 succeed) = sum_{k=5}^{10} C(10,k) * 0.57^k * 0.43^(10-k) ≈ **92-95%**'
@@ -28861,7 +28861,7 @@ WELLBEING METRICS (not engagement metrics):
       {
         type: 'list',
         ordered: false,
-        items': [
+        items: [
           '✅ Pro: Dead simple, requires no training, works immediately.',
           '✅ Pro: 10x compute → ~92-95% accuracy',
           '❌ Con: Requires ground truth or a verifier to know which answer is correct.'
@@ -28894,7 +28894,7 @@ WELLBEING METRICS (not engagement metrics):
       {
         type: 'list',
         ordered: false,
-        items': [
+        items: [
           'Compute: 10x (similar to best-of-N, but organized differently)',
           'Benefit: Finds better reasoning paths, not just random samples'
         ]
@@ -28906,7 +28906,7 @@ WELLBEING METRICS (not engagement metrics):
       {
         type: 'list',
         ordered: false,
-        items': [
+        items: [
           '✅ Pro: Principled search; explores diverse reasoning paths.',
           '✅ Pro: Often finds the best reasoning, not just any correct reasoning.',
           '❌ Con: Requires a scoring function (likelihood, or a separate verifier).',
@@ -28932,7 +28932,7 @@ WELLBEING METRICS (not engagement metrics):
       {
         type: 'list',
         ordered: true,
-        items': [
+        items: [
           'Generate N candidate reasoning chains (best-of-N)',
           'Score each with the verifier: "How confident are you this reasoning is correct?"',
           'Pick the solution with highest verifier score'
@@ -28949,7 +28949,7 @@ WELLBEING METRICS (not engagement metrics):
       {
         type: 'list',
         ordered: false,
-        items': [
+        items: [
           '**Outcome-based:** Train on (reasoning, answer, correct/incorrect). Simpler.',
           '**Process-based:** Train on (reasoning trajectory, intermediate step correctness, final correctness). More data, better transfer.'
         ]
@@ -28965,7 +28965,7 @@ WELLBEING METRICS (not engagement metrics):
       {
         type: 'list',
         ordered: false,
-        items': [
+        items: [
           '✅ Pro: Can distinguish good reasoning from lucky answers.',
           '✅ Pro: Scales to harder problems verifier hasn\'t seen.',
           '❌ Con: Requires training a verifier (cost upfront).',
@@ -28987,7 +28987,7 @@ WELLBEING METRICS (not engagement metrics):
       {
         type: 'list',
         ordered: true,
-        items': [
+        items: [
           'First pass: Greedy solution with confidence score.',
           'High confidence (>0.95)? Output immediately, save compute.',
           'Low confidence (<0.5)? Spend the saved compute: run 20 times, vote.'
@@ -29004,7 +29004,7 @@ WELLBEING METRICS (not engagement metrics):
       {
         type: 'list',
         ordered: false,
-        items': [
+        items: [
           '50% of problems: confidence >0.9, 1x compute (baseline greedy)',
           '30% of problems: confidence 0.5-0.9, 5x compute (5 runs)',
           '20% of problems: confidence <0.5, 15x compute (15 runs) — but you save compute from easy problems'
@@ -29021,7 +29021,7 @@ WELLBEING METRICS (not engagement metrics):
       {
         type: 'list',
         ordered: false,
-        items': [
+        items: [
           '✅ Pro: Efficient; wastes no compute on easy problems.',
           '✅ Pro: Can reach 95%+ on average with <10x budget.',
           '❌ Con: Confidence scores can be miscalibrated.'
@@ -29066,7 +29066,7 @@ WELLBEING METRICS (not engagement metrics):
       {
         type: 'list',
         ordered: true,
-        items': [
+        items: [
           '**Generate N=10 candidates** with temperature=0.7 (best-of-N). Cost: 10x.',
           '**If you have a verifier:** Score each with the verifier, pick the highest-scoring one.',
           '**If not:** Use majority vote on the final answers.',
@@ -29080,7 +29080,7 @@ WELLBEING METRICS (not engagement metrics):
       {
         type: 'list',
         ordered: false,
-        items': [
+        items: [
           '57% (baseline, greedy) → 92-95% (best-of-10 with vote)'
         ]
       },
@@ -29099,7 +29099,7 @@ WELLBEING METRICS (not engagement metrics):
       {
         type: 'list',
         ordered: true,
-        items': [
+        items: [
           '**Generate 10 independent solutions** with temperature > 0 (say 0.7) for diversity.',
           '**Verify or score each one:** Either use majority voting on final answers, or deploy a verifier to rank them.',
           '**Output the best:** Majority vote if no verifier, or the verifier\'s top pick.',
@@ -29113,7 +29113,7 @@ WELLBEING METRICS (not engagement metrics):
       {
         type: 'list',
         ordered: false,
-        items': [
+        items: [
           '**Confidence-based allocation:** Easy problems get 1x compute (greedy + high confidence → output). Hard problems get 15-20x (many runs, vote).',
           '**Beam search:** Instead of independent samples, keep top-K hypotheses alive, explore deeply. Finds better reasoning paths.',
           '**Verifier model:** If I can train one, it judges reasoning quality, not just outcome. More robust to distribution shift.'
@@ -29134,7 +29134,7 @@ WELLBEING METRICS (not engagement metrics):
       {
         type: 'list',
         ordered: false,
-        items': [
+        items: [
           '**OpenAI o1:** Uses test-time compute heavily. Runs many internal chains, verifies reasoning. Gets 90%+ on hard reasoning tasks.',
           '**Anthropic:** Process-based verification. Trains verifiers to judge reasoning quality, not just outcomes.',
           '**Google PaLM + Verifier:** Separate verifier model ranks reasoning chains.',
