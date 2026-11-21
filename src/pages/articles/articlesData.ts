@@ -24,128 +24,215 @@ export interface Article {
 export const articles: Article[] = [
   {
     slug: 'bias-variance-tradeoff',
-    title: 'Bias-Variance Tradeoff — The Most Important Concept in ML Interviews',
-    subtitle: 'A deep dive into one of the most fundamental trade-offs in machine learning, with intuition, math, and real interview examples.',
-    date: 'June 14, 2026',
-    readTime: '8 min read',
-    tags: ['Machine Learning', 'Interview Prep', 'Statistics', 'General'],
+    title: 'Bias-Variance Tradeoff — Why Good Models Break on New Data',
+    subtitle: 'Understanding the fundamental tension in machine learning: fitting too tight, fitting too loose, and finding the balance.',
+    date: 'November 21, 2026',
+    readTime: '12 min read',
+    tags: ['Machine Learning', 'Fundamentals', 'Interview Prep', 'Systems Thinking'],
     coverEmoji: '⚖️',
     content: [
       {
-        type: 'callout',
-        emoji: '🎯',
-        text: 'This is part of my ML Interview Prep series. The goal is to build deep intuition — not just memorize definitions.'
-      },
-      {
         type: 'h2',
-        text: 'Why This Matters in Interviews'
+        text: 'Start Here: The Hiring Problem'
       },
       {
         type: 'paragraph',
-        text: 'Almost every ML interview will touch on this topic, directly or indirectly. When an interviewer asks "Why is your model overfitting?" or "How would you improve generalization?" — they want to see you reason through the bias-variance tradeoff. Understanding it deeply separates candidates who can tweak hyperparameters from engineers who understand *why* those hyperparameters work.'
-      },
-      {
-        type: 'h2',
-        text: 'The Core Intuition'
+        text: 'You\'re hiring engineers. You need a rule to decide who gets the job. Let\'s say you use this rule: "Hire anyone with 10+ years of experience."'
       },
       {
         type: 'paragraph',
-        text: 'Imagine you\'re trying to predict house prices. You have two models:'
+        text: 'What happens? You reject a brilliant 25-year-old with 3 years of experience but deep expertise. You miss great candidates because your rule was **too strict**. This is **bias** — your rule makes an incorrect assumption (that experience = years, not skill).'
+      },
+      {
+        type: 'paragraph',
+        text: 'Now you flip it. New rule: "Hire almost everyone, reject only if they seem obviously unqualified." What happens? You hire 100 people. Some are great. Some are terrible. The rule is so loose it adapts to whoever walks through the door. This is **variance** — your decisions bounce around wildly based on small differences between candidates.'
+      },
+      {
+        type: 'h2',
+        text: 'The Real Problem: Models Make Both Mistakes'
+      },
+      {
+        type: 'paragraph',
+        text: 'Here\'s the core insight: **A model can have two types of errors, and they work against each other.**'
       },
       {
         type: 'list',
         ordered: false,
         items: [
-          'Model A: A straight line (linear regression). Simple, but it misses the curves in the data.',
-          'Model B: A polynomial of degree 15. It fits every training point perfectly, but goes wild on new data.'
+          '**Bias (systematic error):** The model is wrong in a consistent direction. All predictions are off by roughly the same amount. The rule is too simplistic to capture reality.',
+          '**Variance (instability):** The model changes wildly based on small changes in input. It has learned the noise in the training data, not the actual pattern.'
         ]
       },
       {
         type: 'paragraph',
-        text: 'Model A has **high bias** — it makes strong assumptions about the data (linearity) that aren\'t true. Model B has **high variance** — it\'s so sensitive to the training data that it can\'t generalize. The sweet spot is in the middle.'
+        text: 'If your model is too simple, it has high bias. If it\'s too complex, it has high variance. You can\'t eliminate both. You have to choose your poison.'
       },
       {
         type: 'h2',
-        text: 'The Math'
+        text: 'A Concrete Example: Predicting House Prices'
       },
       {
         type: 'paragraph',
-        text: 'For a model f̂ trained on dataset D, predicting target y = f(x) + ε where ε is irreducible noise, the expected prediction error decomposes as:'
+        text: 'You have 100 houses. You know their size (square feet) and price. You want to predict price for a new house.'
+      },
+      {
+        type: 'h3',
+        text: 'Model 1: A Straight Line (Linear Regression)'
+      },
+      {
+        type: 'paragraph',
+        text: 'You fit a line: price = $100 × square_feet + $50,000'
+      },
+      {
+        type: 'paragraph',
+        text: 'This line is **simple**. It assumes price is always proportional to size. But what if location matters? What if old houses cost more or less than new ones? The line doesn\'t capture that. So the line is consistently wrong in certain neighborhoods. This is **high bias**.'
+      },
+      {
+        type: 'h3',
+        text: 'Model 2: A Wiggly Polynomial (Degree 15)'
+      },
+      {
+        type: 'paragraph',
+        text: 'You fit a 15th-degree polynomial. It passes through every single training point. Perfect fit on the training data! But what does it do on a new house? It goes crazy. It predicts $2 million for a 500 sq ft house because it fit itself to the quirks of your training set, not to the real pattern.'
+      },
+      {
+        type: 'paragraph',
+        text: 'The polynomial is **too flexible**. It learned the noise, not the signal. This is **high variance**.'
+      },
+      {
+        type: 'h2',
+        text: 'What\'s Actually Happening: Error Decomposition'
+      },
+      {
+        type: 'paragraph',
+        text: 'When you make a prediction, your error comes from three sources:'
+      },
+      {
+        type: 'list',
+        ordered: true,
+        items: [
+          '**Bias²** — Your model\'s systematic wrong-ness. The difference between what your model *always* predicts on average vs. the true value.',
+          '**Variance** — How much your model\'s prediction changes when you train it on slightly different data.',
+          '**Irreducible noise** — Random error in the data itself. You can\'t ever eliminate this, no matter how good your model is.'
+        ]
+      },
+      {
+        type: 'paragraph',
+        text: 'The mathematical decomposition is:'
       },
       {
         type: 'math',
-        text: 'E[(y - f̂(x))²] = Bias[f̂(x)]² + Var[f̂(x)] + σ²'
-      },
-      {
-        type: 'list',
-        ordered: false,
-        items: [
-          'Bias²: Error from wrong assumptions. How far off is the average prediction from the truth?',
-          'Variance: Error from sensitivity to training set fluctuations. How much does the model change with different training data?',
-          'σ² (Irreducible noise): The inherent noise in the data. You can never eliminate this.'
-        ]
-      },
-      {
-        type: 'h2',
-        text: 'Visualizing the Tradeoff'
+        text: 'Total Error = Bias² + Variance + Irreducible Noise'
       },
       {
         type: 'paragraph',
-        text: 'As model complexity increases (more parameters, higher polynomial degree, deeper tree):'
+        text: 'This is the fundamental equation. Your job as a machine learning engineer is to minimize the first two terms. You can\'t do anything about the third.'
+      },
+      {
+        type: 'h2',
+        text: 'The U-Shaped Curve: Model Complexity'
+      },
+      {
+        type: 'paragraph',
+        text: 'Here\'s what happens as you make your model more complex:'
       },
       {
         type: 'list',
         ordered: false,
         items: [
-          'Bias decreases — the model can fit more complex patterns',
-          'Variance increases — the model becomes more sensitive to the specific training data',
-          'Total error forms a U-shaped curve — the minimum is your sweet spot'
+          '**Simple model (straight line):** High bias, low variance. It\'s wrong in the same way every time, but stable.',
+          '**Medium complexity (quadratic):** Lower bias, moderate variance. It captures some patterns, but doesn\'t overfit.',
+          '**Complex model (polynomial degree 15):** Very low bias, very high variance. It fits training data perfectly but falls apart on new data.'
         ]
+      },
+      {
+        type: 'paragraph',
+        text: 'If you plot total error vs. model complexity, you get a **U shape**. The left side is underfitting (high bias). The right side is overfitting (high variance). The bottom of the U is your **sweet spot**.'
+      },
+      {
+        type: 'h2',
+        text: 'How to Tell Which Problem You Have'
+      },
+      {
+        type: 'h3',
+        text: 'Is Your Model High Bias (Underfitting)?'
+      },
+      {
+        type: 'paragraph',
+        text: 'You\'ll see:'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'High training error',
+          'High validation error',
+          'Training and validation errors are **close** to each other (both bad)',
+          'Adding more data doesn\'t help'
+        ]
+      },
+      {
+        type: 'paragraph',
+        text: '**Fix:** Make the model more complex. Add more features. Use a more expressive algorithm. Remove regularization.'
+      },
+      {
+        type: 'h3',
+        text: 'Is Your Model High Variance (Overfitting)?'
+      },
+      {
+        type: 'paragraph',
+        text: 'You\'ll see:'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Low training error',
+          'High validation error',
+          'Training and validation errors are **far apart** (huge gap)',
+          'Adding more data helps'
+        ]
+      },
+      {
+        type: 'paragraph',
+        text: '**Fix:** Collect more data. Add regularization (L1, L2, dropout). Use a simpler model. Use early stopping.'
+      },
+      {
+        type: 'h2',
+        text: 'The Key Insight: You Can\'t Have It All'
       },
       {
         type: 'callout',
-        emoji: '💡',
-        text: 'Key insight: Adding more training data reduces variance but does not reduce bias. If your model is too simple (underfitting), getting more data won\'t fix it.'
+        emoji: '🎯',
+        text: 'You cannot simultaneously minimize bias AND variance. They work against each other. Making your model simpler reduces variance but increases bias. Making it more complex reduces bias but increases variance. Engineering is choosing which tradeoff is worth it.'
       },
       {
         type: 'h2',
-        text: 'High Bias vs High Variance — How to Diagnose'
+        text: 'One More Thing: Why This Matters for Real Systems'
       },
       {
-        type: 'h3',
-        text: 'High Bias (Underfitting)'
+        type: 'paragraph',
+        text: 'In the real world, you don\'t get to train on the same distribution forever. Users change. The world changes. A model that overfits (high variance) will break first. A model with high bias is predictably, consistently wrong — which you can at least diagnose and fix.'
       },
       {
-        type: 'list',
-        ordered: false,
-        items: [
-          'Training error is high',
-          'Validation error ≈ Training error (both high)',
-          'Gap between train and val is small',
-          'Fix: More complex model, more features, reduce regularization'
-        ]
-      },
-      {
-        type: 'h3',
-        text: 'High Variance (Overfitting)'
-      },
-      {
-        type: 'list',
-        ordered: false,
-        items: [
-          'Training error is low',
-          'Validation error >> Training error',
-          'Large gap between train and val',
-          'Fix: More data, regularization (L1/L2), dropout, simpler model, cross-validation'
-        ]
+        type: 'paragraph',
+        text: 'This is why production ML favors simpler models over complex ones. A linear model that\'s consistently wrong can be debugged. A neural network that fit too tight will fail silently on new data.'
       },
       {
         type: 'h2',
-        text: 'Common Interview Questions & Answers'
+        text: 'Interview Twist: The Classic Question'
       },
       {
-        type: 'h3',
-        text: 'Q: What is the bias-variance tradeoff?'
+        type: 'paragraph',
+        text: 'Interviewer: "Your model is overfitting. What do you do?"'
+      },
+      {
+        type: 'paragraph',
+        text: '**Right answer:** "Overfitting means high variance, so I need to reduce it. I could add regularization, collect more data, use a simpler model, or use cross-validation to catch it earlier. But first, I\'d ask: is the gap between train and val error actually large? If not, maybe it\'s not overfitting — maybe my model is just right and the test set is different."'
+      },
+      {
+        type: 'paragraph',
+        text: '**Why this answer:** You\'re showing you understand the difference between bias and variance. You\'re not just throwing solutions at the wall. You\'re asking clarifying questions. That\'s the engineer mindset.'
       },
       {
         type: 'quote',
@@ -24349,6 +24436,1434 @@ WELLBEING METRICS (not engagement metrics):
           'LLM reason 2: Distribution mismatch hurts student generalization',
           'LLM reason 3: Emergent capabilities missed by off-policy'
         ]
+      }
+    ]
+  },
+  {
+    slug: 'grokking-modular-arithmetic',
+    title: 'Grokking: Why Models Suddenly Generalize After Memorizing Everything',
+    subtitle: 'A Google DeepMind interview question: 0 + 50 = 7 on a clock that goes to 113. The model memorizes. Then suddenly, it learns the rule. What actually happened?',
+    date: 'November 21, 2026',
+    readTime: '13 min read',
+    tags: ['Deep Learning', 'Generalization', 'Interview Prep', 'Neural Networks'],
+    coverEmoji: '💡',
+    content: [
+      {
+        type: 'h2',
+        text: 'The Puzzle: A Model That Suddenly Gets Smarter'
+      },
+      {
+        type: 'paragraph',
+        text: 'You train a small neural network to do modular addition. The rule is simple: on a clock that goes from 0 to 112, add two numbers. If you go past 112, wrap around.'
+      },
+      {
+        type: 'paragraph',
+        text: 'So: 70 + 50 = 7 (wraps around). 100 + 20 = 7 (wraps). The network sees thousands of examples and learns to predict the sum.'
+      },
+      {
+        type: 'paragraph',
+        text: 'You plot training accuracy. For the first 10,000 steps, it climbs smoothly. The model is 99% accurate on the training set. But on a held-out test set? Stuck at 50%. Random guessing.'
+      },
+      {
+        type: 'paragraph',
+        text: 'You keep training. Nothing changes for another 10,000 steps. The model is *still* 50% on the test set. It has memorized the training data perfectly but learned nothing about the underlying rule.'
+      },
+      {
+        type: 'paragraph',
+        text: 'Then, at step 20,000, something strange happens. The test accuracy suddenly spikes. Within 100 steps, it goes from 50% to 99%. The model **instantly** understands the pattern.'
+      },
+      {
+        type: 'callout',
+        emoji: '🤯',
+        text: 'This is **grokking**. The model memorizes first, then suddenly generalizes. Not gradually — suddenly. Like a phase transition.'
+      },
+      {
+        type: 'h2',
+        text: 'First Principles: What Does "Learning a Rule" Mean?'
+      },
+      {
+        type: 'paragraph',
+        text: 'Here\'s the key insight: there are two ways a model can be accurate.'
+      },
+      {
+        type: 'h3',
+        text: 'Strategy 1: Memorization'
+      },
+      {
+        type: 'paragraph',
+        text: 'Store the answer for every example you see. When you see (70, 50), you have a neuron that fires and outputs 7. When you see (100, 20), a different neuron fires and outputs 7.'
+      },
+      {
+        type: 'paragraph',
+        text: 'This is **easy** for the network. It requires minimal computation. Just a lookup table inside the weights. The model fits the data perfectly on the training set but fails on new data.'
+      },
+      {
+        type: 'h3',
+        text: 'Strategy 2: Learning the Rule'
+      },
+      {
+        type: 'paragraph',
+        text: 'Discover that the operation is modular addition. Learn to compute: (a + b) mod 113.'
+      },
+      {
+        type: 'paragraph',
+        text: 'This is **harder** for the network. It requires learning an abstract representation of modular arithmetic. But once learned, it works on *any* pair of numbers, not just the ones in training.'
+      },
+      {
+        type: 'h2',
+        text: 'The Computational Cost of Each Strategy'
+      },
+      {
+        type: 'paragraph',
+        text: 'Here\'s where it gets interesting. Early in training, memorization is cheaper than generalization.'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '**Memorization cost:** Store N examples. Easy. Use O(N) parameters.',
+          '**Generalization cost:** Learn the underlying mathematical structure. Hard. Requires finding efficient representations.'
+        ]
+      },
+      {
+        type: 'paragraph',
+        text: 'So the network takes the easy path first. It memorizes.'
+      },
+      {
+        type: 'paragraph',
+        text: 'But as training continues, something shifts. The regularization (weight decay, dropout, etc.) starts to penalize overfitting. Suddenly, the low-loss path is no longer memorization — it\'s generalization. The network **switches strategies**.'
+      },
+      {
+        type: 'callout',
+        emoji: '⚡',
+        text: 'Grokking is a **phase transition** where the optimal strategy flips from memorization to generalization. When it flips, the model suddenly learns the rule.'
+      },
+      {
+        type: 'h2',
+        text: 'What\'s Actually Happening Inside the Network?'
+      },
+      {
+        type: 'h3',
+        text: 'Before Grokking (Memorization Phase)'
+      },
+      {
+        type: 'paragraph',
+        text: 'The network stores examples as scattered points in its hidden representation space. Each example gets a unique encoding. There\'s no pattern — just a lookup table.'
+      },
+      {
+        type: 'h3',
+        text: 'After Grokking (Generalization Phase)'
+      },
+      {
+        type: 'paragraph',
+        text: 'The network reorganizes. It learns to represent numbers on a **circle** (since mod 113 wraps around). Addition becomes **rotation** on that circle.'
+      },
+      {
+        type: 'paragraph',
+        text: 'Now the hidden representation is clean and structured. The same mechanism that worked for (70, 50) automatically works for (3, 15) or any other pair.'
+      },
+      {
+        type: 'paragraph',
+        text: 'This reorganization doesn\'t happen gradually. The network suddenly finds this structure and switches to it. That\'s the "grok" moment.'
+      },
+      {
+        type: 'h2',
+        text: 'Why Does This Matter for Interviews?'
+      },
+      {
+        type: 'h3',
+        text: 'The Interview Setup'
+      },
+      {
+        type: 'paragraph',
+        text: 'Google DeepMind asks: "A small model trained on modular addition first memorizes examples, then suddenly learns the rule. What method did it actually learn?"'
+      },
+      {
+        type: 'h3',
+        text: 'What They\'re Testing'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Do you understand the difference between memorization and generalization?',
+          'Do you know what grokking is?',
+          'Can you explain why phase transitions happen in learning?',
+          'Do you think about computational efficiency in learning?'
+        ]
+      },
+      {
+        type: 'h3',
+        text: 'The Right Answer'
+      },
+      {
+        type: 'paragraph',
+        text: '"The model initially memorizes the training examples. This is a low-complexity solution — just store a lookup table. But as training continues with regularization, memorization becomes more expensive than learning the actual rule.'
+      },
+      {
+        type: 'paragraph',
+        text: 'At some point, there\'s a phase transition. The network switches strategies and learns modular arithmetic — it represents numbers on a circle and addition as rotation. This is the grok moment. Once learned, the same mechanism generalizes to unseen examples."'
+      },
+      {
+        type: 'paragraph',
+        text: '**Why this answer works:** You show deep understanding. You mention memorization vs. generalization. You explain the phase transition. You describe what the learned representation actually is.'
+      },
+      {
+        type: 'h2',
+        text: 'The Deeper Pattern: Why This Happens in Many Domains'
+      },
+      {
+        type: 'paragraph',
+        text: 'Grokking isn\'t unique to modular arithmetic. It happens in:'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '**Modular arithmetic:** Addition, multiplication, XOR',
+          '**Algorithmic tasks:** Sorting, reversing sequences, finding paths',
+          '**Code:** Models that suddenly learn to generate correct code after memorizing patterns',
+          '**Language:** Models that memorize training examples then generalize to language rules'
+        ]
+      },
+      {
+        type: 'paragraph',
+        text: 'The pattern is consistent: memorize first, generalize later. The question is: why do most models *not* grok? Why don\'t they discover the rule?'
+      },
+      {
+        type: 'h2',
+        text: 'When Does Grokking Fail?'
+      },
+      {
+        type: 'paragraph',
+        text: 'Grokking requires specific conditions:'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '**Strong regularization:** Weight decay, dropout. Must penalize memorization.',
+          '**Small model:** Too big, it can memorize everything forever.',
+          '**Simple rule:** The rule must be learnable. Random data won\'t grok.',
+          '**Enough data:** The model must see enough examples to realize there\'s a pattern.',
+          '**Long training:** You can\'t stop at 50% test accuracy. Must train past memorization.'
+        ]
+      },
+      {
+        type: 'paragraph',
+        text: 'Most real-world models don\'t grok because one of these is missing. Usually: not enough regularization, model too big, or we stop training too early.'
+      },
+      {
+        type: 'h2',
+        text: 'The Key Insight: Efficiency vs. Accuracy'
+      },
+      {
+        type: 'callout',
+        emoji: '🎯',
+        text: 'Grokking reveals a fundamental truth: **neural networks are lazy**. They take the most efficient path to low loss. Early on, that\'s memorization. Later, when regularization makes memorization expensive, it\'s generalization. The network isn\'t "trying" to understand — it\'s just finding the most efficient solution at each point in training.'
+      },
+      {
+        type: 'h2',
+        text: 'One More Thing: Why This Matters for Production'
+      },
+      {
+        type: 'paragraph',
+        text: 'If models can memorize instead of learn, how do we know our production model actually learned the rule? What if it just memorized the training distribution?'
+      },
+      {
+        type: 'paragraph',
+        text: 'This is why evaluation on held-out test sets is critical. And why we need diverse, non-trivial test cases. A model that "learned" on 50 examples might just be memorizing.'
+      },
+      {
+        type: 'paragraph',
+        text: 'Grokking teaches us: **don\'t trust training accuracy. Trust test accuracy, and trust it on data the model has never seen.**'
+      }
+    ]
+  },
+  {
+    slug: 'sliding-window-cache-gibberish',
+    title: 'Fine for an Hour, Then Gibberish: Fixing the Sliding Window KV Cache Problem',
+    subtitle: 'An Anthropic interview question: Your chatbot keeps only the last 4,000 tokens in KV cache. After an hour, it outputs gibberish. What\'s the cheapest fix?',
+    date: 'November 21, 2026',
+    readTime: '12 min read',
+    tags: ['LLM Inference', 'Production Systems', 'Memory Optimization', 'Interview Prep'],
+    coverEmoji: '💬',
+    content: [
+      {
+        type: 'h2',
+        text: 'The Problem: Why the Bot Goes Crazy After an Hour'
+      },
+      {
+        type: 'paragraph',
+        text: 'You\'ve deployed a chatbot to save money on inference. Memory is expensive, so you use a **sliding window**: keep only the last 4,000 tokens in the KV cache. Anything older gets deleted.'
+      },
+      {
+        type: 'paragraph',
+        text: 'The first hour works great. The user chats, the bot responds coherently. Then, around the 1-hour mark (roughly 4,000 tokens of conversation), something breaks. The bot starts hallucinating. It repeats itself. It forgets what the user asked. It outputs gibberish.'
+      },
+      {
+        type: 'paragraph',
+        text: 'The user is confused. The bot was fine a minute ago. What happened?'
+      },
+      {
+        type: 'callout',
+        emoji: '🔍',
+        text: 'The bot didn\'t break. The window closed. The model just lost access to everything before the last 4,000 tokens — including the original context and instructions.'
+      },
+      {
+        type: 'h2',
+        text: 'First Principles: What Does the Model Actually Need?'
+      },
+      {
+        type: 'paragraph',
+        text: 'Here\'s what a language model uses when it generates a response:'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '**System prompt** (first ~50-100 tokens): "You are a helpful assistant that..."',
+          '**Conversation history** (most recent ~3,900 tokens): The back-and-forth with the user',
+          '**Current query** (last ~100 tokens): What the user just asked'
+        ]
+      },
+      {
+        type: 'paragraph',
+        text: 'When you use a 4,000-token sliding window, you keep the most recent 4,000 tokens. That includes the conversation history and current query. But what gets dropped? The **system prompt**.'
+      },
+      {
+        type: 'paragraph',
+        text: 'Without the system prompt, the model has no instructions. It doesn\'t know it\'s supposed to be helpful. It doesn\'t know the context of the conversation. It just sees a stream of recent tokens and starts predicting the next token based on whatever pattern it finds. Result: gibberish.'
+      },
+      {
+        type: 'h2',
+        text: 'The Interview Question: Which Option is Cheapest?'
+      },
+      {
+        type: 'paragraph',
+        text: 'You\'re given four options. Pick the cheapest fix:'
+      },
+      {
+        type: 'h3',
+        text: 'Option 1: Double the Window (8,000 tokens)'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '**Cost:** Doubles KV cache memory. 2x more GPU RAM per conversation.',
+          '**Benefit:** Keeps more context. Probably fixes the gibberish.',
+          '**Reality:** Expensive. Not the answer they\'re looking for.'
+        ]
+      },
+      {
+        type: 'h3',
+        text: 'Option 2: Turn Down Temperature'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '**Cost:** None. Just change a hyperparameter.',
+          '**Benefit:** Makes the model more deterministic. Less random generation.',
+          '**Reality:** Doesn\'t fix the actual problem. The model still lacks context. Lower temperature might make it repeat more, not less.'
+        ]
+      },
+      {
+        type: 'h3',
+        text: 'Option 3: Always Keep the First 4 Tokens'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '**Cost:** Minimal. Use 3,996 tokens for recent context, reserve 4 for system prompt.',
+          '**Benefit:** System prompt stays. Model has instructions.',
+          '**Reality:** Cheap and fixes the problem. This is probably the answer.'
+        ]
+      },
+      {
+        type: 'h3',
+        text: 'Option 4: Wipe and Start Fresh'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '**Cost:** None. Just clear the cache.',
+          '**Benefit:** No memory waste.',
+          '**Reality:** Loses the entire conversation. User starts over. Terrible UX.'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'The Right Answer and Why'
+      },
+      {
+        type: 'paragraph',
+        text: '**Option 3: Always keep the first 4 tokens.**'
+      },
+      {
+        type: 'paragraph',
+        text: 'Here\'s the reasoning:'
+      },
+      {
+        type: 'list',
+        ordered: true,
+        items: [
+          'The system prompt is the foundation. Without it, the model has no instructions.',
+          'The first 4 tokens typically contain the most important context (e.g., "You are a helpful assistant that always...").',
+          'You sacrifice only 4 tokens of recent context (out of 4,000), which is negligible.',
+          'Cost is zero — you\'re just reorganizing which tokens you keep.',
+          'It fixes the gibberish problem immediately.'
+        ]
+      },
+      {
+        type: 'callout',
+        emoji: '💡',
+        text: 'The key insight: **Not all tokens are equally valuable.** The first few tokens (system prompt) matter more than the 4,001st token of conversation. A smart cache manager prioritizes based on importance, not recency.'
+      },
+      {
+        type: 'h2',
+        text: 'What This Reveals About Optimization'
+      },
+      {
+        type: 'paragraph',
+        text: 'This question tests whether you understand:'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '**Token importance isn\'t uniform** — System prompt > recent context > old context',
+          '**Context windows are a tradeoff** — You can\'t keep everything. Choose wisely.',
+          '**Cheap fixes often exist** — Before you buy more hardware, restructure the problem.',
+          '**The model\'s perspective matters** — What does it *need* to function? Not what\'s most recent.'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'The Production Reality'
+      },
+      {
+        type: 'paragraph',
+        text: 'In real systems, companies do something smarter:'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '**Always keep system prompt** (first 100 tokens)',
+          '**Prioritize recent conversation** (last 3,500 tokens)',
+          '**Use summarization for older context** (summarize older turns into 400 tokens of summary)',
+          '**Keep important tokens** (if user mentions a name, pin it to the cache)'
+        ]
+      },
+      {
+        type: 'paragraph',
+        text: 'This is called **smart cache management** or **importance-weighted caching**. It\'s more complex than a simple sliding window, but it handles long conversations without gibberish.'
+      },
+      {
+        type: 'h2',
+        text: 'What If You Had to Pick Between the Other Three?'
+      },
+      {
+        type: 'paragraph',
+        text: 'If Option 3 wasn\'t available, the ranking would be:'
+      },
+      {
+        type: 'list',
+        ordered: true,
+        items: [
+          '**Option 1 (Double window):** Most expensive but definitely works.',
+          '**Option 2 (Lower temperature):** Doesn\'t fix the problem but doesn\'t hurt.',
+          '**Option 4 (Wipe cache):** Worst UX. Loses conversation.'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'The Interview Answer'
+      },
+      {
+        type: 'paragraph',
+        text: '"The issue is that the sliding window is dropping the system prompt. After 4,000 tokens, the model loses its instructions and context, so it starts generating gibberish."'
+      },
+      {
+        type: 'paragraph',
+        text: '"The cheapest fix is Option 3: always keep the first 4 tokens (or first 100, depending on your system prompt size). You sacrifice negligible recent context but keep the instructions. This costs nothing and fixes the problem immediately."'
+      },
+      {
+        type: 'paragraph',
+        text: '"In production, you\'d go further: use smart cache management. Rank tokens by importance — system prompt, then recent conversation, then older context. Use summarization for history beyond the window. This lets you support multi-hour conversations without gibberish."'
+      },
+      {
+        type: 'paragraph',
+        text: '**Why this answer works:** You identify the root cause. You pick the cheapest option and explain why. You show you\'ve thought about the production system.'
+      },
+      {
+        type: 'h2',
+        text: 'One More Thing: The Generalization'
+      },
+      {
+        type: 'callout',
+        emoji: '🎯',
+        text: 'This isn\'t just about KV cache. It\'s about **constraint satisfaction and optimization**. When you\'re limited by memory, compute, or latency, the first question is: what\'s essential? Then you protect that. Everything else is negotiable. The engineers who think this way build robust systems.'
+      }
+    ]
+  },
+  {
+    slug: 'attention-scaling-sqrt-d',
+    title: 'Why Divide by √d? The Scaling Factor in Transformer Attention',
+    subtitle: 'A Mistral interview question: Why is there a √d in attention? To add weights to one, prevent saturation, save compute, or normalize the query?',
+    date: 'November 21, 2026',
+    readTime: '11 min read',
+    tags: ['Transformers', 'Attention Mechanism', 'Neural Networks', 'Interview Prep'],
+    coverEmoji: '📐',
+    content: [
+      {
+        type: 'h2',
+        text: 'The Setup: One Word, Four Answers'
+      },
+      {
+        type: 'paragraph',
+        text: 'The attention mechanism in transformers looks like this:'
+      },
+      {
+        type: 'math',
+        text: 'Attention(Q, K, V) = softmax(\\frac{QK^T}{\\sqrt{d}}) V'
+      },
+      {
+        type: 'paragraph',
+        text: 'That `√d` in the denominator is in every transformer. Every BERT, GPT, Llama. It\'s one of the most important constants in modern AI, and most people have no idea why it\'s there.'
+      },
+      {
+        type: 'paragraph',
+        text: 'The interview question: Why?'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'A) To make the attention weights add up to one',
+          'B) To keep the softmax from saturating',
+          'C) To save compute',
+          'D) To normalize the query'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'First Principles: What is QK^T Actually Computing?'
+      },
+      {
+        type: 'paragraph',
+        text: 'Let\'s say you have a word "it" and you want to know which other words to pay attention to. You compute:'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Q = query vector for "it" (d dimensions)',
+          'K = key vectors for all other words (each d dimensions)',
+          'QK^T = dot product between "it"\'s query and each word\'s key'
+        ]
+      },
+      {
+        type: 'paragraph',
+        text: 'The dot product tells you: how similar is "it"\'s query to each word\'s key? Bigger dot product = more similar = pay more attention.'
+      },
+      {
+        type: 'h3',
+        text: 'The Problem: What if d is Large?'
+      },
+      {
+        type: 'paragraph',
+        text: 'Here\'s the issue. Each element of Q and K is a random number (from initialization). Let\'s say they\'re drawn from a standard normal distribution (mean 0, variance 1).'
+      },
+      {
+        type: 'paragraph',
+        text: 'The dot product QK^T = sum of d products (q_i × k_i). What\'s the variance of this sum?'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Each product q_i × k_i has variance 1 (since both q_i and k_i have variance 1)',
+          'The sum of d independent products has variance d',
+          'So QK^T has variance d'
+        ]
+      },
+      {
+        type: 'paragraph',
+        text: 'If d = 512 (common in transformers), the variance of QK^T is 512. The dot products are HUGE.'
+      },
+      {
+        type: 'h2',
+        text: 'Now What Happens in Softmax?'
+      },
+      {
+        type: 'paragraph',
+        text: 'Softmax takes these huge values and squashes them into probabilities:'
+      },
+      {
+        type: 'math',
+        text: 'softmax(x) = \\frac{e^x}{\\sum e^x}'
+      },
+      {
+        type: 'paragraph',
+        text: 'If your x values are huge (say, 50), then e^50 is astronomically large. e^100 is even bigger. The softmax saturates — it assigns nearly all attention to whichever token has the largest dot product, and 0.000001% to everything else.'
+      },
+      {
+        type: 'paragraph',
+        text: 'This is **softmax saturation**. The gradient of softmax becomes tiny (nearly zero) for all but one attention head. During backprop, almost no gradient flows through. Learning stops.'
+      },
+      {
+        type: 'h2',
+        text: 'The Solution: Divide by √d'
+      },
+      {
+        type: 'paragraph',
+        text: 'If we divide QK^T by √d:'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'QK^T has variance d',
+          'QK^T / √d has variance d / d = 1',
+          'Now the dot products are reasonable-sized (around 0, with standard deviation ~1)',
+          'Softmax doesn\'t saturate — it spreads attention across multiple tokens'
+        ]
+      },
+      {
+        type: 'paragraph',
+        text: 'The gradient stays reasonable. Learning works.'
+      },
+      {
+        type: 'callout',
+        emoji: '💡',
+        text: 'The √d factor is a **variance stabilizer**. It keeps the dot products at a reasonable scale so softmax doesn\'t collapse.'
+      },
+      {
+        type: 'h2',
+        text: 'Now Answer Each Option'
+      },
+      {
+        type: 'h3',
+        text: 'Option A: To make weights add to one'
+      },
+      {
+        type: 'paragraph',
+        text: '**Wrong.** Softmax already makes weights add to one, regardless of the input scale. Softmax is designed to do that.'
+      },
+      {
+        type: 'h3',
+        text: 'Option B: To keep softmax from saturating'
+      },
+      {
+        type: 'paragraph',
+        text: '**Correct!** This is the core reason. By scaling QK^T, we prevent softmax inputs from exploding, which prevents saturation and keeps gradients flowing.'
+      },
+      {
+        type: 'h3',
+        text: 'Option C: To save compute'
+      },
+      {
+        type: 'paragraph',
+        text: '**Wrong.** Division by √d is cheap. It\'s a single scalar operation. It doesn\'t save compute compared to any alternative.'
+      },
+      {
+        type: 'h3',
+        text: 'Option D: To normalize the query'
+      },
+      {
+        type: 'paragraph',
+        text: '**Misleading.** It technically normalizes the dot product, but the reason is to stabilize variance, not to normalize Q itself.'
+      },
+      {
+        type: 'h2',
+        text: 'The Deeper Pattern: Why √d and Not Just d?'
+      },
+      {
+        type: 'paragraph',
+        text: 'You might ask: why divide by √d and not by d? Let\'s think about it.'
+      },
+      {
+        type: 'paragraph',
+        text: 'If you divide by d:'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'QK^T / d has variance d / d^2 = 1/d',
+          'The dot products become too small',
+          'Softmax becomes nearly uniform (all tokens get equal attention)',
+          'The model loses the ability to discriminate between relevant and irrelevant tokens'
+        ]
+      },
+      {
+        type: 'paragraph',
+        text: 'If you divide by √d:'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'QK^T / √d has variance d / d = 1',
+          'Dot products are reasonable-sized',
+          'Softmax spreads attention meaningfully',
+          'The model can attend to relevant tokens while ignoring irrelevant ones'
+        ]
+      },
+      {
+        type: 'paragraph',
+        text: '√d is the **sweet spot**. It keeps variance at 1.'
+      },
+      {
+        type: 'h2',
+        text: 'Connecting Back to the Interview'
+      },
+      {
+        type: 'paragraph',
+        text: 'The interviewer wants to see:'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Do you understand dot products and their variance?',
+          'Do you know what softmax saturation is?',
+          'Can you reason about why scaling matters?',
+          'Do you think about gradients and learning?'
+        ]
+      },
+      {
+        type: 'paragraph',
+        text: 'The right answer:'
+      },
+      {
+        type: 'paragraph',
+        text: '"When you compute QK^T, the dot products have variance proportional to d. Without scaling, these become huge, and softmax saturates — all attention goes to one token, and gradients become nearly zero."'
+      },
+      {
+        type: 'paragraph',
+        text: '"By dividing by √d, we normalize the variance back to 1. Softmax becomes well-behaved, gradients flow smoothly, and the model can learn which tokens to attend to. If we divided by d instead, the dot products would be too small and softmax would be nearly uniform."'
+      },
+      {
+        type: 'h2',
+        text: 'One More Thing: Why This Matters for Production'
+      },
+      {
+        type: 'paragraph',
+        text: 'If someone accidentally removed the √d scaling from your attention code, you\'d see:'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Training loss stays high (gradients aren\'t flowing)',
+          'Model doesn\'t learn properly',
+          'If trained long enough, model might learn to output the same token repeatedly'
+        ]
+      },
+      {
+        type: 'paragraph',
+        text: 'This is a silent bug. The code runs. It doesn\'t crash. It just doesn\'t learn. This is why constants like √d, in activation functions, in initialization schemes — they matter. They\'re not arbitrary. They\'re the difference between a learning model and a broken one.'
+      },
+      {
+        type: 'callout',
+        emoji: '🎯',
+        text: 'Master the constants. They\'re not in the textbooks for show. They\'re there because someone discovered them through failed experiments and careful math. Understanding *why* they exist is what separates ML engineers from copy-paste practitioners.'
+      }
+    ]
+  },
+  {
+    slug: 'emergence-bump-loss-curve',
+    title: 'The Bump in the Loss Curve: When In-Context Learning Emerges',
+    subtitle: 'An OpenAI interview question: During training, the loss suddenly bumps. What formed inside the model at that exact moment?',
+    date: 'November 21, 2026',
+    readTime: '12 min read',
+    tags: ['Transformers', 'Emergence', 'In-Context Learning', 'Interview Prep'],
+    coverEmoji: '📈',
+    content: [
+      {
+        type: 'h2',
+        text: 'The Observation: The Loss Curve Tells a Story'
+      },
+      {
+        type: 'paragraph',
+        text: 'You\'re training a small transformer on a few billion tokens. You plot the loss. For the first few million tokens, it falls smoothly and predictably. The model is learning steadily.'
+      },
+      {
+        type: 'paragraph',
+        text: 'Then, around token 2 billion, something strange happens. The loss curve, which has been smooth and decreasing, suddenly bumps **upward** for a moment. It\'s a small bump — maybe the loss goes from 0.50 to 0.52 and back down to 0.49. But it\'s there.'
+      },
+      {
+        type: 'paragraph',
+        text: 'What just happened? The loss got worse for a moment. But the model is bigger, more trained. It should only get better.'
+      },
+      {
+        type: 'paragraph',
+        text: 'The interview question: **What formed inside the model at that bump?**'
+      },
+      {
+        type: 'callout',
+        emoji: '🤔',
+        text: 'This isn\'t a gotcha question. There\'s a real answer. And it reveals something fundamental about how neural networks learn.'
+      },
+      {
+        type: 'h2',
+        text: 'First Principles: What Does a Loss Bump Mean?'
+      },
+      {
+        type: 'paragraph',
+        text: 'If loss goes up, it means predictions got worse. How can that happen when you\'re still training? You\'re using gradient descent — every step should decrease (or at least not increase) the loss.'
+      },
+      {
+        type: 'paragraph',
+        text: 'Unless... the model is **reorganizing**.'
+      },
+      {
+        type: 'paragraph',
+        text: 'Here\'s the key insight: a neural network can solve the same problem in many different ways. Early in training, it finds one solution. It\'s efficient for the current data. But as training continues and the model sees more patterns, it discovers a better solution. To switch strategies, it has to temporarily get worse before it gets better.'
+      },
+      {
+        type: 'paragraph',
+        text: 'This is called a **phase transition** in the loss curve.'
+      },
+      {
+        type: 'h2',
+        text: 'What\'s the Model Learning: Pre-Training vs. In-Context Learning'
+      },
+      {
+        type: 'paragraph',
+        text: 'Early in training, the model learns **pre-training knowledge**. It learns grammar, facts, reasoning. It internalizes patterns from the training data.'
+      },
+      {
+        type: 'paragraph',
+        text: 'But there\'s another way to predict the next token: **look at the context window and learn from it on the fly**. If you see the pattern "apple is red. orange is ___", you can infer the answer by learning the pattern within the context, not from pre-training knowledge.'
+      },
+      {
+        type: 'paragraph',
+        text: 'This is **in-context learning** (also called **meta-learning**). The model learns to learn.'
+      },
+      {
+        type: 'h2',
+        text: 'The Bump: The Birth of In-Context Learning'
+      },
+      {
+        type: 'paragraph',
+        text: 'The bump in the loss curve marks the moment when in-context learning emerges.'
+      },
+      {
+        type: 'paragraph',
+        text: 'Here\'s what happens:'
+      },
+      {
+        type: 'list',
+        ordered: true,
+        items: [
+          'Early training: The model uses pre-training knowledge only. Loss decreases smoothly.',
+          'At the bump: The model discovers it can do better by learning from the context window. It starts building mechanisms for in-context learning.',
+          'During reorganization: The model is half-using pre-training knowledge, half-using in-context learning. Neither is perfect yet. Loss temporarily increases.',
+          'After the bump: In-context learning is now strong. Combined with pre-training knowledge, the model is more powerful. Loss drops below the pre-bump level.'
+        ]
+      },
+      {
+        type: 'paragraph',
+        text: 'The bump is temporary. It\'s the growing pain of learning a new capability.'
+      },
+      {
+        type: 'callout',
+        emoji: '💡',
+        text: 'The bump marks the **emergence of in-context learning**. The model developed the ability to look at patterns in the context and predict based on those patterns, not just on pre-trained knowledge.'
+      },
+      {
+        type: 'h2',
+        text: 'What Actually Forms Inside the Model?'
+      },
+      {
+        type: 'paragraph',
+        text: 'If you could peer inside the model at the bump, what would you see?'
+      },
+      {
+        type: 'h3',
+        text: 'Mechanically: Attention Patterns Change'
+      },
+      {
+        type: 'paragraph',
+        text: 'The model develops attention heads that look backward in the context window. These heads learn to:'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Identify repeated patterns (e.g., "apple is red. orange is ___")',
+          'Look for the most recent occurrence of a similar pattern',
+          'Copy the structure from the similar pattern to predict the next token'
+        ]
+      },
+      {
+        type: 'paragraph',
+        text: 'This is **pattern matching in the context window**. The model learns to attend to tokens that are relevant to predicting the next token, based on patterns in the current conversation.'
+      },
+      {
+        type: 'h3',
+        text: 'Representationally: Shared Structure'
+      },
+      {
+        type: 'paragraph',
+        text: 'The model develops representations where tokens with similar roles (e.g., "apple" and "orange" in the same context) are encoded similarly. This allows the model to generalize across tokens and patterns.'
+      },
+      {
+        type: 'h3',
+        text: 'Algorithmically: A Learner Inside a Learner'
+      },
+      {
+        type: 'paragraph',
+        text: 'The model develops something resembling a gradient descent step inside its forward pass. By looking at the context, it adjusts its predictions as if it\'s doing backprop, but all within a single forward pass. This is the core of in-context learning.'
+      },
+      {
+        type: 'h2',
+        text: 'Why Does This Bump Happen?'
+      },
+      {
+        type: 'paragraph',
+        text: 'You might ask: why isn\'t the transition smooth? Why is there a bump?'
+      },
+      {
+        type: 'paragraph',
+        text: 'Because the two strategies (pre-training knowledge vs. in-context learning) are not perfectly compatible early on. When the model starts learning in-context learning, it interferes with its pre-training knowledge. Predictions get worse for a moment.'
+      },
+      {
+        type: 'paragraph',
+        text: 'But in-context learning is so powerful that it quickly dominates. The model learns to combine both strategies optimally. After the bump, the model is better than before because it now has both.'
+      },
+      {
+        type: 'h2',
+        text: 'The Interview Answer'
+      },
+      {
+        type: 'paragraph',
+        text: '"The bump marks the emergence of in-context learning. Early in training, the model uses pre-training knowledge to predict the next token. But it discovers it can do better by learning from patterns in the context window."'
+      },
+      {
+        type: 'paragraph',
+        text: '"When this capability starts to emerge, the two strategies temporarily interfere with each other — the model is half-committed to both. Loss goes up for a moment. But in-context learning is powerful enough that it quickly takes over and combines with pre-training knowledge, resulting in lower loss than before."'
+      },
+      {
+        type: 'paragraph',
+        text: '"Mechanically, what forms is a set of attention patterns and representations that allow the model to identify patterns in the context and use them for prediction — a form of meta-learning happening inside the forward pass."'
+      },
+      {
+        type: 'h2',
+        text: 'Why This Matters'
+      },
+      {
+        type: 'paragraph',
+        text: 'Understanding the bump teaches you:'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Neural networks learn multiple strategies, not just one',
+          'Phase transitions in loss curves aren\'t failures — they\'re moments of reorganization',
+          'In-context learning is a capability that *emerges* during training, not built in',
+          'You can read a loss curve like a historian reads a timeline'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'One More Thing: Why This Bump Might Disappear'
+      },
+      {
+        type: 'paragraph',
+        text: 'If you train longer or on more data, the bump might smooth out or disappear. With enough training, the model learns to blend pre-training and in-context learning so smoothly that there\'s no temporary loss increase.'
+      },
+      {
+        type: 'paragraph',
+        text: 'This is why large models don\'t show obvious bumps — they\'ve learned to orchestrate multiple strategies seamlessly. But small models, trained on limited data, often show clear phase transitions. The bump is a window into how learning actually works.'
+      },
+      {
+        type: 'callout',
+        emoji: '🎯',
+        text: 'The bump is a gift. It shows you that something new formed. If you can recognize these moments in a loss curve, you\'re reading the model\'s learning trajectory. That\'s the mindset of someone who truly understands deep learning.'
+      }
+    ]
+  },
+  {
+    slug: 'moe-sparse-activation',
+    title: 'Mixture of Experts: 47B Parameters, 13B Speed — Where\'s the Trick?',
+    subtitle: 'An NVIDIA interview question: Mixtral 8x7B has 47 billion parameters but runs at 13B speed. How? The answer is sparse activation and conditional computation.',
+    date: 'November 21, 2026',
+    readTime: '12 min read',
+    tags: ['Model Architecture', 'Inference Optimization', 'Mixture of Experts', 'Interview Prep'],
+    coverEmoji: '⚡',
+    content: [
+      {
+        type: 'h2',
+        text: 'The Puzzle: More Parameters, Same Speed?'
+      },
+      {
+        type: 'paragraph',
+        text: 'Mistral AI released Mixtral 8x7B. The name tells you the structure: 8 experts, each with 7 billion parameters.'
+      },
+      {
+        type: 'paragraph',
+        text: '8 × 7B = 56B parameters? Wait, they say 47B. Close enough for this discussion. The point: **lots of parameters**.'
+      },
+      {
+        type: 'paragraph',
+        text: 'But here\'s the trick: it runs at the speed of a 13B model. Not a 47B model. A 13B model.'
+      },
+      {
+        type: 'paragraph',
+        text: 'Inference cost is usually proportional to active parameters. If Mixtral has 47B parameters but runs at 13B speed, that means only ~13B parameters are active per token.'
+      },
+      {
+        type: 'paragraph',
+        text: 'The interview question: **Where does the saving come from? How do you have 47B parameters but only use 13B?**'
+      },
+      {
+        type: 'callout',
+        emoji: '🤔',
+        text: 'This isn\'t a trick. It\'s a real architectural pattern called Mixture of Experts (MoE). And it\'s one of the most important scaling techniques in modern LLMs.'
+      },
+      {
+        type: 'h2',
+        text: 'First Principles: What\'s a Traditional Transformer?'
+      },
+      {
+        type: 'paragraph',
+        text: 'In a standard transformer (like GPT-3 or Llama), every token flows through **every** parameter in **every** layer.'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Input token → layer 1 (use all parameters) → layer 2 (use all parameters) → ... → layer 32 (use all parameters) → output'
+        ]
+      },
+      {
+        type: 'paragraph',
+        text: 'If the model has 47B parameters, every single token activates all 47B parameters. Cost is proportional to 47B.'
+      },
+      {
+        type: 'h2',
+        text: 'The MoE Idea: Use Only Some Experts'
+      },
+      {
+        type: 'paragraph',
+        text: 'What if, in each layer, instead of one big feedforward network, you have **multiple smaller networks (experts)**?'
+      },
+      {
+        type: 'paragraph',
+        text: 'And instead of using all of them, you have a **router** that picks which ones to use for each token?'
+      },
+      {
+        type: 'paragraph',
+        text: 'That\'s MoE.'
+      },
+      {
+        type: 'h3',
+        text: 'Mixtral\'s Structure'
+      },
+      {
+        type: 'paragraph',
+        text: 'In each of Mixtral\'s 32 layers:'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'There are 8 experts (feedforward networks), each ~7B parameters',
+          'There\'s a router that looks at the token and decides: "I need experts 2 and 5 for this token"',
+          'The token only flows through experts 2 and 5',
+          'The output of both experts is combined'
+        ]
+      },
+      {
+        type: 'paragraph',
+        text: 'Result: for each token, only 2 out of 8 experts are active. That\'s 2/8 = 25% of the parameters.'
+      },
+      {
+        type: 'h2',
+        text: 'The Math: Why 13B Speed?'
+      },
+      {
+        type: 'paragraph',
+        text: 'Total parameters: 8 experts × 7B = 56B (approximately 47B after accounting for other layers)'
+      },
+      {
+        type: 'paragraph',
+        text: 'Active parameters per token: 2 experts × 7B = 14B'
+      },
+      {
+        type: 'paragraph',
+        text: 'So inference cost is proportional to 13-14B, not 47B.'
+      },
+      {
+        type: 'paragraph',
+        text: 'This is called **sparse activation** or **conditional computation**. You activate only a subset of parameters per token.'
+      },
+      {
+        type: 'h2',
+        text: 'The Router: How Does It Decide?'
+      },
+      {
+        type: 'paragraph',
+        text: 'The router is a simple neural network:'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Input: the token\'s embedding (d dimensions)',
+          'Output: a probability distribution over 8 experts',
+          'Decision: pick the top-k experts (usually k=2)'
+        ]
+      },
+      {
+        type: 'paragraph',
+        text: 'Example: for the token "apple", the router might output: [0.7, 0.2, 0.05, ...]'
+      },
+      {
+        type: 'paragraph',
+        text: 'It picks experts 1 (prob 0.7) and 2 (prob 0.2). Only these two process the token.'
+      },
+      {
+        type: 'h2',
+        text: 'The Tradeoff: Why Not Just Use a 13B Model?'
+      },
+      {
+        type: 'paragraph',
+        text: 'If Mixtral 8x7B runs at 13B speed, why not just use a 13B model? Three reasons:'
+      },
+      {
+        type: 'h3',
+        text: 'Reason 1: Specialization'
+      },
+      {
+        type: 'paragraph',
+        text: 'The 8 experts can specialize. Expert 1 might become good at code, Expert 2 at math, Expert 3 at language. When you need code, the router picks Expert 1. This specialization is more powerful than a generalist 13B model.'
+      },
+      {
+        type: 'h3',
+        text: 'Reason 2: Capacity'
+      },
+      {
+        type: 'paragraph',
+        text: 'The model has 47B total capacity. It can represent more knowledge than a 13B model. This helps during training and can improve quality.'
+      },
+      {
+        type: 'h3',
+        text: 'Reason 3: Routing Flexibility'
+      },
+      {
+        type: 'paragraph',
+        text: 'Some tokens might route to different expert combinations. The model learns which experts are best for each type of token. A fixed 13B model can\'t do this.'
+      },
+      {
+        type: 'h2',
+        text: 'The Downside: Routing Overhead'
+      },
+      {
+        type: 'paragraph',
+        text: 'There\'s a cost: computing the router adds some overhead. And loading 8 experts into memory is harder than loading 1 big network.'
+      },
+      {
+        type: 'paragraph',
+        text: 'That\'s why MoE is typically used for large models. The expert specialization benefit has to outweigh the routing overhead.'
+      },
+      {
+        type: 'h2',
+        text: 'The Interview Answer'
+      },
+      {
+        type: 'paragraph',
+        text: '"Mixtral uses Mixture of Experts architecture. Instead of one big feedforward network in each layer, it has 8 experts. For each token, a router decides which 2 experts to use."'
+      },
+      {
+        type: 'paragraph',
+        text: '"So even though there are 47B total parameters, only ~13B are active per token. This is called sparse activation or conditional computation. The model has high capacity (47B) but low inference cost (13B speed)."'
+      },
+      {
+        type: 'paragraph',
+        text: '"The benefit over a 13B model is that the 8 experts can specialize. Expert 1 might be good at code, Expert 2 at reasoning, etc. The router learns which expert combinations work best for each token. This specialization is more powerful than a generalist 13B model."'
+      },
+      {
+        type: 'h2',
+        text: 'Production Considerations'
+      },
+      {
+        type: 'paragraph',
+        text: 'If you deploy Mixtral, you need to think about:'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '**Memory:** All 8 experts must fit in GPU memory. Even though only 2 are active, you can\'t unload the others.',
+          '**Latency:** Routing adds overhead. The inference might be faster (fewer active params) but not proportionally faster.',
+          '**Load balancing:** If the router always picks the same experts, they become bottlenecks. Good MoE requires balancing tokens across experts.',
+          '**Fine-tuning:** You need to be careful when fine-tuning MoE models. Experts can specialize in unexpected ways.'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Beyond Mixtral: Future of MoE'
+      },
+      {
+        type: 'paragraph',
+        text: 'MoE is becoming standard in large models:'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Google\'s Switch Transformers: One expert per token (even sparser)',
+          'OpenAI\'s GPT-4: Rumored to use MoE',
+          'Meta\'s Galactica: Tried MoE for science model',
+          'xAI\'s Grok: Uses MoE for efficiency'
+        ]
+      },
+      {
+        type: 'paragraph',
+        text: 'As models get larger, the capacity-to-compute ratio becomes critical. MoE is one of the best solutions we have.'
+      },
+      {
+        type: 'callout',
+        emoji: '🎯',
+        text: 'The key insight: **You can decouple capacity from compute cost.** This is transformative for scaling. It means you can build huge models that are still efficient to run. This is why MoE is becoming fundamental to modern LLM architecture.'
+      }
+    ]
+  },
+  {
+    slug: 'double-descent-spike',
+    title: 'Bigger Got Worse, Then Better: The Double Descent Phenomenon',
+    subtitle: 'A DeepSeek interview question: 10 training points from a smooth curve. Why does test error spike at model size 10, then improve again?',
+    date: 'November 21, 2026',
+    readTime: '13 min read',
+    tags: ['Generalization', 'Overfitting', 'Model Complexity', 'Interview Prep'],
+    coverEmoji: '📊',
+    content: [
+      {
+        type: 'h2',
+        text: 'The Setup: A Simple Experiment'
+      },
+      {
+        type: 'paragraph',
+        text: 'You have a simple task: fit a smooth curve. You generate 10 training points from a known smooth function, then add a little noise.'
+      },
+      {
+        type: 'paragraph',
+        text: 'You fit models of increasing complexity: linear (1 param), quadratic (2 params), cubic (3 params), ... up to degree-9 polynomial (10 params).'
+      },
+      {
+        type: 'paragraph',
+        text: 'You measure test error on new points sampled from the same distribution.'
+      },
+      {
+        type: 'paragraph',
+        text: 'You plot test error vs. model size. You expect the classic U-shape: error goes down (less bias), then up (more variance). The sweet spot is somewhere in the middle.'
+      },
+      {
+        type: 'paragraph',
+        text: 'But something strange happens. At model size 10 (the same as the number of training points), test error **spikes**. It gets much worse. The U-shape has a sharp peak.'
+      },
+      {
+        type: 'paragraph',
+        text: 'Then, beyond size 10, something miraculous happens. As you add even more parameters, test error **improves again**. It goes down.'
+      },
+      {
+        type: 'paragraph',
+        text: 'This is **double descent**. The error curve has two valleys and one peak in between. It looks like a W.'
+      },
+      {
+        type: 'callout',
+        emoji: '🌊',
+        text: 'This contradicts the textbook understanding of bias-variance tradeoff. It shouldn\'t happen. But it does. And understanding why is key to modern machine learning.'
+      },
+      {
+        type: 'h2',
+        text: 'First Part: The Classic U-Shape (Understanding Bias-Variance)'
+      },
+      {
+        type: 'paragraph',
+        text: 'From model size 1 to size 9, the error curve follows the textbook:'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '**Size 1 (linear):** High bias. The model is too simple. Can\'t fit the curve. Test error is high.',
+          '**Size 5 (quintic):** Better bias. The model can capture the curve better. Test error decreases.',
+          '**Size 9 (degree-9):** Lower bias. The model fits the training data well. Test error is decent.'
+        ]
+      },
+      {
+        type: 'paragraph',
+        text: 'This part makes sense. As you add complexity, bias decreases. Test error decreases.'
+      },
+      {
+        type: 'h2',
+        text: 'The Spike: What Happens at Model Size = Data Size?'
+      },
+      {
+        type: 'paragraph',
+        text: 'At model size 10 (10 parameters, 10 training points), something special happens.'
+      },
+      {
+        type: 'paragraph',
+        text: 'The model can now **exactly interpolate** the training data. It has just enough parameters to memorize every single training point, noise and all.'
+      },
+      {
+        type: 'paragraph',
+        text: 'Here\'s the problem: the training data includes noise. The model memorizes the noise. When you evaluate on test data (which comes from the true underlying function, not the noisy training data), the model fails catastrophically. It predicts noise that doesn\'t exist in the test set.'
+      },
+      {
+        type: 'paragraph',
+        text: 'This is **overfitting at the interpolation threshold**. The model has gone from "fits the curve" to "memorizes the data including noise". Test error spikes.'
+      },
+      {
+        type: 'h2',
+        text: 'The Second Valley: Bigger is Better (Overparameterization)'
+      },
+      {
+        type: 'paragraph',
+        text: 'Now here\'s the surprising part. Beyond size 10, something strange happens.'
+      },
+      {
+        type: 'paragraph',
+        text: 'You fit a model with size 20 (a 20th-degree polynomial). It has way more parameters than training points. It\'s even more overparameterized than the size-10 model.'
+      },
+      {
+        type: 'paragraph',
+        text: 'You\'d expect it to overfit even worse. But it doesn\'t. Test error **improves**. It\'s better than the size-10 model.'
+      },
+      {
+        type: 'paragraph',
+        text: 'What\'s happening?'
+      },
+      {
+        type: 'h3',
+        text: 'The Implicit Regularization Effect'
+      },
+      {
+        type: 'paragraph',
+        text: 'When a model is **highly overparameterized** (many more parameters than training points), something changes. The model still fits the training data perfectly, but it does so in a special way.'
+      },
+      {
+        type: 'paragraph',
+        text: 'Among all the infinitely many solutions that fit the training data, gradient descent finds the one with **minimal norm** (the "simplest" solution in terms of weight magnitude).'
+      },
+      {
+        type: 'paragraph',
+        text: 'This bias toward simple solutions acts like implicit regularization. The model fits the data, but doesn\'t memorize the noise aggressively. It finds a smooth solution that generalizes.'
+      },
+      {
+        type: 'h3',
+        text: 'The Harmonic Sweet Spot'
+      },
+      {
+        type: 'paragraph',
+        text: 'At model size 10 (equal to training size), the model is on a razor\'s edge. It\'s just complex enough to memorize noise, but not so overparameterized that implicit regularization kicks in.'
+      },
+      {
+        type: 'paragraph',
+        text: 'At model size 20 (twice the training size), the implicit regularization is strong. The model still fits the data perfectly, but prefers smooth fits. Test error improves.'
+      },
+      {
+        type: 'h2',
+        text: 'Visualizing Double Descent'
+      },
+      {
+        type: 'paragraph',
+        text: 'The error curve looks like:'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Size 1-9: Classic U-shape. Error decreases as model gets more complex.',
+          'Size 10: Spike. Interpolation threshold. Model memorizes noise.',
+          'Size 10+: Error decreases again. Implicit regularization kicks in. The more parameters, the smoother the solution.'
+        ]
+      },
+      {
+        type: 'paragraph',
+        text: 'The result: a W-shaped curve with two valleys.'
+      },
+      {
+        type: 'h2',
+        text: 'Why This Challenges Classical ML'
+      },
+      {
+        type: 'paragraph',
+        text: 'The textbook says: "More parameters = more variance = worse generalization. Use regularization to keep the model simple."'
+      },
+      {
+        type: 'paragraph',
+        text: 'Double descent says: "If you go way past the interpolation threshold, the model learns implicit regularization from gradient descent itself. More parameters can actually help."'
+      },
+      {
+        type: 'paragraph',
+        text: 'This explains why modern deep learning works: huge neural networks, millions of parameters, should memorize everything. But they don\'t. Implicit regularization saves them.'
+      },
+      {
+        type: 'h2',
+        text: 'The Interview Question: Why the Spike?'
+      },
+      {
+        type: 'paragraph',
+        text: '"At model size 10, the model has just enough capacity to perfectly fit the training data, including the noise. This is the interpolation threshold."'
+      },
+      {
+        type: 'paragraph',
+        text: '"Below size 10, the model is underfitting — it can\'t fit the data well, so bias dominates. Above size 10, the model is overparameterized — implicit regularization from gradient descent kicks in, and the model finds smooth solutions."'
+      },
+      {
+        type: 'paragraph',
+        text: '"At exactly size 10, there\'s no implicit regularization yet, but the model can memorize perfectly. This is the worst place to be. The model overfits aggressively to the noise in the training data, causing a spike in test error."'
+      },
+      {
+        type: 'paragraph',
+        text: '"Beyond size 10, the implicit regularization is strong enough to overcome the overfitting, so test error decreases again."'
+      },
+      {
+        type: 'h2',
+        text: 'Why This Matters for Modern ML'
+      },
+      {
+        type: 'paragraph',
+        text: 'Double descent explains several surprising phenomena:'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '**Large language models work:** They\'re highly overparameterized. By double descent logic, they should generalize well despite having way more parameters than training examples.',
+          '**Scaling laws are smooth:** As you scale models up, test loss decreases smoothly. This is consistent with the right side of the double descent curve.',
+          '**Deep learning is lucky:** We use huge models. By classical logic, they should overfit terribly. But implicit regularization saves us.'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'One More Thing: The Transition Matters'
+      },
+      {
+        type: 'paragraph',
+        text: 'The spike happens exactly at the interpolation threshold (model size = data size). This is a sharp phase transition in some settings, smoother in others (depending on data, initialization, optimization algorithm).'
+      },
+      {
+        type: 'paragraph',
+        text: 'Understanding this transition is crucial for practitioners: if you\'re in the spike region (model just barely big enough to fit the data), you\'re in trouble. Add regularization or more data to escape the spike. If you\'re far on the right (huge model), you\'re in implicit regularization territory. Scaling up helps.'
+      },
+      {
+        type: 'callout',
+        emoji: '🎯',
+        text: 'Double descent reveals a profound truth: the bias-variance tradeoff is not the full story. Beyond the interpolation threshold, the game changes. Bigger can be better. This is why modern deep learning scales. This is why your intuition from classical ML might fail on deep networks. Learn to recognize which regime you\'re in.'
       }
     ]
   },

@@ -1,10 +1,21 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { articles } from './articlesData';
 import './ArticlesList.css';
+import { FaSearch, FaTimes } from 'react-icons/fa';
 
 const ArticlesList: React.FC = () => {
   const navigate = useNavigate();
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const filteredArticles = articles.filter(article => {
+    const query = searchQuery.toLowerCase();
+    return (
+      article.title.toLowerCase().includes(query) ||
+      article.subtitle.toLowerCase().includes(query) ||
+      article.tags.some(tag => tag.toLowerCase().includes(query))
+    );
+  });
 
   return (
     <div className="articles-list-container">
@@ -13,11 +24,44 @@ const ArticlesList: React.FC = () => {
         <p className="articles-list-subtitle">
           Real questions from ML interviews at top AI companies — answered in depth, with intuition first and jargon second.
         </p>
-        <div className="articles-count">{articles.length} article{articles.length !== 1 ? 's' : ''}</div>
+
+        <div className="articles-search-container">
+          <div className="articles-search-input-wrapper">
+            <FaSearch className="articles-search-icon" />
+            <input
+              type="text"
+              placeholder="Search by title, topic, or tag..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="articles-search-input"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="articles-search-clear"
+                aria-label="Clear search"
+              >
+                <FaTimes />
+              </button>
+            )}
+          </div>
+        </div>
+
+        <div className="articles-count">
+          {filteredArticles.length} of {articles.length} article{filteredArticles.length !== 1 ? 's' : ''}
+        </div>
       </div>
 
       <div className="articles-feed">
-        {articles.map((article, index) => (
+        {filteredArticles.length === 0 ? (
+          <div className="articles-no-results">
+            <p>No articles found matching "{searchQuery}"</p>
+            <button onClick={() => setSearchQuery('')} className="articles-reset-btn">
+              Clear search
+            </button>
+          </div>
+        ) : (
+          filteredArticles.map((article, index) => (
           <article
             key={article.slug}
             className="article-preview-card"
@@ -42,7 +86,8 @@ const ArticlesList: React.FC = () => {
               </div>
             </div>
           </article>
-        ))}
+          ))
+        )}
       </div>
     </div>
   );
