@@ -30176,5 +30176,331 @@ WELLBEING METRICS (not engagement metrics):
       }
     ]
   },
+  {
+    slug: 'rag-20-documents-only-1-answer',
+    title: 'You Can\'t Change the Retriever: How to Make a 20-Document RAG Work',
+    subtitle: 'Retrieval returns 20 docs, 1 has the answer. Retriever is good (can\'t touch it). The LLM misses the answer. What would you change?',
+    date: 'November 21, 2026',
+    readTime: '13 min read',
+    tags: ['RAG', 'Retrieval', 'Prompt Engineering', 'Production Systems'],
+    coverEmoji: '📚',
+    content: [
+      {
+        type: 'h2',
+        text: 'The Problem: Good Retrieval, Bad LLM Utilization'
+      },
+      {
+        type: 'paragraph',
+        text: 'Your retrieval system is working. It returns 20 documents, and 1 of them definitely has the answer. But the LLM says "I don\'t know" or gives the wrong answer.'
+      },
+      {
+        type: 'paragraph',
+        text: 'The retriever is not the problem. The LLM is not reading the documents properly.'
+      },
+      {
+        type: 'h3',
+        text: 'Why This Happens'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '**Lost in the middle:** LLMs attend poorly to documents in the middle (positions 8-12 out of 20).',
+          '**Context window:** 20 docs are long. The answer gets buried in noise.',
+          '**No explicit instruction:** LLM doesn\'t know to cite or extract from documents.',
+          '**Token limit:** With 20 full documents, context is exhausted. LLM might hallucinate instead of searching.'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Solution 1: Reranking (The Silver Bullet)'
+      },
+      {
+        type: 'h3',
+        text: 'The Idea'
+      },
+      {
+        type: 'paragraph',
+        text: 'The retriever gives you 20 docs (ranked by its own score). But the retriever\'s ranking might not match what the LLM can actually use.'
+      },
+      {
+        type: 'paragraph',
+        text: 'Solution: Pass 20 docs through a **reranker** before giving to the LLM.'
+      },
+      {
+        type: 'h3',
+        text: 'How It Works'
+      },
+      {
+        type: 'list',
+        ordered: true,
+        items: [
+          'Retriever returns 20 docs (ranked by BM25/dense similarity).',
+          'Reranker (ColBERT, bge-reranker, Cohere) rescores each doc with the query.',
+          'Sort by reranker score.',
+          'Pass top-5 reranked docs to LLM (not all 20).'
+        ]
+      },
+      {
+        type: 'code',
+        language: 'python',
+        code: 'from sentence_transformers import CrossEncoder\n\n# Lightweight reranker (~110M parameters)\nreranker = CrossEncoder(\'mixedbread-ai/mxbai-rerank-xsmall-v1\')\n\n# Retriever returns 20 docs\ndocs = retriever.retrieve(query, top_k=20)\n\n# Rerank\nscores = reranker.predict([(query, doc.text) for doc in docs])\ndocs_sorted = sorted(zip(docs, scores), key=lambda x: x[1], reverse=True)\n\n# Pass top-5 reranked docs to LLM\ntop_5_docs = [doc for doc, score in docs_sorted[:5]]\nprompt = f\"\"\"\nContext:\n{format_docs(top_5_docs)}\n\nQuestion: {query}\nAnswer:\n\"\"\"\nresponse = llm.generate(prompt)'
+      },
+      {
+        type: 'h3',
+        text: 'Pro & Con'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '✅ Pro: Dramatically improves hit rate. Lightweight (~110M vs 7B LLM).',
+          '✅ Pro: Reduces context, helps LLM focus.',
+          '✅ Pro: Drop-in solution. No LLM fine-tuning.',
+          '❌ Con: Extra latency (~100ms with batching).',
+          '❌ Con: Reranker itself can make mistakes.'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Solution 2: Document Compression'
+      },
+      {
+        type: 'h3',
+        text: 'The Idea'
+      },
+      {
+        type: 'paragraph',
+        text: 'You can\'t change the retriever, but you can compress the documents before passing to the LLM.'
+      },
+      {
+        type: 'paragraph',
+        text: 'Extract only the relevant parts of each document. Remove noise.'
+      },
+      {
+        type: 'h3',
+        text: 'Approach 1: Automatic Compression'
+      },
+      {
+        type: 'code',
+        language: 'python',
+        code: '# Option 1: LLM-based extraction\ndef compress_doc(doc, query):\n    compression_prompt = f\"\"\"\nDocument:\n{doc}\n\nQuestion: {query}\n\nExtract only the parts of this document that are relevant to the question. \nKeep it concise (2-3 sentences).\n    \"\"\"\n    return llm.generate(compression_prompt)\n\n# Compress all 20 docs\ncompressed_docs = [compress_doc(doc, query) for doc in docs]\n\n# Now pass to answering LLM\nanswer_prompt = f\"\"\"\nContext:\n{format_docs(compressed_docs)}\n\nQuestion: {query}\nAnswer:\n\"\"\"\nresponse = llm.generate(answer_prompt)'
+      },
+      {
+        type: 'h3',
+        text: 'Approach 2: LLMLingua (Smart Compression)'
+      },
+      {
+        type: 'code',
+        language: 'python',
+        code: 'from llmlingua import PromptCompressor\n\ncompressor = PromptCompressor(\n    model_name="gpt2\",  # Lightweight token predictor\n    device_map=\"cuda\",\n)\n\n# Compress all 20 docs + query to 50% of tokens\ncompressed = compressor.compress_prompt(\n    context=docs,  # List of doc texts\n    question=query,\n    target_token_ratio=0.5,  # Keep 50% of tokens\n)\n\n# Pass compressed docs to LLM\nresponse = llm.generate(compressed)'
+      },
+      {
+        type: 'h3',
+        text: 'Pro & Con'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '✅ Pro: Fits more documents, reduces noise.',
+          '✅ Pro: Often improves answer quality.',
+          '❌ Con: Extra LLM call (latency).',
+          '❌ Con: Compression itself can lose the answer (if not careful).'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Solution 3: Reordering (Avoid Lost in the Middle)'
+      },
+      {
+        type: 'h3',
+        text: 'The Problem'
+      },
+      {
+        type: 'paragraph',
+        text: 'Retrieval rankings are not optimal for LLM attention. Documents in the middle (8-12 out of 20) are attended to poorly.'
+      },
+      {
+        type: 'h3',
+        text: 'The Fix: Reorder Before Passing to LLM'
+      },
+      {
+        type: 'list',
+        ordered: true,
+        items: [
+          'Take retriever\'s top 20 documents.',
+          'Sort by retriever score (descending), which you already did.',
+          'Now: re-sort to put **high-score docs at positions 1, 2, 3, ... and in the last positions**.',
+          'Middle positions (5-15) get low-score or less critical docs.'
+        ]
+      },
+      {
+        type: 'code',
+        language: 'python',
+        code: '# Retriever gives: docs sorted by score [high, high, medium, low, low, ...]\n\n# Reorder to minimize lost-in-the-middle:\ndocs_reordered = []\ntop_docs = docs[:5]       # 5 best docs\nmiddle_docs = docs[5:15]  # 10 middle docs\nbottom_docs = docs[15:20] # 5 worst docs\n\n# Interleave: high-score at start and end\nfor i, doc in enumerate(top_docs):\n    if i % 2 == 0:\n        docs_reordered.append(doc)  # Add to front\nfor doc in middle_docs:\n    docs_reordered.append(doc)      # Middle in the middle\nfor i, doc in enumerate(reversed(bottom_docs)):\n    docs_reordered.append(doc)      # Add to end'
+      },
+      {
+        type: 'h3',
+        text: 'Pro & Con'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '✅ Pro: Free (no extra compute).',
+          '✅ Pro: Often recovers 10-15% accuracy.',
+          '❌ Con: Minimal effect if answer is truly in a low-score doc.'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Solution 4: Explicit Retrieval Instructions'
+      },
+      {
+        type: 'h3',
+        text: 'The Idea'
+      },
+      {
+        type: 'paragraph',
+        text: 'Tell the LLM how to use the documents. Be explicit.'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'BAD PROMPT:\nContext: [20 docs]\nQuestion: What is X?\nAnswer:\n\nGOOD PROMPT:\nYou have 20 documents. ONE of them answers the question.\nRead carefully. Find the answer in the documents.\nIf you can\'t find it, say "not in documents".\nCite the specific document and quote the relevant text.\n\nDocuments:\n{format_docs_with_indices(docs)}\n\nQuestion: What is X?\n\nAnswer: Based on Document #7: "[quote]"'
+      },
+      {
+        type: 'h3',
+        text: 'Pro & Con'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '✅ Pro: Often improves performance by 20-30%.',
+          '✅ Pro: Increases model transparency (cites sources).',
+          '❌ Con: LLM might still miss the answer if context is noisy.'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Solution 5: LLM-Based Filtering'
+      },
+      {
+        type: 'h3',
+        text: 'The Idea'
+      },
+      {
+        type: 'paragraph',
+        text: 'Use the LLM itself to filter which documents are relevant to the query. Then answer based on filtered docs.'
+      },
+      {
+        type: 'code',
+        language: 'python',
+        code: 'def filter_docs(query, docs, llm):\n    \"\"\"Two-step: filter, then answer\"\"\"\n    \n    # Step 1: LLM identifies relevant docs\n    filter_prompt = f\"\"\"\nWhich of these {len(docs)} documents are relevant to the question?\nQuestion: {query}\n\nDocuments:\n{format_docs_with_indices(docs)}\n\nList relevant document indices (comma-separated):\n    \"\"\"\n    relevant_indices = llm.generate(filter_prompt)\n    relevant_indices = parse_indices(relevant_indices)\n    relevant_docs = [docs[i] for i in relevant_indices]\n    \n    # Step 2: Answer using only relevant docs\n    answer_prompt = f\"\"\"\nContext:\n{format_docs(relevant_docs)}\n\nQuestion: {query}\nAnswer:\n    \"\"\"\n    return llm.generate(answer_prompt)'
+      },
+      {
+        type: 'h3',
+        text: 'Pro & Con'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '✅ Pro: Leverages LLM to do what it\'s good at (reading).',
+          '✅ Pro: Often finds the needle in the haystack.',
+          '❌ Con: 2x LLM calls (latency impact).'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'The Recommended Approach: Layered'
+      },
+      {
+        type: 'paragraph',
+        text: 'Combine for best results:'
+      },
+      {
+        type: 'list',
+        ordered: true,
+        items: [
+          '**Rerank top 20 → top 5:** Use CrossEncoder. Cheap, effective.',
+          '**Reorder (optional):** Put top-5 docs at start and end of prompt.',
+          '**Compress:** Summarize each of the 5 docs to 1-2 sentences.',
+          '**Explicit instructions:** Tell LLM to cite sources.',
+          '**Single LLM call:** Pass 5 compressed docs + clear instructions.'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'The Interview Answer'
+      },
+      {
+        type: 'paragraph',
+        text: '"The retriever is good. The problem is LLM utilization. I can\'t change the retriever, but I can change how the LLM consumes the 20 docs."'
+      },
+      {
+        type: 'paragraph',
+        text: '"I\'d do:"'
+      },
+      {
+        type: 'list',
+        ordered: true,
+        items: [
+          '**Rerank before passing to LLM:** Use a lightweight reranker (ColBERT, bge-reranker) to re-score the 20 docs. Pass only top-5 reranked docs to LLM.',
+          '**Compress docs:** Extract only relevant parts. Reduces noise, makes the answer more findable.',
+          '**Explicit instructions:** Tell LLM: "One doc has the answer. Find it and cite."',
+          '**Lost-in-the-middle fix (optional):** Reorder docs so high-confidence ones are at start and end.'
+        ]
+      },
+      {
+        type: 'paragraph',
+        text: '"Net effect: Retriever gives 20 → Reranker filters to 5 → Compress to 2-3 key sentences each → LLM answers with 95%+ hit rate."'
+      },
+      {
+        type: 'h2',
+        text: 'Why Not Just Reduce Docs from 20 to 5?'
+      },
+      {
+        type: 'paragraph',
+        text: 'Because you don\'t control the retriever. It returns 20. But you CAN:'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Rerank them (best-of-the-20).',
+          'Compress them (less noise).',
+          'Reorder them (better LLM attention).',
+          'Instruct the LLM (how to use them).'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Production Reality'
+      },
+      {
+        type: 'paragraph',
+        text: 'Companies solving this:'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '**OpenAI:** GPT-4 with Retrieval uses reranking + compression.',
+          '**Anthropic:** Claude with RAG uses explicit instructions + reordering.',
+          '**Cohere:** Publish a reranker specifically for this problem.',
+          '**LangChain:** Built-in reranking pipeline.',
+          '**Most production RAG systems:** Use reranker as default practice.'
+        ]
+      },
+      {
+        type: 'callout',
+        emoji: '📚',
+        text: 'The key insight: **Good retrieval ≠ good RAG.** The retriever can find the needle, but the LLM must be able to see it in the haystack. Reranking, compression, and explicit instructions are free wins. Reranking alone recovers 20-30% accuracy. Combine all three: 50%+ improvement with zero retriever changes.'
+      }
+    ]
+  },
 
 ];
