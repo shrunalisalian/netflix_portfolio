@@ -31966,5 +31966,292 @@ WELLBEING METRICS (not engagement metrics):
       }
     ]
   },
+  {
+    slug: 'llm-serving-prefill-decode-batching',
+    title: 'Prefill and Decode in Same Batches: How to Separate Them',
+    subtitle: 'LLM service batches prefill (new prompts) and decode (ongoing answers) together. Throughput drops. How do you separate them, and what breaks?',
+    date: 'November 21, 2026',
+    readTime: '12 min read',
+    tags: ['Serving', 'Batching', 'Throughput', 'Latency', 'Production Systems'],
+    coverEmoji: '⚡',
+    content: [
+      {
+        type: 'h2',
+        text: 'The Problem: Mixing Compute and Memory Workloads'
+      },
+      {
+        type: 'paragraph',
+        text: 'You are serving an LLM. You have two types of requests:'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '**Prefill:** New user sends a prompt. Model processes entire prompt (compute-heavy).',
+          '**Decode:** User is already getting an answer. Model generates one more token (memory-bound).'
+        ]
+      },
+      {
+        type: 'paragraph',
+        text: 'You batch them together naively. Performance is bad.'
+      },
+      {
+        type: 'h3',
+        text: 'Why This Is Wrong'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Prefill: 1 user, prompt length = 1024 tokens\n  → Forward pass: 1024 tokens × d_model × 2 (Q,K,V) = 2M ops per layer\n  → Highly parallelizable. Benefits from large batches.\n  → Latency: ~200ms per GPU\n\nDecode: 100 users, 1 token each\n  → Forward pass: 1 token × d_model × 2 (Q,K,V) = 2K ops per layer\n  → Mostly memory-bound (loading weights). Batches don\'t help much.\n  → Latency: ~20ms per GPU (need low latency for responsiveness)\n\nMixed batch (say 10 prefill + 90 decode):\n  → Stalls waiting for prefill to finish (slow attention on 1024 tokens)\n  → Decode users wait for prefill (bad UX)\n  → GPU underutilized (decode saturates memory bus, can\'t do more)\n  → Throughput drops'
+      },
+      {
+        type: 'h2',
+        text: 'Solution 1: Separate Queues (The Standard Approach)'
+      },
+      {
+        type: 'h3',
+        text: 'The Idea'
+      },
+      {
+        type: 'paragraph',
+        text: 'Maintain two separate request queues: one for prefill, one for decode. Batch each independently.'
+      },
+      {
+        type: 'code',
+        language: 'python',
+        code: 'class LLMServer:\n    def __init__(self):\n        self.prefill_queue = []  # New prompts\n        self.decode_queue = []   # Ongoing conversations\n    \n    def handle_request(self, request):\n        if request.type == \"new_prompt\":\n            self.prefill_queue.append(request)\n        else:  # request.type == \"next_token\"\n            self.decode_queue.append(request)\n    \n    def schedule_batches(self):\n        # Batch prefill requests (high throughput)\n        if len(self.prefill_queue) >= PREFILL_BATCH_SIZE:\n            prefill_batch = self.prefill_queue[:PREFILL_BATCH_SIZE]\n            self.process_prefill_batch(prefill_batch)\n            self.prefill_queue = self.prefill_queue[PREFILL_BATCH_SIZE:]\n        \n        # Batch decode requests (low latency, can be large)\n        if len(self.decode_queue) > 0:\n            decode_batch = self.decode_queue[:DECODE_BATCH_SIZE]\n            self.process_decode_batch(decode_batch)\n            self.decode_queue = self.decode_queue[DECODE_BATCH_SIZE:]'
+      },
+      {
+        type: 'h3',
+        text: 'Optimal Batch Sizes'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '**Prefill batch:** 8-16 (want parallelism, but keep latency low for new users)',
+          '**Decode batch:** 128-512 (memory bus can handle many parallel token generations)'
+        ]
+      },
+      {
+        type: 'h3',
+        text: 'Pro & Con'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '✅ Pro: Simple to understand and implement.',
+          '✅ Pro: Good separation of concerns.',
+          '❌ Con: Prefill requests wait for decode batch to empty (unfair scheduling).',
+          '❌ Con: Underutilization: GPU sits idle waiting for enough prefill requests.'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Solution 2: Interleaved Scheduling (Better)'
+      },
+      {
+        type: 'h3',
+        text: 'The Idea'
+      },
+      {
+        type: 'paragraph',
+        text: 'Process decode and prefill in a fixed ratio: 1 prefill batch, then N decode batches, repeat.'
+      },
+      {
+        type: 'code',
+        language: 'python',
+        code: 'class InterleaveScheduler:\n    def __init__(self, prefill_per_cycle=1, decode_per_cycle=4):\n        self.prefill_per_cycle = prefill_per_cycle\n        self.decode_per_cycle = decode_per_cycle\n    \n    def schedule(self, prefill_queue, decode_queue):\n        cycle = 0\n        while prefill_queue or decode_queue:\n            # Process prefill batches\n            for _ in range(self.prefill_per_cycle):\n                if prefill_queue:\n                    batch = prefill_queue.pop(PREFILL_BATCH_SIZE)\n                    process_prefill(batch)\n            \n            # Process decode batches\n            for _ in range(self.decode_per_cycle):\n                if decode_queue:\n                    batch = decode_queue.pop(DECODE_BATCH_SIZE)\n                    process_decode(batch)\n            \n            cycle += 1\n\n# Example: 1 prefill (12 requests) + 4 decode (500 requests)\n# Total: 512 ops in prefill + 500 ops in decode = balanced work'
+      },
+      {
+        type: 'h3',
+        text: 'Pro & Con'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '✅ Pro: Fairness: prefill and decode both get GPU time.',
+          '✅ Pro: Better throughput (always making progress on both).',
+          '❌ Con: Prefill latency still depends on how many decode batches are ahead.',
+          '❌ Con: Requires tuning the prefill/decode ratio.'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Solution 3: Dedicated Hardware (The Scalable Way)'
+      },
+      {
+        type: 'h3',
+        text: 'The Idea'
+      },
+      {
+        type: 'paragraph',
+        text: 'Allocate separate GPUs for prefill and decode. No contention.'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Cluster with 10 GPUs:\n  3 GPUs for prefill (high throughput, can batch)\n  7 GPUs for decode (many concurrent requests, low latency)\n\nNew prompt request:\n  1. Send to prefill GPU cluster\n  2. Compute full prompt, store KV cache\n  3. Send first token to user\n  4. Store state, route subsequent requests to decode cluster\n\nNext token request:\n  1. Send to decode GPU cluster\n  2. Generate 1 token\n  3. Update KV cache\n  4. Return to user'
+      },
+      {
+        type: 'h3',
+        text: 'Pro & Con'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '✅ Pro: No contention. Each workload optimized independently.',
+          '✅ Pro: Best latency and throughput.',
+          '❌ Con: Need more hardware (GPUs are expensive).',
+          '❌ Con: Load balancing complexity (how many GPUs for each?).',
+          '❌ Con: KV cache must be transferable between GPU clusters.'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Solution 4: vLLM-Style Continuous Batching'
+      },
+      {
+        type: 'h3',
+        text: 'The Idea (From vLLM Paper)'
+      },
+      {
+        type: 'paragraph',
+        text: 'Separate prefill and decode within each iteration, but keep decode continuous.'
+      },
+      {
+        type: 'code',
+        language: 'python',
+        code: 'class vLLMScheduler:\n    def __init__(self):\n        self.waiting = []        # Requests waiting for prefill\n        self.running = []        # Requests currently generating\n        self.finished = []       # Completed requests\n    \n    def iteration(self):\n        # 1. Allocate KV cache space\n        available_cache = compute_available_kv_cache()\n        \n        # 2. Prefill new requests (batch them)\n        num_prefill = min(len(self.waiting), available_cache // avg_prompt_length)\n        prefill_batch = self.waiting[:num_prefill]\n        for req in prefill_batch:\n            prefill(req)  # Compute full prompt\n            self.running.append(req)\n        self.waiting = self.waiting[num_prefill:]\n        \n        # 3. Decode all running requests (single batch)\n        if self.running:\n            decode_batch = self.running\n            decode(decode_batch)  # 1 token for each\n            # Update: some finish, some continue\n            self.finished = [r for r in decode_batch if r.finished]\n            self.running = [r for r in decode_batch if not r.finished]\n        \n        return self.finished'
+      },
+      {
+        type: 'h3',
+        text: 'Pro & Con'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '✅ Pro: Maximize decode batch size (all running requests in one batch).',
+          '✅ Pro: Fairness: prefill happens every iteration.',
+          '✅ Pro: Good latency and throughput.',
+          '❌ Con: Complex to implement correctly.',
+          '❌ Con: Requires dynamic KV cache allocation.'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'What Breaks: The Challenges'
+      },
+      {
+        type: 'h3',
+        text: 'Challenge #1: KV Cache Coherence'
+      },
+      {
+        type: 'paragraph',
+        text: 'If you separate prefill and decode onto different GPUs, the KV cache must be transferable.'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'GPU A computes prefill, stores KV cache in GPU A memory.',
+          'GPU B needs to do decode, but KV cache is on GPU A.',
+          'Solution: Move KV cache (expensive) or use shared memory (NVLink).'
+        ]
+      },
+      {
+        type: 'h3',
+        text: 'Challenge #2: Fairness vs Throughput'
+      },
+      {
+        type: 'paragraph',
+        text: 'If you prioritize decode throughput, prefill users wait longer.'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Prioritize throughput: decode gets all resources, prefill starves.',
+          'Prioritize fairness: interleave, but throughput drops.',
+          'Solution: SLA-based scheduling (prefill gets X% of time, decode gets Y%).'
+        ]
+      },
+      {
+        type: 'h3',
+        text: 'Challenge #3: Underutilization'
+      },
+      {
+        type: 'paragraph',
+        text: 'If you have few decode requests, prefill GPU cluster sits idle.'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Solution: Dynamic resource allocation (move GPUs between prefill/decode as needed).',
+          'Solution: Use speculative decoding (generate multiple tokens, verify later).'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'The Interview Answer'
+      },
+      {
+        type: 'paragraph',
+        text: '"Prefill and decode have opposite characteristics. Prefill is compute-bound (benefits from large batches), decode is memory-bound (needs low latency)."'
+      },
+      {
+        type: 'paragraph',
+        text: '"I would separate them:"'
+      },
+      {
+        type: 'list',
+        ordered: true,
+        items: [
+          '**Option 1: Separate queues.** Batch prefill requests (size 8-16), batch decode requests (size 128-512). Process alternately.',
+          '**Option 2: Interleaved scheduling.** 1 prefill batch + 4 decode batches per cycle. Fair and good throughput.',
+          '**Option 3: Dedicated hardware.** 3 GPUs for prefill, 7 for decode (scaling with traffic). No contention, best performance.',
+          '**Option 4: vLLM-style continuous batching.** Prefill new requests, then decode all running requests in one large batch.'
+        ]
+      },
+      {
+        type: 'paragraph',
+        text: '"What breaks:"'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'KV cache coherence (if on different GPUs).',
+          'Fairness vs throughput tradeoff (need SLA-based scheduling).',
+          'Resource utilization (dynamic reallocation helps).'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Production Reality'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '**vLLM:** Continuous batching with prefill/decode separation. Industry standard.',
+          '**Tensor Parallelism:** Some GPUs prefill, others decode. Used at large scale.',
+          '**TensorRT-LLM:** Explicit prefill/decode scheduling.',
+          '**OpenAI:** Likely uses dedicated hardware for prefill (request scaling is huge).',
+          '**Most production systems:** Always separate prefill and decode.'
+        ]
+      },
+      {
+        type: 'callout',
+        emoji: '⚡',
+        text: 'The key insight: **Prefill and decode are fundamentally different workloads.** Prefill is compute-bound (parallelizes with large batches), decode is memory-bound (latency-critical, benefits from large concurrent requests). Mixing them wastes GPU. The solution: separate scheduling, separate hardware, or continuous batching with prefill/decode phases. vLLM-style continuous batching is the sweet spot: simple, fair, and efficient.'
+      }
+    ]
+  },
 
 ];
