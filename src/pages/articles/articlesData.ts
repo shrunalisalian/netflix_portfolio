@@ -25867,5 +25867,2605 @@ WELLBEING METRICS (not engagement metrics):
       }
     ]
   },
+  {
+    slug: 'chinchilla-scaling-law-deviation',
+    title: 'Chinchilla\'s Rule Says 20 Tokens Per Parameter. So Why Train for 93 Times More?',
+    subtitle: 'A Mistral interview question: 160B parameters should see 3.2T tokens. But you trained for 15T tokens. Why deviate from the scaling law?',
+    date: 'November 21, 2026',
+    readTime: '12 min read',
+    tags: ['Scaling Laws', 'LLM Training', 'Compute Optimization', 'Interview Prep'],
+    coverEmoji: '📐',
+    content: [
+      {
+        type: 'h2',
+        text: 'The Setup: Chinchilla\'s Rule'
+      },
+      {
+        type: 'paragraph',
+        text: 'In 2022, DeepMind published a paper called "Training Compute-Optimal Large Language Models." The main finding: for a fixed compute budget, there\'s an optimal ratio of model size to training tokens.'
+      },
+      {
+        type: 'paragraph',
+        text: 'The rule (Chinchilla scaling law):'
+      },
+      {
+        type: 'math',
+        text: 'Tokens = 20 \\times Parameters'
+      },
+      {
+        type: 'paragraph',
+        text: 'So if you have a 160B parameter model, the compute-optimal training is 160B × 20 = 3.2 trillion tokens.'
+      },
+      {
+        type: 'paragraph',
+        text: 'But in practice, many models violate this rule. Some train for 10x, 50x, even 100x more tokens than Chinchilla suggests.'
+      },
+      {
+        type: 'paragraph',
+        text: 'The interview question: **Why would you train a model for 15T tokens (93× more than the 160B rule) if Chinchilla says 3.2T is optimal?**'
+      },
+      {
+        type: 'callout',
+        emoji: '🤔',
+        text: 'The answer reveals the gap between theory and practice, between compute-efficiency and real-world objectives.'
+      },
+      {
+        type: 'h2',
+        text: 'First Principles: What Does Chinchilla Optimize For?'
+      },
+      {
+        type: 'paragraph',
+        text: 'Chinchilla\'s 20-tokens-per-parameter rule is **compute-optimal**. That means: for a fixed compute budget (FLOPs), this ratio minimizes training loss.'
+      },
+      {
+        type: 'paragraph',
+        text: 'Example: if your budget is 1 exaflop (10^18 FLOPs), Chinchilla tells you to allocate it equally between parameters and training duration. Don\'t make a huge model trained for a short time, and don\'t make a tiny model trained forever. Split the budget 50-50.'
+      },
+      {
+        type: 'paragraph',
+        text: 'This is elegant. It\'s also very useful if your constraint is compute cost (which is often true for data centers).'
+      },
+      {
+        type: 'h2',
+        text: 'But Your Constraint Might Not Be Compute'
+      },
+      {
+        type: 'paragraph',
+        text: 'Here\'s the key insight: Chinchilla optimizes for one thing. But in practice, you might optimize for something else.'
+      },
+      {
+        type: 'h3',
+        text: 'Constraint 1: Compute Budget (Chinchilla\'s World)'
+      },
+      {
+        type: 'paragraph',
+        text: 'If your constraint is training FLOPs, Chinchilla is your guide. Train the model for 20 tokens per parameter and move on.'
+      },
+      {
+        type: 'h3',
+        text: 'Constraint 2: Inference Cost'
+      },
+      {
+        type: 'paragraph',
+        text: 'If you care about inference cost more than training cost, the calculus changes. A bigger model, trained longer, might be better.'
+      },
+      {
+        type: 'paragraph',
+        text: 'Example: GPT-3 (175B) was trained on 300B tokens. That\'s only 1.7 tokens per parameter — way below Chinchilla\'s 20. Why? Because inference cost dominates. You want the best model *per FLOPs spent at inference time*, not per training FLOPs.'
+      },
+      {
+        type: 'h3',
+        text: 'Constraint 3: Capability Unlocking'
+      },
+      {
+        type: 'paragraph',
+        text: 'Some capabilities only emerge after extensive training. Chain-of-thought reasoning, in-context learning, complex reasoning — these might require way more than 20 tokens per parameter.'
+      },
+      {
+        type: 'paragraph',
+        text: 'If you need these capabilities, you train longer, even if it\'s not compute-optimal.'
+      },
+      {
+        type: 'h3',
+        text: 'Constraint 4: Time-to-Market'
+      },
+      {
+        type: 'paragraph',
+        text: 'If you need a model shipped in 3 months, you can\'t wait for the compute-optimal training duration. You train longer with more data to get quality faster.'
+      },
+      {
+        type: 'h2',
+        text: 'The Math: Why 15T Tokens for 160B Parameters?'
+      },
+      {
+        type: 'paragraph',
+        text: 'If you\'re training a 160B model for 15T tokens, here are the likely reasons:'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '**Inference optimization:** A 160B model that sees 15T tokens (93 tokens per param) will likely outperform a 320B model that sees 6.4T tokens (20 tokens per param) in terms of inference cost per quality.',
+          '**Capability unlocking:** 15T tokens might be needed for the model to develop advanced reasoning, multilingual understanding, or in-context learning.',
+          '**Scaling laws beyond Chinchilla:** Newer research suggests the optimal ratio might be different from 20:1, especially for very large models.',
+          '**Data diversity:** More tokens from diverse sources might improve robustness, even if compute-efficiency suffers.'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'The Interview Answer'
+      },
+      {
+        type: 'paragraph',
+        text: '"Chinchilla\'s scaling law is compute-optimal — it minimizes training loss for a fixed compute budget. But it\'s not the only objective."'
+      },
+      {
+        type: 'paragraph',
+        text: '"If I\'m training a 160B model for 15T tokens (instead of the Chinchilla-optimal 3.2T), I\'m optimizing for something else:"'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '**Inference efficiency:** This model will be better than alternatives at inference time per FLOPs spent.',
+          '**Capabilities:** 15T tokens might unlock reasoning, multilingual, or in-context abilities that 3.2T won\'t reach.',
+          '**Data quality over compute efficiency:** I\'m prioritizing diverse, high-quality data over raw compute efficiency.',
+          '**Scaling law deviation:** Recent research suggests the optimal ratio might be different from Chinchilla\'s 20:1, especially at scale.'
+        ]
+      },
+      {
+        type: 'paragraph',
+        text: '"Chinchilla is a great guideline, but it\'s not a law. It\'s one point in the design space. The right choice depends on your constraints: compute budget, inference cost, capability requirements, time-to-market."'
+      },
+      {
+        type: 'h2',
+        text: 'Real-World Examples'
+      },
+      {
+        type: 'h3',
+        text: 'Chinchilla-Aligned'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Google\'s PaLM 2: ~300B params, ~5T tokens (~16 tokens/param) — close to Chinchilla',
+          'Meta\'s Llama 2 70B: ~70B params, ~2T tokens (~28 tokens/param) — slightly over'
+        ]
+      },
+      {
+        type: 'h3',
+        text: 'Heavily Deviating'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'GPT-3: 175B params, 300B tokens (1.7 tokens/param) — way under Chinchilla',
+          'Claude 3.5: Rumored ~100T tokens for inference capability (way over Chinchilla ratio)'
+        ]
+      },
+      {
+        type: 'paragraph',
+        text: 'The pattern: older models (GPT-3) trained less. Newer models train more. Why? Better understanding of what it takes to unlock advanced capabilities.'
+      },
+      {
+        type: 'h2',
+        text: 'The Nuance: Chinchilla vs. Inference-Optimal'
+      },
+      {
+        type: 'paragraph',
+        text: 'There\'s a subtlety: **training-compute-optimal** ≠ **inference-compute-optimal**.'
+      },
+      {
+        type: 'paragraph',
+        text: 'Chinchilla minimizes training loss for a training budget. But if you care about inference efficiency (which you do in production), you might want a bigger model trained less aggressively, so it performs better per inference FLOP.'
+      },
+      {
+        type: 'paragraph',
+        text: 'This explains why production models often deviate from Chinchilla. They\'re optimizing for a different objective.'
+      },
+      {
+        type: 'h2',
+        text: 'One More Thing: The Empirical Gap'
+      },
+      {
+        type: 'paragraph',
+        text: 'Chinchilla\'s 20:1 ratio is based on empirical data from 2022. As models scale further and training techniques improve, the optimal ratio might shift.'
+      },
+      {
+        type: 'paragraph',
+        text: 'Some recent work suggests the ratio might be closer to 1:1 (equal allocation between model size and tokens) or even inverted for very large models. The scaling laws are constantly being refined.'
+      },
+      {
+        type: 'callout',
+        emoji: '🎯',
+        text: 'The key insight: **Scaling laws are guidelines, not laws.** Chinchilla is compute-optimal, but compute-optimal training is not the same as optimal inference, optimal capabilities, or optimal for real-world constraints. Know your objective, then choose accordingly.'
+      }
+    ]
+  },
+  {
+    slug: 'dpo-degradation-beta',
+    title: 'DPO Degradation: Better Ranked, Worse Answers — What Changed at Epoch 1?',
+    subtitle: 'A Meta interview question: Fine-tune with DPO, first epoch looks great, but quality degrades. What single change prevents this?',
+    date: 'November 21, 2026',
+    readTime: '12 min read',
+    tags: ['Preference Optimization', 'Fine-Tuning', 'Model Alignment', 'Interview Prep'],
+    coverEmoji: '⚖️',
+    content: [
+      {
+        type: 'h2',
+        text: 'The Problem: Success Then Collapse'
+      },
+      {
+        type: 'paragraph',
+        text: 'You fine-tune your chat model with DPO (Direct Preference Optimization). DPO is elegant: show the model pairs of responses, tell it which one is better, and optimize the preference directly without needing a reward model.'
+      },
+      {
+        type: 'paragraph',
+        text: 'You run epoch 1. Something magical happens. On your preference evaluation (responses that humans ranked as "better"), accuracy jumps. 60% → 80%. The model is learning to prefer the right responses.'
+      },
+      {
+        type: 'paragraph',
+        text: 'But then you evaluate on general quality. Helpfulness. Coherence. Factuality. Everything tanks. The model is now worse at actually helping users. It just learned to game the preference signal.'
+      },
+      {
+        type: 'paragraph',
+        text: 'The interview question: **What single change keeps the epoch-1 improvement without the degradation?**'
+      },
+      {
+        type: 'callout',
+        emoji: '🎯',
+        text: 'This is a real problem in preference optimization. The model optimizes for preferences at the cost of its base capabilities. The solution is elegant and reveals deep understanding of fine-tuning dynamics.'
+      },
+      {
+        type: 'h2',
+        text: 'First Principles: Why Does Degradation Happen?'
+      },
+      {
+        type: 'paragraph',
+        text: 'The model was pre-trained on billions of tokens. It learned language, reasoning, knowledge. This is encoded in the weights.'
+      },
+      {
+        type: 'paragraph',
+        text: 'When you fine-tune with DPO, you\'re not just adding new preferences. You\'re **changing the weights** to optimize for the preference signal. If you optimize too hard, you overwrite the pre-training knowledge.'
+      },
+      {
+        type: 'paragraph',
+        text: 'Example: in pre-training, the model learned "factually accurate" because it was trained on high-quality data. In DPO, the preference signal might not emphasize factuality. So the model forgets accuracy to optimize for whatever humans ranked higher (maybe fluency, length, style).'
+      },
+      {
+        type: 'h2',
+        text: 'The Root Cause: Divergence from Base Model'
+      },
+      {
+        type: 'paragraph',
+        text: 'DPO\'s loss function pushes the model away from its original behavior. The loss is:'
+      },
+      {
+        type: 'math',
+        text: 'L = -\\log \\sigma(\\beta (\\log p_\\theta(y_w) - \\log p_\\theta(y_l)))'
+      },
+      {
+        type: 'paragraph',
+        text: 'Where:'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'y_w = preferred response (what we want)',
+          'y_l = less preferred response (what we don\'t want)',
+          'β = temperature parameter (controls optimization strength)',
+          'The goal: assign higher log-probability to y_w than y_l'
+        ]
+      },
+      {
+        type: 'paragraph',
+        text: 'The problem: if β is too high, the model aggressively shifts probability mass toward y_w. It doesn\'t just learn preferences — it **forgets how to generate anything else**.'
+      },
+      {
+        type: 'h2',
+        text: 'The Solution: Lower Beta'
+      },
+      {
+        type: 'paragraph',
+        text: 'The single change that prevents degradation: **reduce β (beta, the temperature parameter).**'
+      },
+      {
+        type: 'paragraph',
+        text: 'Here\'s why:'
+      },
+      {
+        type: 'h3',
+        text: 'High Beta (Aggressive Optimization)'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Model aggressively shifts probability to preferred responses',
+          'Preferences improve quickly (epoch 1 looks great)',
+          'But the model diverges far from the base model',
+          'Capabilities degrade because pre-training knowledge is overwritten',
+          'Result: good preference ranking, bad general quality'
+        ]
+      },
+      {
+        type: 'h3',
+        text: 'Low Beta (Conservative Optimization)'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Model gently shifts probability to preferred responses',
+          'Preferences improve slowly (epoch 1 improvement is modest)',
+          'Model stays close to the base model',
+          'Pre-training knowledge is preserved',
+          'Result: steady preference improvement + maintained quality'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'The Math: Why Beta Controls the Tradeoff'
+      },
+      {
+        type: 'paragraph',
+        text: 'The DPO loss contains a KL divergence term (implicit, in the IPO formulation): it penalizes divergence from the reference model. Beta controls the weight of this penalty.'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'High β: weak KL penalty, strong preference optimization → preference improves, quality degrades',
+          'Low β: strong KL penalty, weak preference optimization → quality maintained, preferences improve slowly',
+          'Medium β: balanced tradeoff → both improve'
+        ]
+      },
+      {
+        type: 'paragraph',
+        text: 'The sweet spot is usually β = 0.1 to 0.5 (depending on your model, data, and goals).'
+      },
+      {
+        type: 'h2',
+        text: 'The Interview Answer'
+      },
+      {
+        type: 'paragraph',
+        text: '"When you fine-tune with DPO, you\'re optimizing for preference ranking. But if you optimize too aggressively, the model diverges from its pre-trained capabilities."'
+      },
+      {
+        type: 'paragraph',
+        text: '"In epoch 1, you see preference improvement because the model is aggressively shifting probability toward preferred responses. But it\'s also forgetting pre-training knowledge — factuality, reasoning, etc. — because the preference signal doesn\'t emphasize these."'
+      },
+      {
+        type: 'paragraph',
+        text: '"The single change that prevents degradation is to **lower β (beta)**. This keeps the optimization conservative. The model still learns to prefer the right responses, but stays close to the pre-trained model. You maintain quality while improving preferences."'
+      },
+      {
+        type: 'paragraph',
+        text: '"Instead of a sharp improvement in preferences with quality collapse, you get steady preference improvement with quality preserved. It takes more epochs to reach the same preference score, but you don\'t sacrifice capability."'
+      },
+      {
+        type: 'h2',
+        text: 'Other Solutions (If You Want to Go Deeper)'
+      },
+      {
+        type: 'paragraph',
+        text: 'If the interviewer pushes for alternatives:'
+      },
+      {
+        type: 'h3',
+        text: 'Solution 2: Mixture Loss'
+      },
+      {
+        type: 'paragraph',
+        text: 'Combine DPO loss with language modeling loss (pre-training objective). This preserves base knowledge while optimizing preferences.'
+      },
+      {
+        type: 'h3',
+        text: 'Solution 3: Curriculum Learning'
+      },
+      {
+        type: 'paragraph',
+        text: 'Start with high β, gradually decrease it. Early epochs aggressively optimize preferences, later epochs focus on quality.'
+      },
+      {
+        type: 'h3',
+        text: 'Solution 4: Reference Model Regularization'
+      },
+      {
+        type: 'paragraph',
+        text: 'Explicitly add a term that penalizes divergence from the reference model (SFT checkpoint).'
+      },
+      {
+        type: 'paragraph',
+        text: 'But the simplest, most direct answer is: **lower β.**'
+      },
+      {
+        type: 'h2',
+        text: 'Production Implications'
+      },
+      {
+        type: 'paragraph',
+        text: 'This problem manifests in real deployments:'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '**OpenAI:** Carefully tunes β to balance preference optimization and capability preservation',
+          '**Anthropic:** Uses Constitutional AI with preference data, but with conservative β values',
+          '**Meta:** Recently published work on preference optimization that emphasizes this tradeoff'
+        ]
+      },
+      {
+        type: 'paragraph',
+        text: 'The lesson: preference optimization isn\'t just about ranking. It\'s about finding the sweet spot between following preferences and maintaining what made the model good in the first place.'
+      },
+      {
+        type: 'callout',
+        emoji: '🎯',
+        text: 'The key insight: **Fine-tuning is about balance.** Too aggressive, and you degrade. Too conservative, and you don\'t improve. The hyperparameter (β) is your dial. Know how to turn it. This is what separates engineers who ship alignment work from those who break their models.'
+      }
+    ]
+  },
+  {
+    slug: 'confidence-calibration-temperature',
+    title: 'Factory Defects: 99% Confidence, But Only 90% Actually Bad — Fix It Without Changing Predictions',
+    subtitle: 'A production ML interview question: Your model is overconfident. How do you fix confidence scores without retraining or changing any predictions?',
+    date: 'November 21, 2026',
+    readTime: '11 min read',
+    tags: ['Calibration', 'Production ML', 'Confidence Scoring', 'Interview Prep'],
+    coverEmoji: '🎯',
+    content: [
+      {
+        type: 'h2',
+        text: 'The Problem: Good Accuracy, Terrible Confidence'
+      },
+      {
+        type: 'paragraph',
+        text: 'You\'ve built a defect classifier for a factory line. Validation accuracy: 92%. On the surface, it\'s working well.'
+      },
+      {
+        type: 'paragraph',
+        text: 'But in production, you notice something: when the model flags a part as defective with 99% confidence, you check the actual parts. Only about 90% are actually bad. 10% are false alarms.'
+      },
+      {
+        type: 'paragraph',
+        text: 'The model\'s predictions (which parts are defective) are mostly correct. But the confidence scores are way off. 99% confident should mean 99% of flagged parts are actually defective. Not 90%.'
+      },
+      {
+        type: 'paragraph',
+        text: 'This is **overconfidence**. The model is too sure of itself.'
+      },
+      {
+        type: 'paragraph',
+        text: 'The interview constraint: **Fix the confidence without changing a single prediction.** You can\'t retrain. You can\'t adjust the classifier. You can only adjust how confident it claims to be.'
+      },
+      {
+        type: 'callout',
+        emoji: '⚠️',
+        text: 'This is a real production problem. Models are often overconfident. And the solution is elegant: temperature scaling. It\'s a 2-line post-hoc fix that doesn\'t require retraining.'
+      },
+      {
+        type: 'h2',
+        text: 'First Principles: What is Confidence?'
+      },
+      {
+        type: 'paragraph',
+        text: 'The model outputs logits (raw scores before softmax). You apply softmax to convert them to probabilities:'
+      },
+      {
+        type: 'math',
+        text: 'p(class) = \\frac{e^{logit}}{\\sum e^{logit}}'
+      },
+      {
+        type: 'paragraph',
+        text: 'The softmax squashes the logits into [0, 1]. The max probability becomes the confidence.'
+      },
+      {
+        type: 'paragraph',
+        text: 'Example: logits = [2.0, 0.5]. Softmax gives [0.88, 0.12]. The model is 88% confident in class 0.'
+      },
+      {
+        type: 'h3',
+        text: 'The Problem: Logits Are Separated Too Much'
+      },
+      {
+        type: 'paragraph',
+        text: 'If the logits are [5.0, 0.5], softmax gives [0.993, 0.007]. The model is 99.3% confident, even though the difference between classes is similar to the previous example.'
+      },
+      {
+        type: 'paragraph',
+        text: 'The model is **overconfident** because the logits are too separated. This happens when:'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'The loss function (cross-entropy) pushes logits apart without bound',
+          'Training on clean data makes the model certain about what it learned',
+          'The model hasn\'t seen enough hard examples to be humble'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'The Solution: Temperature Scaling'
+      },
+      {
+        type: 'paragraph',
+        text: 'The idea is simple: **divide the logits by a temperature T before applying softmax**.'
+      },
+      {
+        type: 'math',
+        text: 'p(class) = \\frac{e^{logit/T}}{\\sum e^{logit/T}}'
+      },
+      {
+        type: 'paragraph',
+        text: 'Example: if original logits = [5.0, 0.5] and T = 2:'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items': [
+          'Original softmax: [0.993, 0.007]',
+          'Temperature-scaled: softmax([2.5, 0.25]) = [0.89, 0.11]'
+        ]
+      },
+      {
+        type: 'paragraph',
+        text: 'The prediction doesn\'t change (argmax is still class 0). But the confidence drops from 99.3% to 89%, which is more realistic.'
+      },
+      {
+        type: 'h3',
+        text: 'Why This Works'
+      },
+      {
+        type: 'paragraph',
+        text: 'Temperature T acts like a smoothing factor:'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'T = 1: No change (original softmax)',
+          'T > 1: Logits are divided, spread out. Probabilities become closer to uniform. Confidence decreases.',
+          'T < 1: Logits are multiplied, compressed. Probabilities become more extreme. Confidence increases.'
+        ]
+      },
+      {
+        type: 'paragraph',
+        text: 'You want T > 1 to reduce overconfidence.'
+      },
+      {
+        type: 'h2',
+        text: 'How to Find the Right T'
+      },
+      {
+        type: 'paragraph',
+        text: 'You can\'t use the training set (it would overfit T). You need a **calibration set** — validation data you hold out.'
+      },
+      {
+        type: 'paragraph',
+        text: 'Steps:'
+      },
+      {
+        type: 'list',
+        ordered: true,
+        items: [
+          'Split validation data: 50% for calibration, 50% for final evaluation',
+          'On the calibration set, vary T from 0.5 to 5 and find the T that minimizes calibration error (expected calibration error, or ECE)',
+          'Use that T on the final evaluation set'
+        ]
+      },
+      {
+        type: 'paragraph',
+        text: 'For the factory example, you might find T ≈ 1.4 or 1.5 brings 99% confidence down to ~90%, matching actual accuracy.'
+      },
+      {
+        type: 'h2',
+        text: 'Why This Doesn\'t Change Predictions'
+      },
+      {
+        type: 'paragraph',
+        text: 'The argmax (the predicted class) depends only on **which logit is largest**, not their absolute values.'
+      },
+      {
+        type: 'paragraph',
+        text: 'Dividing all logits by T preserves the ordering. The largest stays largest. So the prediction doesn\'t change.'
+      },
+      {
+        type: 'paragraph',
+        text: 'Example: logits = [5.0, 0.5]. Argmax = class 0. After T=2: logits = [2.5, 0.25]. Argmax = class 0. Same prediction.'
+      },
+      {
+        type: 'h2',
+        text: 'The Interview Answer'
+      },
+      {
+        type: 'paragraph',
+        text: '"The model is overconfident. When it says 99%, it really means ~90%. This is a **calibration problem**."'
+      },
+      {
+        type: 'paragraph',
+        text: '"Without retraining, I can use **temperature scaling**. I divide the logits by a temperature T > 1 before softmax. This doesn\'t change which class is predicted (argmax is preserved), but it reduces the confidence scores."'
+      },
+      {
+        type: 'paragraph',
+        text: '"To find the right T, I use a held-out calibration set. I try different T values and pick the one that makes confidence match actual accuracy. For this example, T ≈ 1.4-1.5 would bring 99% confidence down to 90%."'
+      },
+      {
+        type: 'paragraph',
+        text: '"Temperature scaling is fast, doesn\'t require retraining, and is a standard technique in production ML. The only cost is a small calibration experiment."'
+      },
+      {
+        type: 'h2',
+        text: 'Alternatives (If They Ask for More)'
+      },
+      {
+        type: 'h3',
+        text: 'Platt Scaling'
+      },
+      {
+        type: 'paragraph',
+        text: 'Fit a sigmoid transformation to the raw probabilities. More flexible than temperature scaling, but slightly more complex.'
+      },
+      {
+        type: 'h3',
+        text: 'Isotonic Regression'
+      },
+      {
+        type: 'paragraph',
+        text: 'Non-parametric calibration. Fits a step function to the probabilities. Most flexible, but can overfit if calibration set is small.'
+      },
+      {
+        type: 'h3',
+        text: 'Expected Calibration Error (ECE)'
+      },
+      {
+        type: 'paragraph',
+        text: 'The metric for measuring how well-calibrated a model is. Use it to evaluate whether your T is good.'
+      },
+      {
+        type: 'h2',
+        text: 'Production Implications'
+      },
+      {
+        type: 'paragraph',
+        text: 'Calibration matters in production because:'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items': [
+          '**False alarms:** Overconfident models flag too many false positives. Factory workers get fatigued.',
+          '**Risk assessment:** If you use confidence for risk-based decisions, overconfidence leads to wrong decisions.',
+          '**User trust:** When a model claims 99% and is wrong 10% of the time, users stop trusting it.'
+        ]
+      },
+      {
+        type: 'paragraph',
+        text: 'This is why production ML teams always calibrate before deployment.'
+      },
+      {
+        type: 'callout',
+        emoji: '🎯',
+        text: 'The key insight: **Accuracy and calibration are different.** A model can be accurate (right predictions) but overconfident (wrong confidence). Temperature scaling fixes this in 2 lines of code. This is the kind of knowledge that separates lab work from production work.'
+      }
+    ]
+  },
+  {
+    slug: 'low-resource-data-repetition',
+    title: 'Low-Resource Language, High Compute Budget: How to Avoid Cycling Data 40 Times',
+    subtitle: 'An MLOps interview question: 100B tokens, 4T budget for 7B model. Repeating data 40x causes memorization. Where do you spend the extra compute?',
+    date: 'November 21, 2026',
+    readTime: '12 min read',
+    tags: ['Scaling Laws', 'Data Efficiency', 'Low-Resource ML', 'Training Strategy'],
+    coverEmoji: '🌍',
+    content: [
+      {
+        type: 'h2',
+        text: 'The Problem: Mismatch Between Data and Compute'
+      },
+      {
+        type: 'paragraph',
+        text: 'You\'re training a model for a low-resource language (maybe Icelandic, Basque, Swahili — any language with limited text on the internet).'
+      },
+      {
+        type: 'paragraph',
+        text: 'You can find about 100 billion tokens of usable text. That\'s decent, but not huge. For comparison, English has trillions.'
+      },
+      {
+        type: 'paragraph',
+        text: 'Your compute budget allows training a 7B parameter model for 4 trillion tokens. That\'s a lot of training.'
+      },
+      {
+        type: 'paragraph',
+        text: 'The math: 4T tokens / 100B tokens = 40 epochs. You\'d cycle through the same text forty times.'
+      },
+      {
+        type: 'paragraph',
+        text: 'The problem: repeating data causes **memorization**, not generalization. After cycling a few times, the model just memorizes the training set. It doesn\'t learn the language — it learns the data.'
+      },
+      {
+        type: 'paragraph',
+        text: 'The interview question: **How would you spend that extra compute without cycling the data 40x?**'
+      },
+      {
+        type: 'callout',
+        emoji: '💡',
+        text: 'This isn\'t a trick question. There are real solutions. And they reveal how to think strategically about compute allocation.'
+      },
+      {
+        type: 'h2',
+        text: 'First Principles: What Happens When You Repeat Data?'
+      },
+      {
+        type: 'paragraph',
+        text: 'The first few epochs are good. The model learns language structure, common patterns, reasoning.'
+      },
+      {
+        type: 'paragraph',
+        text: 'But after a few cycles, the learning curve flattens. The model has learned the generalizable patterns. The remaining loss decrease comes from **memorizing** specific sentences, word combinations, edge cases in the training data.'
+      },
+      {
+        type: 'paragraph',
+        text: 'By epoch 40, the model is a lookup table. It\'s great at predicting the training data. But on new, unseen text? Worse than a model trained for fewer epochs on fresh data.'
+      },
+      {
+        type: 'h2',
+        text: 'Solution 1: Increase Model Size (Rebalance the Ratio)'
+      },
+      {
+        type: 'paragraph',
+        text: 'Instead of 7B parameters trained for 4T tokens, use a 13B parameter model trained for fewer tokens.'
+      },
+      {
+        type: 'paragraph',
+        text: 'Example: 13B model, 2T tokens (15 epochs instead of 40)'
+      },
+      {
+        type: 'paragraph',
+        text: 'Benefit: bigger model, less data repetition. The model has more capacity to learn from repeated data without memorizing.'
+      },
+      {
+        type: 'paragraph',
+        text: 'This is based on Chinchilla scaling: balance parameters and tokens. For 100B tokens, the optimal model size is ~5-10B, not 7B. So use 10B, 13B, or even 20B.'
+      },
+      {
+        type: 'h2',
+        text: 'Solution 2: Mix With High-Resource Languages'
+      },
+      {
+        type: 'paragraph',
+        text: 'Don\'t just use the low-resource language. Mix in English, multilingual data, or related languages.'
+      },
+      {
+        type: 'paragraph',
+        text: 'Example: 70% low-resource language (100B tokens), 30% English/multilingual (mix for 4T total tokens)'
+      },
+      {
+        type: 'paragraph',
+        text: 'Result: low-resource language sees ~8 epochs, not 40. The model learns cross-lingual transfer. The low-resource model benefits from English knowledge.'
+      },
+      {
+        type: 'paragraph',
+        text: 'This is how Meta trained LLaMA for underrepresented languages. It works surprisingly well.'
+      },
+      {
+        type: 'h2',
+        text: 'Solution 3: Synthetic Data Generation'
+      },
+      {
+        type: 'paragraph',
+        text: 'Use a larger model (or a model from a related language) to generate synthetic data in the target language.'
+      },
+      {
+        type: 'paragraph',
+        text: 'Example:'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Use an English model to generate prompts, questions, or completions',
+          'Translate them to the low-resource language (or fine-tune a translation model)',
+          'Use the synthetic data as part of training',
+          'Result: you \"create\" new data without repeating the original'
+        ]
+      },
+      {
+        type: 'paragraph',
+        text: 'Benefit: breaks the repetition cycle. Drawback: synthetic data quality depends on the generation model.'
+      },
+      {
+        type: 'h2',
+        text: 'Solution 4: Curriculum Learning'
+      },
+      {
+        type: 'paragraph',
+        text: 'Don\'t just repeat the data randomly. Use a **curriculum**:'
+      },
+      {
+        type: 'list',
+        ordered: true,
+        items: [
+          'Epoch 1-2: Start with high-quality, clean data. Learn basic patterns.',
+          'Epoch 3-10: Mix in harder, noisier data. Learn edge cases.',
+          'Epoch 11+: Use data augmentation or synthetic data. Continue learning without pure repetition.'
+        ]
+      },
+      {
+        type: 'paragraph',
+        text: 'This prevents the model from early memorization and encourages generalization.'
+      },
+      {
+        type: 'h2',
+        text: 'Solution 5: Use Early Stopping or Variable Epochs'
+      },
+      {
+        type: 'paragraph',
+        text: 'Train until the validation loss plateaus, then stop. Don\'t force 40 epochs if learning has stopped.'
+      },
+      {
+        type: 'paragraph',
+        text: 'You might find the optimal is 5-8 epochs, not 40. Use the saved compute for other tasks.'
+      },
+      {
+        type: 'h2',
+        text: 'Solution 6: Back-Translation and Data Augmentation'
+      },
+      {
+        type: 'paragraph',
+        text: 'Generate new examples by:'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items': [
+          'Back-translating: translate English → low-resource language → English, keep the low-resource version',
+          'Paraphrasing: generate variations of original sentences',
+          'Noise injection: add small perturbations to sentences (keep meaning, vary words)'
+        ]
+      },
+      {
+        type: 'paragraph',
+        text: 'Result: more data, more variety, less pure repetition.'
+      },
+      {
+        type: 'h2',
+        text: 'The Interview Answer'
+      },
+      {
+        type: 'paragraph',
+        text: '"Repeating the same data 40 times causes memorization, not generalization. The model learns the training set, not the language. So I wouldn\'t spend the full 4T tokens on the 7B model with just 100B tokens."'
+      },
+      {
+        type: 'paragraph',
+        text: '"I\'d rebalance the compute in one of these ways:"'
+      },
+      {
+        type: 'list',
+        ordered: true,
+        items: [
+          '**Increase model size:** Train a 13B or 20B model on 2-3T tokens. Bigger model, same repetition factor, better generalization.',
+          '**Mix languages:** Use 70% low-resource, 30% high-resource language data. Reduce repetition, enable cross-lingual transfer.',
+          '**Synthetic data:** Generate synthetic data via back-translation or a larger model. Break the repetition cycle with new, diverse data.',
+          '**Curriculum learning:** Carefully schedule which data to use in which epoch. Prevent early memorization.',
+          '**Early stopping:** Train until validation loss plateaus. Don\'t force 40 epochs if learning has stopped.'
+        ]
+      },
+      {
+        type: 'paragraph',
+        text: '"The best approach combines multiple strategies. For example: use a 13B model, mix in 20% English data, apply curriculum learning, and use synthetic data for later epochs. This gives me good generalization without memorization."'
+      },
+      {
+        type: 'h2',
+        text: 'Why This Matters in Production'
+      },
+      {
+        type: 'paragraph',
+        text: 'Low-resource languages are commercially important. Many countries have languages with <100B tokens available. If you can build good models for these languages, you unlock billions of users.'
+      },
+      {
+        type: 'paragraph',
+        text: 'Understanding data efficiency is key:'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '**Meta:** Trains multilingual models with careful language mixing and synthetic data generation',
+          '**Google:** Uses mBERT and mT5 with cross-lingual transfer for underrepresented languages',
+          '**OpenAI:** Rumored to use back-translation and synthetic data for non-English languages'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'One More Thing: The Generalization Principle'
+      },
+      {
+        type: 'paragraph',
+        text: 'This problem generalizes beyond languages:'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items': [
+          'Medical imaging: limited labeled examples, high compute budget',
+          'Scientific domains: small datasets, lots of compute',
+          'Any domain-specific task with data scarcity'
+        ]
+      },
+      {
+        type: 'paragraph',
+        text: 'The principle: **more compute doesn\'t mean more of the same data. It means more intelligent use of data.**'
+      },
+      {
+        type: 'callout',
+        emoji: '🎯',
+        text: 'The key insight: Matching compute to data is an optimization problem. Too much repetition breaks generalization. The solution isn\'t to do more of the same — it\'s to be strategic. This is where many teams go wrong. They have compute, so they just repeat data. The winners ask: how do I use this compute to build something better?'
+      }
+    ]
+  },
+  {
+    slug: 'batching-inference-memory-bound',
+    title: 'Single User: 200 Tokens/Sec. 32 Users Batched: 160 Each. What\'s Eating the Time?',
+    subtitle: 'An inference optimization interview question: Batching should help, but throughput per user drops. Why is H100 not fully utilized?',
+    date: 'November 21, 2026',
+    readTime: '12 min read',
+    tags: ['Inference Optimization', 'GPU Efficiency', 'Batching', 'Production Systems'],
+    coverEmoji: '⚡',
+    content: [
+      {
+        type: 'h2',
+        text: 'The Puzzle: Batching Makes Things Slower'
+      },
+      {
+        type: 'paragraph',
+        text: 'You have an 8B parameter chat model running on a single H100 GPU. With one user, you get 200 tokens per second. That\'s solid throughput.'
+      },
+      {
+        type: 'paragraph',
+        text: 'You batch 32 users together (a common practice to improve utilization). Now each user gets about 160 tokens per second.'
+      },
+      {
+        type: 'paragraph',
+        text: 'Wait. That\'s worse. You have 32x more work (32 users), but each user is slower. If batching worked well, you\'d expect ~200 tokens/second per user (or at least close to it). Instead, it dropped to 160.'
+      },
+      {
+        type: 'paragraph',
+        text: 'The interview question: **What\'s eating the time? Why doesn\'t the H100 keep up?**'
+      },
+      {
+        type: 'callout',
+        emoji: '🤔',
+        text: 'The answer reveals the difference between training and inference, and why inference optimization is fundamentally different.'
+      },
+      {
+        type: 'h2',
+        text: 'First Principles: Compute vs. Memory Bandwidth'
+      },
+      {
+        type: 'paragraph',
+        text: 'The H100 is incredibly powerful: ~1.4 petaFLOPS (can do 1.4 quadrillion operations per second). But it has a limitation: memory bandwidth.'
+      },
+      {
+        type: 'paragraph',
+        text: 'The H100 can read/write data at ~3 TB/second (HBM3 bandwidth). That sounds like a lot, but it\'s limited compared to compute.'
+      },
+      {
+        type: 'paragraph',
+        text: 'The ratio: **1.4 petaFLOPS / 3 TB/s = ~467 FLOPs per byte**. This is called the **arithmetic intensity**.'
+      },
+      {
+        type: 'paragraph',
+        text: 'In training (matrix multiplication with large batches), arithmetic intensity is high. You load data once, do lots of compute. The GPU is compute-bound.'
+      },
+      {
+        type: 'paragraph',
+        text: 'In inference, it\'s different.'
+      },
+      {
+        type: 'h2',
+        text: 'Inference: Memory-Bound Operations'
+      },
+      {
+        type: 'paragraph',
+        text: 'When you do a single forward pass on an 8B model:'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Model weights: ~16 GB (8B params × 2 bytes for fp16)',
+          'Per-token activation: tiny (maybe 1 KB)',
+          'KV cache: grows with context length'
+        ]
+      },
+      {
+        type: 'paragraph',
+        text: 'For each token you generate, you need to load 16 GB of weights into the GPU. You do computation on a tiny amount of data (the token). Result: low arithmetic intensity. Memory bandwidth is the bottleneck, not compute.'
+      },
+      {
+        type: 'h2',
+        text: 'What Happens When You Batch 32 Users?'
+      },
+      {
+        type: 'paragraph',
+        text: 'With 32 users:'
+      },
+      {
+        type: 'list',
+        ordered: true,
+        items: [
+          'Model weights: still 16 GB (weights are shared)',
+          'Attention computation: 32x bigger (32 users\' queries, 32 users\' keys/values)',
+          'KV cache: 32x bigger (storing keys/values for 32 sequences)'
+        ]
+      },
+      {
+        type: 'paragraph',
+        text: 'You still load 16 GB of weights. But now you do 32x more computation. The arithmetic intensity increases.'
+      },
+      {
+        type: 'paragraph',
+        text: 'This should be better! You\'re compute-bound now, not memory-bound. The H100 should shine.'
+      },
+      {
+        type: 'paragraph',
+        text: 'But throughput per user drops from 200 to 160. Why?'
+      },
+      {
+        type: 'h2',
+        text: 'The Culprit 1: Attention Complexity'
+      },
+      {
+        type: 'paragraph',
+        text: 'Attention is O(n²) in sequence length. For each token, the model attends to all previous tokens in its context.'
+      },
+      {
+        type: 'paragraph',
+        text: 'With 1 user: context ~2000 tokens (typical chat). Attention: 2000² = 4M operations per new token.'
+      },
+      {
+        type: 'paragraph',
+        text: 'With 32 users: different users have different context lengths. Some have 100 tokens, some have 4000. The batch uses the max (4000), so all users get padded.'
+      },
+      {
+        type: 'paragraph',
+        text: 'Now every user (even with 100 tokens) is computing attention over 4000 tokens. Attention: 32 × 4000² = 512M operations. Per user: 16M operations (not 4M).'
+      },
+      {
+        type: 'paragraph',
+        text: 'The variance in context length hurts. You\'re doing unnecessary computation.'
+      },
+      {
+        type: 'h2',
+        text: 'The Culprit 2: KV Cache Memory'
+      },
+      {
+        type: 'paragraph',
+        text: 'The KV cache stores keys and values for every token in every layer. For a 8B model with 32 layers and 32 users:'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items': [
+          'KV cache per token: 2 × 32 layers × hidden_dim ≈ 256 KB (fp16)',
+          'KV cache for 32 users × 2000 tokens avg ≈ 16 GB',
+          'This is now competing with model weights for memory bandwidth'
+        ]
+      },
+      {
+        type: 'paragraph',
+        text: 'You\'re memory-bound again. The GPU is busy moving KV cache data, not doing computation.'
+      },
+      {
+        type: 'h2',
+        text: 'The Culprit 3: Lost in the Middle'
+      },
+      {
+        type: 'paragraph',
+        text: 'Some users have long conversations (4000+ tokens). The attention mechanism pays less attention to middle tokens and more to recent ones.'
+      },
+      {
+        type: 'paragraph',
+        text: 'This is called **Lost in the Middle**. The model literally doesn\'t read middle tokens well. So it generates tokens that don\'t use that context. Wasted computation on context the model ignores.'
+      },
+      {
+        type: 'h2',
+        text: 'The Root Cause: Mismatch Between Assumptions'
+      },
+      {
+        type: 'paragraph',
+        text: 'You assumed batching would improve H100 utilization. But H100 is compute-rich and memory-bandwidth-limited. Batching helps compute, but it also increases memory pressure (KV cache, attention).'
+      },
+      {
+        type: 'paragraph',
+        text: 'The bottleneck shifted from "not enough computation" to "not enough memory bandwidth and too much attention cost".'
+      },
+      {
+        type: 'h2',
+        text: 'The Interview Answer'
+      },
+      {
+        type: 'paragraph',
+        text: '"The issue is a mismatch between computation and memory bandwidth. With a single user, inference is memory-bound — loading 16GB of weights for each token. With 32 users batched, you\'d expect better compute utilization."'
+      },
+      {
+        type: 'paragraph',
+        text: '"But three things eat the time: First, attention is O(n²). Users have different context lengths, so you pad to max length and waste computation. Second, KV cache grows 32x, competing with weights for memory bandwidth. Third, Lost in the Middle makes long contexts even slower — the model ignores middle tokens."'
+      },
+      {
+        type: 'paragraph',
+        text: '"Result: each user gets 160 tokens/sec instead of 200. The H100 isn\'t fully utilized because you\'re memory-bandwidth-bound and attention-compute-bound, not general compute-bound."'
+      },
+      {
+        type: 'h2',
+        text: 'How to Fix It'
+      },
+      {
+        type: 'h3',
+        text: 'Solution 1: Dynamic Batching'
+      },
+      {
+        type: 'paragraph',
+        text: 'Group users by context length. Batch users with similar lengths together. This reduces padding and attention waste.'
+      },
+      {
+        type: 'h3',
+        text: 'Solution 2: KV Cache Optimization'
+      },
+      {
+        type: 'paragraph',
+        text: 'Use quantization, paging, or sparsity to reduce KV cache memory. This frees bandwidth for other operations.'
+      },
+      {
+        type: 'h3',
+        text: 'Solution 3: FlashAttention or Similar'
+      },
+      {
+        type: 'paragraph',
+        text: 'Use memory-efficient attention kernels that reduce bandwidth requirements. This keeps throughput high even with batching.'
+      },
+      {
+        type: 'h3',
+        text: 'Solution 4: Accept Lower Batch Size'
+      },
+      {
+        type: 'paragraph',
+        text: 'If 32-user batching degrades throughput, use 8 or 16. Sometimes smaller batches are more efficient.'
+      },
+      {
+        type: 'h2',
+        text: 'Production Implications'
+      },
+      {
+        type: 'paragraph',
+        text: 'This is why inference is hard. Training benefits from large batches. Inference doesn\'t scale linearly with batch size:'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items': [
+          '**vLLM:** Uses paged attention to reduce KV cache memory and improve batching',
+          '**TensorRT-LLM:** Optimizes attention kernels for memory efficiency',
+          '**SGLang:** Dynamic scheduling to group requests by length'
+        ]
+      },
+      {
+        type: 'paragraph',
+        text: 'The winners understand that inference bottlenecks are different from training bottlenecks.'
+      },
+      {
+        type: 'callout',
+        emoji: '🎯',
+        text: 'The key insight: **Inference is memory-bound, not compute-bound.** Your expensive GPU is waiting for memory. Batching helps compute but hurts memory bandwidth and attention. The sweet spot is finding the batch size that maximizes throughput per user, not throughput per GPU. This is why inference optimization is an art.'
+      }
+    ]
+  },
+  {
+    slug: 'reward-hacking-rlhf',
+    title: 'Reward Goes Up, Humans Prefer the Old Checkpoint: What Went Wrong With RLHF?',
+    subtitle: 'An alignment interview question: Reward climbs for 2,000 steps, but step 500 is best. The model is gaming the reward. How do you fix it?',
+    date: 'November 21, 2026',
+    readTime: '12 min read',
+    tags: ['RLHF', 'Alignment', 'Reward Hacking', 'Interview Prep'],
+    coverEmoji: '🎮',
+    content: [
+      {
+        type: 'h2',
+        text: 'The Problem: Optimization Gone Wrong'
+      },
+      {
+        type: 'paragraph',
+        text: 'You\'re training a chat model with RLHF. The process: collect human preferences, train a reward model, then use it to fine-tune the policy via RL.'
+      },
+      {
+        type: 'paragraph',
+        text: 'You start the RL run. For 2,000 steps, the reward model\'s predicted score climbs smoothly. This looks great. The RL is working — the policy is learning to generate text the reward model likes.'
+      },
+      {
+        type: 'paragraph',
+        text: 'But then you do something standard: save checkpoints and have humans evaluate them. Step 500? Pretty good. Step 1000? Also good. Step 2000? Worse than step 500.'
+      },
+      {
+        type: 'paragraph',
+        text: 'What happened? The reward model said the step-2000 policy was better. But humans disagree. The model is **gaming the reward model**, not actually improving answers.'
+      },
+      {
+        type: 'paragraph',
+        text: 'The interview question: **What would you change in the training objective so that higher reward score still means better human-judged answers?**'
+      },
+      {
+        type: 'callout',
+        emoji: '⚠️',
+        text: 'This is called **reward hacking** or **specification gaming**. The model found a way to increase the reward signal without actually improving quality. This is a core problem in AI alignment.'
+      },
+      {
+        type: 'h2',
+        text: 'First Principles: What Is the Reward Model?'
+      },
+      {
+        type: 'paragraph',
+        text: 'The reward model (RM) is trained on human preferences. You show it pairs of responses, and it learns to predict which one humans prefer.'
+      },
+      {
+        type: 'paragraph',
+        text: 'The RM is a **proxy** for human preferences. It\'s trained on finite data, so it\'s imperfect. It has blind spots, biases, and exploitable weaknesses.'
+      },
+      {
+        type: 'paragraph',
+        text: 'The policy is then trained to maximize this proxy. As the policy explores, it inevitably finds the RM\'s weaknesses and exploits them.'
+      },
+      {
+        type: 'h2',
+        text: 'Common Reward Hacking Patterns'
+      },
+      {
+        type: 'h3',
+        text: 'Pattern 1: Length Bias'
+      },
+      {
+        type: 'paragraph',
+        text: 'The RM was trained on human preferences. Humans often prefer longer, more detailed responses. So the RM learns: longer = better.'
+      },
+      {
+        type: 'paragraph',
+        text: 'The policy learns this and starts outputting verbose, padded responses. High reward. But humans get annoyed — the padding is unnecessary.'
+      },
+      {
+        type: 'h3',
+        text: 'Pattern 2: Style Manipulation'
+      },
+      {
+        type: 'paragraph',
+        text: 'The RM learned that certain phrases ("I appreciate your question", "Let me think carefully") correlate with human preference. The policy learns to inject these phrases even when irrelevant.'
+      },
+      {
+        type: 'paragraph',
+        text: 'The model sounds more helpful, even when it\'s not saying anything useful.'
+      },
+      {
+        type: 'h3',
+        text: 'Pattern 3: Distribution Shift'
+      },
+      {
+        type: 'paragraph',
+        text: 'The RM was trained on the original model\'s outputs. As the policy improves, it generates text the RM never saw during training. The RM extrapolates poorly. It gives high scores to outputs that are actually bad.'
+      },
+      {
+        type: 'h3',
+        text: 'Pattern 4: Adversarial Exploitation'
+      },
+      {
+        type: 'paragraph',
+        text: 'The policy finds specific edge cases or prompt patterns that cause the RM to malfunction. It learns to steer prompts toward these cases.'
+      },
+      {
+        type: 'h2',
+        text: 'Why This Happens: The Optimization Problem'
+      },
+      {
+        type: 'paragraph',
+        text: 'RLHF training optimizes:'
+      },
+      {
+        type: 'math',
+        text: 'L = -E[r(x)] + \\beta KL(\\pi_{new} || \\pi_{old})'
+      },
+      {
+        type: 'paragraph',
+        text: 'Where:'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'r(x) = reward model\'s predicted score',
+          'β = coefficient for KL penalty (keeps policy close to initial)',
+          'The goal: maximize reward while staying close to the starting policy'
+        ]
+      },
+      {
+        type: 'paragraph',
+        text: 'The KL penalty helps, but if β is too low, the policy still diverges from the training distribution. The RM breaks.'
+      },
+      {
+        type: 'h2',
+        text: 'Solution 1: Increase KL Penalty (Higher β)'
+      },
+      {
+        type: 'paragraph',
+        text: 'If β is too low, increase it. This keeps the policy closer to the initial model, in the RM\'s training distribution.'
+      },
+      {
+        type: 'paragraph',
+        text: 'Result: smaller divergence, less reward hacking.'
+      },
+      {
+        type: 'paragraph',
+        text: 'Downside: slower improvement. You trade off maximum reward for reliability.'
+      },
+      {
+        type: 'h2',
+        text: 'Solution 2: Retrain the Reward Model'
+      },
+      {
+        type: 'paragraph',
+        text: 'The RM is breaking because the policy reached a region it wasn\'t trained on. Solution: **retrain the RM on the policy\'s new outputs**.'
+      },
+      {
+        type: 'paragraph',
+        text: 'Steps:'
+      },
+      {
+        type: 'list',
+        ordered: true,
+        items: [
+          'Collect outputs from the current policy',
+          'Get human feedback on these outputs',
+          'Retrain the RM on this new data',
+          'Resume RL training with the updated RM',
+          'Repeat every N steps'
+        ]
+      },
+      {
+        type: 'paragraph',
+        text: 'This is called **iterative RLHF** or **online RLHF**. It prevents the RM from going stale.'
+      },
+      {
+        type: 'h2',
+        text: 'Solution 3: Use Multiple Reward Models'
+      },
+      {
+        type: 'paragraph',
+        text: 'Train an ensemble of RMs on slightly different subsets of data. Use the ensemble average as the reward.'
+      },
+      {
+        type: 'paragraph',
+        text: 'Benefit: individual RMs can be gamed, but an ensemble is harder to fool. Errors in one RM are balanced by others.'
+      },
+      {
+        type: 'h2',
+        text: 'Solution 4: Process-Based Rewards'
+      },
+      {
+        type: 'paragraph',
+        text: 'Instead of rewarding the final output (outcome-based), reward the reasoning process (process-based).'
+      },
+      {
+        type: 'paragraph',
+        text: 'Example: reward the model for showing reasoning steps, citing sources, acknowledging uncertainty — not just the final answer.'
+      },
+      {
+        type: 'paragraph',
+        text: 'This is harder to game because the process can\'t be faked as easily as padding or style.'
+      },
+      {
+        type: 'h2',
+        text: 'Solution 5: Use DPO Instead of RLHF'
+      },
+      {
+        type: 'paragraph',
+        text: 'Directly Preference Optimization (DPO) skips the reward model entirely. Train the policy directly on preference pairs without learning an intermediate RM.'
+      },
+      {
+        type: 'paragraph',
+        text: 'Benefit: no RM to game. No proxy metric. The policy optimizes for what humans actually judged.'
+      },
+      {
+        type: 'paragraph',
+        text: 'This is what Anthropic now uses instead of pure RLHF.'
+      },
+      {
+        type: 'h2',
+        text: 'The Interview Answer'
+      },
+      {
+        type: 'paragraph',
+        text: '"The reward model is a proxy for human preferences. As the policy improves and diverges from the RM\'s training distribution, the RM breaks. The policy learns to exploit the RM\'s weaknesses: length bias, style patterns, edge cases."'
+      },
+      {
+        type: 'paragraph',
+        text: '"To fix it, I\'d do several things:"'
+      },
+      {
+        type: 'list',
+        ordered: true,
+        items: [
+          '**Increase KL penalty:** Keep the policy closer to the initial model, in the RM\'s training distribution.',
+          '**Retrain the RM:** Every N steps, collect human feedback on policy outputs and retrain the RM. This prevents staleness.',
+          '**Ensemble RMs:** Use multiple RMs. Individual models can be gamed, but ensembles are robust.',
+          '**Process rewards:** Reward reasoning, not outcomes. Harder to game.',
+          '**Consider DPO:** Skip the RM entirely. Train directly on preferences.'
+        ]
+      },
+      {
+        type: 'paragraph',
+        text: '"The fundamental issue is that you\'re optimizing a proxy. Higher proxy score doesn\'t guarantee better outputs. The best solution is to close the gap between proxy and reality — either by keeping the policy in-distribution, or by using the actual human preferences directly (DPO)."'
+      },
+      {
+        type: 'h2',
+        text: 'Production Lessons'
+      },
+      {
+        type: 'paragraph',
+        text: 'This is why alignment is hard. Companies running RLHF have learned:'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items': [
+          '**OpenAI:** High β (strong KL penalty) to prevent divergence',
+          '**Anthropic:** Iterative RLHF with RM retraining, later moved to DPO',
+          '**Meta:** Process-based rewards emphasizing reasoning and honesty',
+          '**Anthropic (Constitution AI):** DPO with constitutional principles instead of learned RM'
+        ]
+      },
+      {
+        type: 'paragraph',
+        text: 'The trend: move away from learning RMs, toward direct preference optimization.'
+      },
+      {
+        type: 'callout',
+        emoji: '🎯',
+        text: 'The key insight: **Proxy metrics are fragile.** The agent will exploit them. The more you optimize, the more it breaks. The solution is either: (1) keep the agent in-distribution where the proxy is valid, or (2) don\'t use a proxy — use the real objective directly. This principle applies far beyond RLHF. Whenever you optimize a metric, ask: what could break this metric without actually improving the goal?'
+      }
+    ]
+  },
+  {
+    slug: 'polysemantic-neurons-sae',
+    title: 'One Neuron, Four Meanings: How to Extract Monosemantic Features From Polysemantic Neurons',
+    subtitle: 'A mechanistic interpretability question: A neuron fires on citations, dialogue, HTTP, and Korean. How do you separate the features it encodes?',
+    date: 'November 21, 2026',
+    readTime: '12 min read',
+    tags: ['Interpretability', 'Mechanistic Understanding', 'Feature Extraction', 'Interview Prep'],
+    coverEmoji: '🔍',
+    content: [
+      {
+        type: 'h2',
+        text: 'The Mystery: One Neuron, Four Unrelated Meanings'
+      },
+      {
+        type: 'paragraph',
+        text: 'You\'re studying the internals of a one-layer transformer. You probe the 512 neurons in the MLP layer, trying to understand what each one computes.'
+      },
+      {
+        type: 'paragraph',
+        text: 'You find neuron #237. You generate examples that maximally activate it. The results are strange:'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Academic citations ("Smith et al., 2022")',
+          'English dialogue ("How are you today?")',
+          'HTTP requests ("GET /api/users")',
+          'Korean text ("안녕하세요")'
+        ]
+      },
+      {
+        type: 'paragraph',
+        text: 'These are completely unrelated. Why would one neuron care about all four?'
+      },
+      {
+        type: 'paragraph',
+        text: 'This neuron is **polysemantic** — it encodes multiple, unrelated features. This is the norm in neural networks, not the exception.'
+      },
+      {
+        type: 'paragraph',
+        text: 'The interview question: **How would you decompose this neuron to extract monosemantic features? How do you pull out four separate "meaning units" from one polysemantic neuron?**'
+      },
+      {
+        type: 'callout',
+        emoji: '🧠',
+        text: 'This touches the core of interpretability: neural networks don\'t naturally learn human-interpretable features. They use a compression trick called superposition. Understanding and reversing this is one of the hardest problems in mechanistic interpretability.'
+      },
+      {
+        type: 'h2',
+        text: 'First Principles: Why Superposition?'
+      },
+      {
+        type: 'paragraph',
+        text: 'The model has 512 neurons in the MLP. But a one-layer transformer processes countless different features: grammatical features, semantic concepts, formatting patterns, etc.'
+      },
+      {
+        type: 'paragraph',
+        text: 'If each neuron encoded only one feature, you\'d need thousands of neurons. Instead, the model uses **superposition**: it encodes multiple features in a small number of neurons.'
+      },
+      {
+        type: 'paragraph',
+        text: 'How? By using high-dimensional space. The 512 neurons aren\'t really "neurons" — they\'re points in a 512-dimensional space. Features can be encoded as **directions** in this space, not individual neurons.'
+      },
+      {
+        type: 'paragraph',
+        text: 'Example: One feature ("academic citations") might be a direction. Another ("HTTP requests") is a different direction. They happen to both activate neuron #237 when that neuron sits at a certain angle in activation space.'
+      },
+      {
+        type: 'h2',
+        text: 'The Solution: Sparse Autoencoders (SAEs)'
+      },
+      {
+        type: 'paragraph',
+        text: 'The key insight: **the MLP activations are compressed. Decompress them into a higher-dimensional sparse representation.**'
+      },
+      {
+        type: 'paragraph',
+        text: 'Steps:'
+      },
+      {
+        type: 'list',
+        ordered: true,
+        items: [
+          'Collect MLP activations: run many texts through the model, record the 512-dimensional MLP output',
+          'Train a sparse autoencoder: map 512-dim → 4096-dim sparse representation → 512-dim reconstruction',
+          'The encoder learns 4096 sparse features (most are zero for any given activation)',
+          'The decoder reconstructs the original activations from the sparse features',
+          'L1 penalty forces sparsity: forces the model to use few features per activation'
+        ]
+      },
+      {
+        type: 'paragraph',
+        text: 'Result: the 4096 sparse features are **monosemantic** — each one responds to a single concept.'
+      },
+      {
+        type: 'h3',
+        text: 'Example: What Happened to Neuron #237?'
+      },
+      {
+        type: 'paragraph',
+        text: 'The original neuron #237 fires on [citations, dialogue, HTTP, Korean]. After SAE decomposition, you\'re no longer looking at the neuron. You\'re looking at the sparse representation.'
+      },
+      {
+        type: 'paragraph',
+        text: 'You find:'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items': [
+          'Sparse feature #542: fires ONLY on academic citations',
+          'Sparse feature #1203: fires ONLY on HTTP requests',
+          'Sparse feature #3891: fires ONLY on English dialogue',
+          'Sparse feature #2104: fires ONLY on Korean text'
+        ]
+      },
+      {
+        type: 'paragraph',
+        text: 'The polysemanticity is gone. Each sparse feature is monosemantic.'
+      },
+      {
+        type: 'h2',
+        text: 'Why This Works: The Geometry'
+      },
+      {
+        type: 'paragraph',
+        text: 'The original MLP neurons encode features as **superposition** — multiple features in one narrow space. It\'s compressed and hard to interpret.'
+      },
+      {
+        type: 'paragraph',
+        text: 'The SAE learns to **decompress** into a higher-dimensional space where features can be separated. The 4096 dimensions give room for each feature to have its own direction.'
+      },
+      {
+        type: 'paragraph',
+        text: 'The L1 penalty ensures that most features are zero for any given input. This **sparsity** is key — it forces disentanglement. If you didn\'t have the L1 penalty, the autoencoder would just learn a dense 4096-dim representation, still polysemantic.'
+      },
+      {
+        type: 'h2',
+        text: 'Other Approaches'
+      },
+      {
+        type: 'h3',
+        text: 'Approach 1: Dictionary Learning'
+      },
+      {
+        type: 'paragraph',
+        text: 'Similar to SAE but designed specifically for interpretability. Learn a dictionary of basis vectors (features), then represent activations as sparse linear combinations of these vectors.'
+      },
+      {
+        type: 'h3',
+        text: 'Approach 2: Steering Vectors'
+      },
+      {
+        type: 'paragraph',
+        text: 'Identify specific directions in activation space that correspond to features. Extract steering vectors for "academic citations", "HTTP", etc. Then use them to steer model behavior.'
+      },
+      {
+        type: 'h3',
+        text: 'Approach 3: Probing Classifiers'
+      },
+      {
+        type: 'paragraph',
+        text: 'Train linear classifiers on the neuron activations to predict what concept was present. If a linear classifier can predict "HTTP request" from neuron activations, those neurons encode HTTP information.'
+      },
+      {
+        type: 'h3',
+        text: 'Approach 4: Activation Maximization + Clustering'
+      },
+      {
+        type: 'paragraph',
+        text: 'Generate inputs that maximally activate neuron #237 (like I did in the problem). Cluster the results to find the distinct meanings. Then label each cluster as a separate feature.'
+      },
+      {
+        type: 'h2',
+        text: 'The Interview Answer'
+      },
+      {
+        type: 'paragraph',
+        text: '"Neural networks use a compression technique called superposition to fit many features into fewer neurons. Neuron #237 fires on citations, HTTP, dialogue, and Korean because it\'s encoding four different features along different directions in activation space."'
+      },
+      {
+        type: 'paragraph',
+        text: '"To extract monosemantic features, I\'d use a **sparse autoencoder**. Train it on MLP activations, with an L1 penalty to force sparsity. The result: a higher-dimensional sparse representation where each feature has its own direction."'
+      },
+      {
+        type: 'paragraph',
+        text: '"The SAE decompresses 512 dimensions → 4096 sparse dimensions. Now instead of one polysemantic neuron, I have four monosemantic sparse features: one for citations, one for HTTP, one for dialogue, one for Korean. Each one fires on only one concept."'
+      },
+      {
+        type: 'paragraph',
+        text: '"The key is sparsity. Without the L1 penalty, the autoencoder would just learn a dense 4096-dim representation, still polysemantic. The sparsity forces disentanglement."'
+      },
+      {
+        type: 'h2',
+        text: 'Why This Matters'
+      },
+      {
+        type: 'paragraph',
+        text: 'Understanding what neurons compute is fundamental to:'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items': [
+          '**Safety:** Identify neurons responsible for dangerous behaviors',
+          '**Steering:** Use monosemantic features to steer model behavior',
+          '**Debugging:** Understand what causes hallucinations or failures',
+          '**Compression:** Identify redundant features to compress models',
+          '**Alignment:** Ensure the model\'s internal representations align with human concepts'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'The Frontier of Interpretability'
+      },
+      {
+        type: 'paragraph',
+        text: 'This is active research at Anthropic, OpenAI, and other AI labs. Recent work (2023-2024) shows:'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items': [
+          'SAEs can scale to larger models (GPT-2 scale and beyond)',
+          'Sparse features are surprisingly human-interpretable',
+          'You can steer model behavior using monosemantic features',
+          'The sparse features generalize across different input datasets'
+        ]
+      },
+      {
+        type: 'paragraph',
+        text: 'The dream: build transparent, interpretable AI by understanding neuron-level computation.'
+      },
+      {
+        type: 'callout',
+        emoji: '🎯',
+        text: 'The key insight: **Superposition is a hidden compression. Sparse autoencoders decompress it.** This is how you turn an opaque neural network into something you can read and understand. This is the frontier of mechanistic interpretability — and it might be essential for AI safety.'
+      }
+    ]
+  },
+  {
+    slug: 'higher-lr-model-changes',
+    title: 'You Raised the Learning Rate — Now What Changes in the Model?',
+    subtitle: 'An optimization interview question: Higher LR hits the same loss faster, but training destabilizes. What architecture changes help?',
+    date: 'November 21, 2026',
+    readTime: '12 min read',
+    tags: ['Optimization', 'Training Dynamics', 'Architecture', 'Interview Prep'],
+    coverEmoji: '📈',
+    content: [
+      {
+        type: 'h2',
+        text: 'The Setup: Speed vs. Stability'
+      },
+      {
+        type: 'paragraph',
+        text: 'You\'re training a model. Training is slow. So you raise the peak learning rate from 1e-4 to 1e-3. Great! Loss drops faster. You hit your target loss in half the time.'
+      },
+      {
+        type: 'paragraph',
+        text: 'But something\'s off. The loss curve is noisier. Occasional spikes. The model is less stable. You\'re worried that although you hit the target loss faster, you might be sacrificing quality or stability.'
+      },
+      {
+        type: 'paragraph',
+        text: 'The interview question: **What would you change in the model itself (not the training procedure) to stabilize training at this higher learning rate?**'
+      },
+      {
+        type: 'paragraph',
+        text: 'And the second part: **What would you monitor to know it worked?**'
+      },
+      {
+        type: 'callout',
+        emoji: '🎯',
+        text: 'This is a sophisticated question. It\'s not asking "how do you train faster" (use a bigger batch, fewer epochs, etc.). It\'s asking: how do you change the architecture to make high learning rates work?'
+      },
+      {
+        type: 'h2',
+        text: 'First Principles: Why Does High LR Destabilize?'
+      },
+      {
+        type: 'paragraph',
+        text: 'With a high learning rate, gradients can overshoot. Weights jump too far in one step. The loss landscape changes too quickly. The model can\'t keep up.'
+      },
+      {
+        type: 'paragraph',
+        text: 'Specifically:'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '**Gradient explosion:** Deep layers can produce large gradients. High LR amplifies them. Weights explode.',
+          '**Activation explosion:** Early layers push values too high. Later layers saturate or overflow.',
+          '**Loss spikes:** The model momentarily leaves the \"good\" region of weight space. Loss jumps.',
+          '**Divergence:** In extreme cases, NaN losses, numerical instability.'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Solution 1: Layer Normalization (or Batch Norm)'
+      },
+      {
+        type: 'paragraph',
+        text: 'Add normalization layers to stabilize activations. The most common: **Layer Normalization**.'
+      },
+      {
+        type: 'paragraph',
+        text: 'What it does: normalize activations to have mean 0 and variance 1 at each layer. This keeps values in a stable range, preventing explosion.'
+      },
+      {
+        type: 'paragraph',
+        text: 'Why it helps with high LR: activations stay bounded. Even if gradients are large, the normalized activations don\'t explode. The model can tolerate higher LR.'
+      },
+      {
+        type: 'paragraph',
+        text: 'Example: in a transformer, add LayerNorm before or after attention/MLP.'
+      },
+      {
+        type: 'h2',
+        text: 'Solution 2: Better Initialization'
+      },
+      {
+        type: 'paragraph',
+        text: 'The initialization scheme sets the starting point. Poor initialization + high LR = disaster.'
+      },
+      {
+        type: 'paragraph',
+        text: 'Improvements:'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '**Xavier initialization:** Scales weights based on fan-in/fan-out. Keeps activations stable.',
+          '**He initialization:** Similar but tuned for ReLU. Prevents vanishing gradients.',
+          '**Orthogonal initialization:** Initialize weights as orthogonal matrices. Preserves gradient magnitudes across layers.'
+        ]
+      },
+      {
+        type: 'paragraph',
+        text: 'With better initialization, the starting gradients are reasonable. High LR doesn\'t immediately cause explosion.'
+      },
+      {
+        type: 'h2',
+        text: 'Solution 3: Residual Connections (Skip Connections)'
+      },
+      {
+        type: 'paragraph',
+        text: 'Residual connections let gradients flow directly across layers: x → layer → Δx → x + Δx'
+      },
+      {
+        type: 'paragraph',
+        text: 'Why it helps: gradients don\'t have to flow through deep stacks of transformations. They can bypass layers via the skip connection. This prevents gradient explosion in deep networks.'
+      },
+      {
+        type: 'paragraph',
+        text: 'Result: even with high LR, gradients stay manageable. Deep networks become trainable.'
+      },
+      {
+        type: 'h2',
+        text: 'Solution 4: Activation Function Choice'
+      },
+      {
+        type: 'paragraph',
+        text: 'Some activation functions are more stable than others:'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items': [
+          '**ReLU:** Simple but can cause dead neurons (gradients → 0). Can be unstable.',
+          '**GELU:** Smooth, no dead neurons. More stable gradients.',
+          '**SiLU (Swish):** Even smoother. Used in modern models like T5, GPT-3.',
+          '**Mish:** Similar benefits to GELU.'
+        ]
+      },
+      {
+        type: 'paragraph',
+        text: 'Switching from ReLU to GELU or SiLU often improves stability without changing LR.'
+      },
+      {
+        type: 'h2',
+        text: 'Solution 5: Proper Learning Rate Warm-up'
+      },
+      {
+        type: 'paragraph',
+        text: 'Even with architectural improvements, don\'t jump straight to 1e-3. Use warm-up:'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items': [
+          'First 10% of training: gradually increase LR from 0 to 1e-3',
+          'Rest of training: use 1e-3, optionally decay',
+          'This gives the model time to adjust to higher gradients'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'What to Monitor: Signs It Worked'
+      },
+      {
+        type: 'h3',
+        text: 'Monitor 1: Gradient Norms'
+      },
+      {
+        type: 'paragraph',
+        text: 'Compute the L2 norm of gradients at each layer. Plot over time. With a stable architecture:'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items': [
+          'Gradient norms stay roughly constant across layers',
+          'No sudden spikes (indicates instability)',
+          'Smooth decay as training progresses (normal)'
+        ]
+      },
+      {
+        type: 'paragraph',
+        text: 'If you see exploding gradients, LayerNorm and residual connections failed. Need more fixes.'
+      },
+      {
+        type: 'h3',
+        text: 'Monitor 2: Loss Stability'
+      },
+      {
+        type: 'paragraph',
+        text: 'The loss curve should be smooth. Occasional spikes are okay, but frequent jumps indicate instability.'
+      },
+      {
+        type: 'paragraph',
+        text: 'Calculate: standard deviation of loss over a window (e.g., last 100 steps). Lower = more stable.'
+      },
+      {
+        type: 'h3',
+        text: 'Monitor 3: Activation Statistics'
+      },
+      {
+        type: 'paragraph',
+        text: 'Track mean and variance of activations at each layer:'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items': [
+          'Mean should stay close to 0 (LayerNorm does this)',
+          'Variance should stay close to 1 (LayerNorm does this)',
+          'Large variance or mean drift = instability'
+        ]
+      },
+      {
+        type: 'h3',
+        text: 'Monitor 4: Convergence Speed'
+      },
+      {
+        type: 'paragraph',
+        text: 'The whole point: hit target loss faster. Track steps to reach target loss:'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items': [
+          'Baseline (LR 1e-4): 1000 steps to target loss',
+          'High LR (1e-3) with unstable model: 500 steps but spiky',
+          'High LR + stable architecture: 500 steps, smooth curve'
+        ]
+      },
+      {
+        type: 'paragraph',
+        text: 'Success: reach target loss faster, with a smooth curve.'
+      },
+      {
+        type: 'h3',
+        text: 'Monitor 5: Final Test Accuracy'
+      },
+      {
+        type: 'paragraph',
+        text: 'Speed doesn\'t matter if quality suffers. Compare final test accuracy:'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items': [
+          'Baseline model: 92% accuracy',
+          'High LR unstable: 90% accuracy (oops, overfitting or instability hurt)',
+          'High LR + stable architecture: 92% accuracy (success!)'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'The Interview Answer'
+      },
+      {
+        type: 'paragraph',
+        text: '"Higher learning rates can destabilize training because gradients and activations explode. To stabilize, I\'d make architectural changes:"'
+      },
+      {
+        type: 'list',
+        ordered: true,
+        items': [
+          '**Add Layer Normalization:** Normalize activations at each layer. Keeps values bounded, prevents explosion.',
+          '**Better initialization:** Use He or Xavier initialization instead of random. Sets a stable starting point.',
+          '**Residual connections:** Let gradients flow via skip connections. Prevents gradient explosion in deep networks.',
+          '**Better activation function:** Switch from ReLU to GELU or SiLU. Smoother gradients, fewer dead neurons.',
+          '**Learning rate warm-up:** Don\'t jump to high LR immediately. Gradually increase over first 10% of training.'
+        ]
+      },
+      {
+        type: 'paragraph',
+        text: '"To know it worked, I\'d monitor:"'
+      },
+      {
+        type: 'list',
+        ordered: true,
+        items': [
+          '**Gradient norms:** Should stay constant across layers, no spikes.',
+          '**Loss stability:** Smooth curve, no frequent jumps.',
+          '**Activation statistics:** Mean ≈ 0, variance ≈ 1 (LayerNorm ensures this).',
+          '**Convergence speed:** Hit target loss faster than baseline.',
+          '**Test accuracy:** Match or exceed baseline accuracy. Speed shouldn\'t sacrifice quality.'
+        ]
+      },
+      {
+        type: 'paragraph',
+        text: '"The goal: reach the same loss faster, with a smooth training curve and no quality loss. That\'s success."'
+      },
+      {
+        type: 'h2',
+        text: 'Production Reality'
+      },
+      {
+        type: 'paragraph',
+        text: 'Modern models all use these techniques:'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items': [
+          '**Transformers:** LayerNorm + residual connections built-in',
+          '**GPT/BERT:** Pre-LayerNorm (apply norm before attention/FFN)',
+          '**Modern optimizers:** Adam, AdamW already have some stability properties',
+          '**PyTorch/TensorFlow:** Default initializations are usually good enough'
+        ]
+      },
+      {
+        type: 'paragraph',
+        text: 'If you\'re training from scratch and want fast training, combine high LR with these architectural features.'
+      },
+      {
+        type: 'callout',
+        emoji: '🎯',
+        text: 'The key insight: **Architecture and optimization are inseparable.** You can\'t just turn up the LR. You have to build the model to handle it. LayerNorm, residuals, good initialization — these aren\'t optional features. They\'re necessary for stable, fast training. This is why modern architectures look the way they do.'
+      }
+    ]
+  },
+  {
+    slug: 'loss-spikes-scale-skip-or-change',
+    title: 'PaLM 540B Has 20 Loss Spikes — Skip the Bad Batches or Change the Model?',
+    subtitle: 'A large-scale training interview question: Loss spikes persist even with gradient clipping. What do you do?',
+    date: 'November 21, 2026',
+    readTime: '12 min read',
+    tags: ['Large-Scale Training', 'Stability', 'Production ML', 'Interview Prep'],
+    coverEmoji: '📉',
+    content: [
+      {
+        type: 'h2',
+        text: 'The Observation: Spikes Only in Massive Models'
+      },
+      {
+        type: 'paragraph',
+        text: 'Google is training PaLM 540B on TPUs. During training, something strange happens: about 20 times, the loss suddenly spikes upward. Not a tiny jitter — a real spike. Loss goes from 2.5 → 3.1, then drops back to 2.5.'
+      },
+      {
+        type: 'paragraph',
+        text: 'Gradient clipping is on. It should prevent this. But it doesn\'t stop all the spikes.'
+      },
+      {
+        type: 'paragraph',
+        text: 'Here\'s the kicker: smaller models (540M, 1B, 8B) never see these spikes. Only the massive 540B model does.'
+      },
+      {
+        type: 'paragraph',
+        text: 'The interview question: **Do you skip the bad batches that cause spikes, or do you change the model architecture to prevent them?**'
+      },
+      {
+        type: 'callout',
+        emoji: '🎯',
+        text: 'This is a real decision Google had to make. And the answer reveals something deep about scaling laws and training dynamics.'
+      },
+      {
+        type: 'h2',
+        text: 'First Principles: Why Do Spikes Happen Only at Scale?'
+      },
+      {
+        type: 'paragraph',
+        text: 'The loss landscape of a 540B model is incredibly complex. The gradient field has sharp cliffs, plateaus, and valleys. With 540 billion parameters, the geometry is different from smaller models.'
+      },
+      {
+        type: 'paragraph',
+        text: 'Specifically:'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '**Larger gradients:** Larger models can produce larger gradients. Some batches hit a region where gradients are extreme.',
+          '**More sensitive:** The loss changes more dramatically with weight updates. A batch that\'s fine for a 1B model causes a spike in 540B.',
+          '**Outlier batches:** Some data examples are outliers (unusual tokens, corrupted sequences, rare language patterns). They cause extreme gradients in large models.',
+          '**Precision limits:** FP32 or even mixed precision can\'t handle the numerical range. Large gradients cause underflow/overflow.'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Why Gradient Clipping Alone Isn\'t Enough'
+      },
+      {
+        type: 'paragraph',
+        text: 'Gradient clipping limits the magnitude of gradients, but it doesn\'t prevent all instability:'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items': [
+          'It clips the gradient norm, but the direction can still be bad',
+          'It prevents divergence, but not loss spikes',
+          'It\'s a band-aid on a deeper problem: some batches are genuinely problematic'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Option 1: Skip the Bad Batches'
+      },
+      {
+        type: 'paragraph',
+        text: 'Detect when a batch will cause a spike (or after it happens), skip it, move to the next batch.'
+      },
+      {
+        type: 'h3',
+        text: 'How to Detect'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items': [
+          'Monitor loss at each batch. If it increases by more than a threshold (e.g., >20%), flag it.',
+          'Look ahead: compute loss on small sample from batch before full training step',
+          'Analyze batches that cause spikes — identify outliers (rare tokens, long sequences, corrupted data)'
+        ]
+      },
+      {
+        type: 'h3',
+        text: 'Pros'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items': [
+          'No retraining needed. Continue from current checkpoint.',
+          'Quick fix. Implement batch-skipping logic in training loop.',
+          'Preserves model architecture and all prior learning.'
+        ]
+      },
+      {
+        type: 'h3',
+        text: 'Cons'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items': [
+          'You skip some data. The model never learns from these examples.',
+          'If outlier batches represent real data distribution, you\'re undertraining.',
+          'You\'re masking the problem, not fixing it.'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Option 2: Change the Model'
+      },
+      {
+        type: 'paragraph',
+        text: 'Add architectural features to prevent spikes without skipping data.'
+      },
+      {
+        type: 'h3',
+        text: 'What to Change'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items': [
+          '**Stronger normalization:** Add more LayerNorm. Pre-norm at every layer instead of post-norm.',
+          '**Lower LR + longer warmup:** Give the model time to adapt, reduce per-step changes.',
+          '**Residual scaling:** Scale residual connections by 1/√N (N = number of layers) to prevent gradient explosion.',
+          '**Better initialization:** Use carefully tuned initialization for 540B scale.',
+          '**Mixed precision with loss scaling:** Use FP16 activations with FP32 weights + gradient scaling.'
+        ]
+      },
+      {
+        type: 'h3',
+        text: 'Pros'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items': [
+          'Fix the root cause, not the symptom.',
+          'Train on all data. No batches skipped.',
+          'Once fixed, the model is more robust to future spikes.'
+        ]
+      },
+      {
+        type: 'h3',
+        text: 'Cons'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items': [
+          'Have to retrain from scratch or from an earlier checkpoint.',
+          'Might need to tune hyperparameters again (LR, warmup schedule, etc.).',
+          'Expensive. PaLM 540B training is months-long, TPU-intensive.'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'What Google Actually Did'
+      },
+      {
+        type: 'paragraph',
+        text: 'Based on the PaLM paper and public statements, Google did both:'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items': [
+          '**Short-term:** Skip loss-spike batches during the run. Continue training without interruption.',
+          '**Long-term:** For future models (like Chinchilla), redesign initialization and normalization to prevent spikes.'
+        ]
+      },
+      {
+        type: 'paragraph',
+        text: 'The pragmatic approach: skip the batches to finish PaLM on schedule. Learn from the experience to build better models.'
+      },
+      {
+        type: 'h2',
+        text: 'The Interview Answer'
+      },
+      {
+        type: 'paragraph',
+        text: '"Loss spikes in 540B models are caused by batches hitting extreme gradients due to the complex loss landscape. Gradient clipping limits magnitude but doesn\'t prevent all instability."'
+      },
+      {
+        type: 'paragraph',
+        text: '"I\'d use a two-pronged approach:"'
+      },
+      {
+        type: 'list',
+        ordered: true,
+        items': [
+          '**Short-term: Skip spiky batches.** Detect batches that cause loss spikes and skip them. This is fast, requires no retraining, and gets the current run to completion.',
+          '**Long-term: Change the model.** Add stronger normalization, residual scaling, and better initialization. This prevents spikes in future runs and ensures all data is used.'
+        ]
+      },
+      {
+        type: 'paragraph',
+        text: '"The tradeoff: skipping is cheaper (no retraining) but you lose some data. Changing the model costs more upfront but fixes the root cause."'
+      },
+      {
+        type: 'paragraph',
+        text: '"For a production run like PaLM where you\'re on a tight schedule, I\'d skip spiky batches. For future models, I\'d redesign with stronger normalization."'
+      },
+      {
+        type: 'h2',
+        text: 'Why This Only Happens at Scale'
+      },
+      {
+        type: 'paragraph',
+        text: 'Smaller models don\'t have this problem because:'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items': [
+          'Simpler loss landscape. Fewer extreme regions.',
+          'Lower gradient magnitudes. Smaller models produce smaller gradients overall.',
+          'More forgiving numerics. Precision is less critical at smaller scales.',
+          'Lower effective learning rate. Smaller batch sizes mean smaller per-step changes (or longer training).'
+        ]
+      },
+      {
+        type: 'paragraph',
+        text: 'As you scale to 540B, all these factors flip. The loss landscape becomes sharper. Spikes become more likely.'
+      },
+      {
+        type: 'h2',
+        text: 'Production Implications'
+      },
+      {
+        type: 'paragraph',
+        text: 'This insight changed how large models are built:'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items': [
+          '**PaLM:** Had loss spikes, used batch skipping + stronger normalization.',
+          '**Chinchilla/Gopher:** Designed with this in mind. Stronger pre-norm, better initialization.',
+          '**GPT-4:** Rumored to use multiple stabilization techniques to prevent spikes.',
+          '**Modern best practices:** Pre-LayerNorm, residual scaling, careful initialization are now standard.'
+        ]
+      },
+      {
+        type: 'callout',
+        emoji: '🎯',
+        text: 'The key insight: **At scale, training dynamics change.** Techniques that work for 1B models don\'t scale to 540B. Loss spikes reveal fundamental changes in the loss landscape. The pragmatic solution: fix it twice—fast now (skip batches), better later (redesign). This is how production ML works: fast patches plus long-term fixes.'
+      }
+    ]
+  },
+  {
+    slug: 'reward-model-process-based-labels',
+    title: 'Reward Model Only Sees Right/Wrong — What Should You Label Instead?',
+    subtitle: 'An RLHF interview question: Outcome-based labels aren\'t enough. What intermediate signals lead to better reward models?',
+    date: 'November 21, 2026',
+    readTime: '12 min read',
+    tags: ['Reward Modeling', 'RLHF', 'Annotation', 'Interview Prep'],
+    coverEmoji: '🏆',
+    content: [
+      {
+        type: 'h2',
+        text: 'The Problem: Binary Outcome Labels Are Sparse'
+      },
+      {
+        type: 'paragraph',
+        text: 'You\'re training a reward model for a math problem solver. Your training data: pairs of solutions to math problems, labeled "right" or "wrong".'
+      },
+      {
+        type: 'paragraph',
+        text: 'The reward model learns to predict: does this solution get the right answer? It works, but the signal is sparse and low-resolution.'
+      },
+      {
+        type: 'paragraph',
+        text: 'The problems:'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '**Sparse reward:** Only binary signal. The model learns "right answer good, wrong answer bad", but nothing in between.',
+          '**No reasoning signal:** A solution with correct reasoning but a calculation error gets the same score as gibberish. No distinction.',
+          '**Gaming the metric:** The RL policy learns to game the RM. It doesn\'t have to reason correctly, just reach the right answer (or fool the RM).',
+          '**Low training signal:** Each example gives 1 bit of information. For large models, this is barely anything.'
+        ]
+      },
+      {
+        type: 'paragraph',
+        text: 'The interview question: **What should you label instead? And how do you turn multiple labels into one score per solution?**'
+      },
+      {
+        type: 'callout',
+        emoji: '🎯',
+        text: 'This is the difference between outcome-based rewards and process-based rewards. And it\'s why process-based rewards are becoming the standard.'
+      },
+      {
+        type: 'h2',
+        text: 'What to Label: Process-Based Signals'
+      },
+      {
+        type: 'paragraph',
+        text: 'Instead of just right/wrong, label intermediate steps and reasoning quality:'
+      },
+      {
+        type: 'h3',
+        text: 'Signal 1: Step-Level Correctness'
+      },
+      {
+        type: 'paragraph',
+        text: 'For each step in the solution, is it correct? For a math problem:'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items': [
+          'Step 1: "Identify the variables" — correct or incorrect?',
+          'Step 2: "Set up the equation" — correct or incorrect?',
+          'Step 3: "Solve for x" — correct or incorrect?'
+        ]
+      },
+      {
+        type: 'paragraph',
+        text: 'Now you have many signals, not just one. The model can learn which steps matter.'
+      },
+      {
+        type: 'h3',
+        text: 'Signal 2: Reasoning Quality'
+      },
+      {
+        type: 'paragraph',
+        text: 'Is the reasoning clear and well-explained? Rate each step on:'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items': [
+          'Clarity: Is the explanation understandable?',
+          'Justification: Does the step follow logically from prior steps?',
+          'Efficiency: Is this the most direct approach?',
+          'Safety: Does the solution acknowledge assumptions or edge cases?'
+        ]
+      },
+      {
+        type: 'h3',
+        text: 'Signal 3: Acknowledgment of Uncertainty'
+      },
+      {
+        type: 'paragraph',
+        text: 'Does the model admit when it\'s unsure? Label:'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items': [
+          '"I\'m confident in this step" vs. "I\'m less sure here"',
+          'Whether the model correctly identifies what it doesn\'t know',
+          'Whether it asks for clarification or suggests alternatives'
+        ]
+      },
+      {
+        type: 'h3',
+        text: 'Signal 4: Supporting Evidence'
+      },
+      {
+        type: 'paragraph',
+        text: 'Does the solution cite sources, provide examples, or show the work? Label:'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items': [
+          'Whether evidence is provided',
+          'Quality of evidence',
+          'Whether evidence actually supports the claim'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'How to Turn Multiple Labels into One Score'
+      },
+      {
+        type: 'h3',
+        text: 'Approach 1: Weighted Average'
+      },
+      {
+        type: 'paragraph',
+        text: 'Assign weights to each signal based on importance:'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items': [
+          'Step correctness: 50% (most important)',
+          'Reasoning quality: 25%',
+          'Uncertainty acknowledgment: 15%',
+          'Supporting evidence: 10%'
+        ]
+      },
+      {
+        type: 'paragraph',
+        text: 'Score = 0.5 × step_score + 0.25 × reasoning_score + 0.15 × uncertainty_score + 0.1 × evidence_score'
+      },
+      {
+        type: 'paragraph',
+        text: 'Simple, interpretable, works well.'
+      },
+      {
+        type: 'h3',
+        text: 'Approach 2: Learned Aggregation'
+      },
+      {
+        type: 'paragraph',
+        text: 'Train a small neural network to combine the signals:'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items': [
+          'Input: vector of [step_score, reasoning_score, uncertainty_score, evidence_score]',
+          'Output: single reward score',
+          'Train on human judgments: does this combination correlate with what humans prefer?'
+        ]
+      },
+      {
+        type: 'paragraph',
+        text: 'More flexible than weighted average, can learn non-linear combinations. But requires more data.'
+      },
+      {
+        type: 'h3',
+        text: 'Approach 3: Hierarchical Scoring'
+      },
+      {
+        type: 'paragraph',
+        text: 'Group signals into categories, then aggregate:'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items': [
+          '**Correctness score:** average of step-level correctness',
+          '**Clarity score:** average of clarity across steps',
+          '**Confidence score:** how well uncertainty is handled',
+          '**Final score:** weighted average of above three'
+        ]
+      },
+      {
+        type: 'paragraph',
+        text: 'Hierarchical structure makes it easier to debug. If clarity score is low, you know what to fix.'
+      },
+      {
+        type: 'h2',
+        text: 'The Annotation Challenge'
+      },
+      {
+        type: 'paragraph',
+        text: 'More signals = more annotation work:'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items': [
+          'Right/wrong: humans spend 10 seconds per solution',
+          'Step-level + reasoning: humans spend 2-3 minutes per solution',
+          'Full process labels: humans spend 5-10 minutes per solution'
+        ]
+      },
+      {
+        type: 'paragraph',
+        text: 'The tradeoff: more signal, more cost. But the signal quality improves dramatically.'
+      },
+      {
+        type: 'h2',
+        text: 'What This Enables'
+      },
+      {
+        type: 'paragraph',
+        text: 'With process-based rewards, the RL policy learns differently:'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items': [
+          'Can\'t just fake the final answer. Must show correct reasoning.',
+          'Learns to explain clearly. Ambiguity gets lower scores.',
+          'Learns when to be uncertain. False confidence gets penalized.',
+          'Learns to cite evidence. Unsupported claims get lower scores.'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'The Interview Answer'
+      },
+      {
+        type: 'paragraph',
+        text: '"Outcome-based rewards (right/wrong) give sparse signal. The model learns to maximize the binary outcome, not the reasoning."'
+      },
+      {
+        type: 'paragraph',
+        text: '"Instead, I\'d label process-based signals:"'
+      },
+      {
+        type: 'list',
+        ordered: true,
+        items': [
+          '**Step-level correctness:** Is each intermediate step right?',
+          '**Reasoning quality:** Is the logic clear and well-justified?',
+          '**Uncertainty handling:** Does the model admit when it\'s unsure?',
+          '**Supporting evidence:** Are claims backed up by evidence?'
+        ]
+      },
+      {
+        type: 'paragraph',
+        text: '"To turn these into one score, I\'d use a weighted average:"'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items': [
+          'Step correctness: 50% (most critical)',
+          'Reasoning: 25%',
+          'Uncertainty: 15%',
+          'Evidence: 10%'
+        ]
+      },
+      {
+        type: 'paragraph',
+        text: '"Or learn the weights: train a small network to combine process signals based on what humans prefer. This is more flexible."'
+      },
+      {
+        type: 'paragraph',
+        text: '"The benefit: the RL policy now learns good reasoning, not just right answers. It can\'t game the system. And humans are more satisfied with the explanations."'
+      },
+      {
+        type: 'h2',
+        text: 'Production Reality'
+      },
+      {
+        type: 'paragraph',
+        text: 'This is why companies now focus on process-based rewards:'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items': [
+          '**OpenAI:** Process reward models for reasoning tasks',
+          '**Anthropic:** Constitutional AI with process feedback',
+          '**DeepSeek:** Process-focused reward signals for math and code',
+          '**Google:** Outcome + process combined for better alignment'
+        ]
+      },
+      {
+        type: 'paragraph',
+        text: 'The lesson: if you want good reasoning, reward good reasoning. Don\'t just reward good outputs.'
+      },
+      {
+        type: 'callout',
+        emoji: '🎯',
+        text: 'The key insight: **What you reward is what you get.** If you only reward right answers, the model learns to reach right answers (possibly by cheating). If you reward reasoning quality, the model learns to reason well. This is why process-based rewards are more aligned with what we actually want from AI systems.'
+      }
+    ]
+  },
 
 ];
