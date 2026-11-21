@@ -36408,5 +36408,266 @@ WELLBEING METRICS (not engagement metrics):
       }
     ]
   },
+  {
+    slug: 'api-greedy-decoding-determinism-non-deterministic-inference',
+    title: 'Non-Deterministic Inference: Why Greedy Decoding + Temperature 0 Still Varies',
+    subtitle: 'Your API uses temperature 0 and greedy decoding (should be deterministic). Yet the same prompt returns different completions. How do you guarantee identical outputs?',
+    date: 'November 21, 2026',
+    readTime: '12 min read',
+    tags: ['Inference', 'Determinism', 'Production', 'Deployment', 'API Design'],
+    coverEmoji: '🔄',
+    content: [
+      {
+        type: 'h2',
+        text: 'The Puzzle: Deterministic Setup, Non-Deterministic Results'
+      },
+      {
+        type: 'paragraph',
+        text: 'You configure your inference API: greedy decoding, temperature = 0 (deterministic by definition). You send the same prompt 1,000 times.'
+      },
+      {
+        type: 'paragraph',
+        text: 'Expected: identical completions every time. Actual: completions split partway through. Same first 50 tokens, then diverge.'
+      },
+      {
+        type: 'h3',
+        text: 'Example'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: `Request 1: \"Write a poem about...\" → \"A morning mist descends upon...\"\nRequest 2: \"Write a poem about...\" → \"A morning mist descends upon...\" (matches request 1)\nRequest 3: \"Write a poem about...\" → \"A morning mist descends upon...\" (matches)\n...\nRequest 100: \"Write a poem about...\" → \"A morning mist descends upward...\" (diverges!)\n\nCommon prefix: \"A morning mist descends upon\"\nRequest 1 continues: \"the valley floor\"\nRequest 100 continues: \"through clouds above\"\n\nSame prompt, same model, same temperature → different outputs\nThis shouldn't happen with greedy decoding!`
+      },
+      {
+        type: 'h2',
+        text: 'The Root Causes: Why Greedy Isn\'t Actually Deterministic'
+      },
+      {
+        type: 'h3',
+        text: '1. Non-Deterministic CUDA Kernels (Most Common)'
+      },
+      {
+        type: 'paragraph',
+        text: 'PyTorch and TensorFlow use optimized CUDA kernels that prioritize speed over determinism. These kernels use parallel operations with undefined ordering, causing small floating-point precision differences.'
+      },
+      {
+        type: 'code',
+        language: 'python',
+        code: `# Problem: attention computation is non-deterministic by default\n# Different orderings of operations → different rounding → argmax changes\n\n# Example: attention softmax\nscores = Q @ K.T  # [batch, seq_len, seq_len]\nprobs = softmax(scores)  # Non-deterministic kernel\noutput = probs @ V\n\n# Request 1: softmax → [0.4999, 0.5001]\n# Request 2: softmax → [0.5000, 0.5000]  (slightly different due to rounding)\n# When selecting argmax token:\n# Request 1: argmax([0.4999, 0.5001]) → token 1\n# Request 2: argmax([0.5000, 0.5000]) → token 0 (or 1, undefined)\n# Results diverge!`
+      },
+      {
+        type: 'h3',
+        text: '2. Floating-Point Accumulation Order'
+      },
+      {
+        type: 'paragraph',
+        text: 'FP32 operations accumulate errors. Different computation order → different intermediate results → different final logits.'
+      },
+      {
+        type: 'code',
+        language: 'python',
+        code: `# Different GPU runs process matrix multiplications in different order\n# (a + b) + c ≠ a + (b + c) in floating point\n\nimport numpy as np\n\na, b, c = np.float32(0.1), np.float32(0.2), np.float32(0.3)\n\n# Order 1\nresult_1 = (a + b) + c\nprint(f\"Order 1: {result_1}\")\n\n# Order 2\nresult_2 = a + (b + c)\nprint(f\"Order 2: {result_2}\")\n\n# Output (may differ in last few decimal places)\n# This tiny difference can flip argmax for near-tied logits`
+      },
+      {
+        type: 'h3',
+        text: '3. Multi-GPU Non-Determinism'
+      },
+      {
+        type: 'paragraph',
+        text: 'If running on multiple GPUs, communication order and synchronization are non-deterministic.'
+      },
+      {
+        type: 'h3',
+        text: '4. Dropout or Stochastic Layers at Inference'
+      },
+      {
+        type: 'paragraph',
+        text: 'Model accidentally left in training mode (dropout enabled, batch norm not frozen).'
+      },
+      {
+        type: 'h3',
+        text: '5. Tokenizer Randomness'
+      },
+      {
+        type: 'paragraph',
+        text: 'Some tokenizers add noise for privacy (e.g., differential privacy). Check if your tokenizer is non-deterministic.'
+      },
+      {
+        type: 'h2',
+        text: 'Solution 1: Enable Deterministic Mode (Best)'
+      },
+      {
+        type: 'h3',
+        text: 'The Idea'
+      },
+      {
+        type: 'paragraph',
+        text: 'Force PyTorch to use deterministic algorithms and disable non-deterministic kernel variants.'
+      },
+      {
+        type: 'code',
+        language: 'python',
+        code: `import torch\nimport numpy as np\nimport random\nimport os\n\ndef setup_deterministic_inference():\n    \"\"\"\n    Configure all sources of randomness for deterministic inference.\n    \"\"\"\n    # Set seeds\n    seed = 42\n    torch.manual_seed(seed)\n    torch.cuda.manual_seed_all(seed)\n    np.random.seed(seed)\n    random.seed(seed)\n    \n    # Enable deterministic algorithms\n    torch.use_deterministic_algorithms(True, allow_tf32=False)\n    \n    # Disable non-deterministic CUDA kernels\n    torch.backends.cudnn.deterministic = True\n    torch.backends.cudnn.benchmark = False\n    \n    # Set cuBLAS workspace config (required for determinism on some GPUs)\n    os.environ[\"CUBLAS_WORKSPACE_CONFIG\"] = \":16:8\"\n    \n    # Optional: use TF32 disabled (more precision, less speed)\n    torch.backends.cuda.matmul.allow_tf32 = False\n    torch.backends.cudnn.allow_tf32 = False\n\n# Call before loading model\nsetup_deterministic_inference()\nmodel = load_model(\"model.pt\")\nmodel.eval()  # Critical: disable dropout, batch norm\n\n# Now inference is deterministic\nfor _ in range(1000):\n    output = model.generate(prompt, temperature=0, top_p=1.0, do_sample=False)`
+      },
+      {
+        type: 'h3',
+        text: 'Tradeoffs'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '✅ **Guaranteed determinism:** Same input → same output, always.',
+          '✅ **No model changes:** Works with any model, any framework.',
+          '✅ **Simple to implement:** Just set flags before inference.',
+          '❌ **Performance cost:** 20-30% slower (non-deterministic kernels are optimized).',
+          '❌ **GPU compatibility:** Some operations might not have deterministic implementations.',
+          '❌ **Batch size sensitive:** Different batch sizes might still vary (compute in different order).'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Solution 2: Use Deterministic Generation Framework'
+      },
+      {
+        type: 'h3',
+        text: 'The Idea'
+      },
+      {
+        type: 'paragraph',
+        text: 'Some frameworks (HuggingFace Transformers) provide explicit deterministic generation APIs.'
+      },
+      {
+        type: 'code',
+        language: 'python',
+        code: `from transformers import GenerationConfig\n\n# Configure for deterministic generation\ngen_config = GenerationConfig(\n    max_new_tokens=100,\n    top_k=1,  # Force greedy (pick only top token)\n    top_p=1.0,  # No nucleus sampling\n    temperature=1.0,  # Will be ignored with top_k=1\n    do_sample=False,  # Greedy decoding\n    seed=42,  # Set generation seed\n)\n\noutput = model.generate(\n    input_ids,\n    generation_config=gen_config,\n)\n\n# Note: HuggingFace's seed parameter doesn't guarantee full determinism\n# because underlying CUDA kernels might still be non-deterministic\n# This is better than nothing, but doesn't solve the root cause`
+      },
+      {
+        type: 'h3',
+        text: 'Tradeoffs'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '✅ **Framework-level support:** Cleaner API.',
+          '✅ **Some determinism:** Better than no configuration.',
+          '❌ **Not fully deterministic:** Still subject to CUDA non-determinism.',
+          '❌ **Framework-specific:** Only works with compatible frameworks.'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Solution 3: Response Caching (Pragmatic for Production)'
+      },
+      {
+        type: 'h3',
+        text: 'The Idea'
+      },
+      {
+        type: 'paragraph',
+        text: 'If you can\'t guarantee determinism, cache results. Same prompt → cached response (guaranteed identical).'
+      },
+      {
+        type: 'code',
+        language: 'python',
+        code: `import hashlib\nimport json\nfrom functools import lru_cache\n\nclass DeterministicAPI:\n    def __init__(self, model, cache_size=10000):\n        self.model = model\n        self.cache = {}  # prompt_hash → response\n        self.cache_size = cache_size\n    \n    def _hash_prompt(self, prompt):\n        \"\"\"Hash prompt for cache key.\"\"\"\n        h = hashlib.sha256(prompt.encode()).hexdigest()\n        return h\n    \n    def generate(self, prompt):\n        \"\"\"Generate, using cache for identical prompts.\"\"\"\n        prompt_hash = self._hash_prompt(prompt)\n        \n        # Check cache\n        if prompt_hash in self.cache:\n            return self.cache[prompt_hash]  # Return cached response\n        \n        # Generate\n        response = self.model.generate(prompt, temperature=0, do_sample=False)\n        \n        # Cache result\n        if len(self.cache) < self.cache_size:\n            self.cache[prompt_hash] = response\n        \n        return response\n\n# Usage\napi = DeterministicAPI(model)\nfor _ in range(1000):\n    output = api.generate(prompt)  # First request: computes, caches. Rest: returns cached.\n    # All 1000 requests return identical output`
+      },
+      {
+        type: 'h3',
+        text: 'Tradeoffs'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '✅ **Guaranteed determinism:** Same input → cached output.',
+          '✅ **No performance cost:** Cached responses are instant.',
+          '✅ **Simple to implement:** Just hash + lookup.',
+          '❌ **Memory overhead:** Caches responses, uses memory.',
+          '❌ **Cold start:** First request is slow, subsequent requests fast.',
+          '❌ **Cache invalidation:** If model updates, cache becomes stale.'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Solution 4: Consistent Batching'
+      },
+      {
+        type: 'h3',
+        text: 'The Idea'
+      },
+      {
+        type: 'paragraph',
+        text: 'If batch size affects determinism, always use the same batch size (e.g., batch size 1 for requests). Reduces variability in computation order.'
+      },
+      {
+        type: 'code',
+        language: 'python',
+        code: "# Instead of batching multiple requests\n# Process each request independently (batch_size=1)\n\nclass SingleRequestAPI:\n    def generate(self, prompt):\n        \"\"\"Generate with consistent batch size 1.\"\"\"\n        output = self.model.generate(\n            prompt,\n            batch_size=1,\n            temperature=0,\n            do_sample=False,\n        )\n        return output\n\n# More deterministic than batching multiple requests together"
+      },
+      {
+        type: 'h3',
+        text: 'Tradeoffs'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '✅ **Reduces non-determinism:** Consistent computation order.',
+          '✅ **No performance cost:** Actually improves latency (no batching overhead).',
+          '❌ **Not fully deterministic:** CUDA kernels still non-deterministic.',
+          '❌ **Throughput cost:** Processing requests sequentially is slower per token.',
+          '❌ **GPU underutilization:** Not batching means lower GPU usage.'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'The Interview Answer'
+      },
+      {
+        type: 'paragraph',
+        text: "Greedy decoding + temperature 0 should be deterministic, but it isn't because CUDA kernels (attention, softmax, matrix multiply) use optimized but non-deterministic implementations. Even tiny floating-point precision differences can flip argmax for near-tied logits, causing outputs to diverge mid-sequence."
+      },
+      {
+        type: 'paragraph',
+        text: "To guarantee determinism, use deterministic mode: set all seeds (Python, NumPy, PyTorch, CUDA), enable torch.use_deterministic_algorithms(True), and set CUBLAS_WORKSPACE_CONFIG. This forces deterministic CUDA kernels. Downside: ~20-30% slower."
+      },
+      {
+        type: 'paragraph',
+        text: "If performance is critical and you can't take the slowdown, use response caching: hash prompts, cache first generation, return cached response for identical prompts. Guarantees determinism via memorization, not computation. Zero latency for cached requests."
+      },
+      {
+        type: 'paragraph',
+        text: "Alternative: single request batching (batch size 1) reduces (but doesn't eliminate) non-determinism by keeping computation order consistent. Combined with deterministic mode, this is very robust."
+      },
+      {
+        type: 'paragraph',
+        text: "Three levels of commitment: (1) Best: deterministic mode (guaranteed, slow), (2) Practical: caching (guaranteed via memorization, fast), (3) Good enough: batch size 1 + consistent seed (mostly deterministic, fast)."
+      },
+      {
+        type: 'h2',
+        text: 'Production Decision: Do You Actually Need Determinism?'
+      },
+      {
+        type: 'paragraph',
+        text: 'Before investing in full determinism, ask: do you really need it?'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '**Need determinism:** Reproducibility research, legal/compliance, debugging, A/B testing baseline.',
+          '**Don\'t need:** Most production APIs (users don\'t expect exact reproducibility), creative tasks (variety is good).',
+          '**Nice to have:** Consistency within a user session (same user gets similar outputs), but not across users.'
+        ]
+      },
+      {
+        type: 'callout',
+        emoji: '🔄',
+        text: 'The key insight: **Greedy decoding is deterministic in theory, but non-deterministic CUDA kernels break it in practice.** Even temperature 0 varies due to floating-point precision differences in attention computation. Fix: (1) deterministic mode (guaranteed, 20-30% slower), (2) caching (guaranteed via memorization, fast), or (3) accept variance and document it. For production: caching is often the best choice (guarantees determinism for identical prompts, zero latency on cache hits). For research: deterministic mode is worth the performance cost.'
+      }
+    ]
+  },
 
 ];
