@@ -29148,5 +29148,324 @@ WELLBEING METRICS (not engagement metrics):
       }
     ]
   },
+  {
+    slug: 'int8-activations-without-retraining',
+    title: 'INT8 Activations Are Broken: Fix Without Retraining',
+    subtitle: '66B model, every matmul in INT8. Accuracy tanked. How do you fix activations without retraining, without leaving INT8?',
+    date: 'November 21, 2026',
+    readTime: '12 min read',
+    tags: ['Quantization', 'INT8', 'Post-Training', 'Production Inference'],
+    coverEmoji: '🔢',
+    content: [
+      {
+        type: 'h2',
+        text: 'Why INT8 Activations Are Harder Than INT8 Weights'
+      },
+      {
+        type: 'paragraph',
+        text: 'You quantized a 66B model to INT8: weights and activations. Everything fits in memory. But accuracy tanked.'
+      },
+      {
+        type: 'paragraph',
+        text: 'Here\'s why INT8 activations are brutal:'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '**Weights are static:** Quantized once, known at serving time, can be optimized offline.',
+          '**Activations are dynamic:** Different for every input. Unknown until inference time. Quantization scale must adapt or be conservative.',
+          '**Outliers destroy INT8:** A single large activation value forces the scale factor to be huge, wasting precision for 99% of values.',
+          '**Retraining amortizes error:** With training, the model learns to produce smaller activations. Without it, you\'re stuck with the original distribution.'
+        ]
+      },
+      {
+        type: 'paragraph',
+        text: 'The matmul pipeline:'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Input (INT8) × Weight (INT8) → Product (INT32) → Accumulate → Dequantize → Apply ReLU → Quantize (INT8) ← BUG HERE\n\nIf activation range is poorly scaled, quantization_scale is huge,\nand the INT8 output loses all precision.\n\nExample:\n  Actual activation: 3.5 (should map to INT8 range [-128, 127])\n  But max seen in calibration: 128.0 (outlier!)\n  → scale = 128/127 ≈ 1.0\n  → int8_value = round(3.5 / 1.0) = 4 (OK)\n  But next token: activation = 150.0 (new outlier)\n  → int8_value = 127 (clipped!)\n  → lost all precision'
+      },
+      {
+        type: 'h2',
+        text: 'The Problem: Static Scales Are Too Conservative'
+      },
+      {
+        type: 'paragraph',
+        text: 'If you use one static scale factor per layer (computed offline on calibration data), you\'re optimizing for the worst case. That worst case wastes precision for typical inputs.'
+      },
+      {
+        type: 'paragraph',
+        text: 'Example:'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Calibration data: activations range [-50, 100] (max = 100)',
+          'Static scale: 100 / 127 = 0.787 per INT8',
+          'Typical input: activation = 5 → int8 = round(5 / 0.787) = 6 (losing precision)',
+          'Outlier input: activation = 95 → int8 = 120 (OK)',
+          'You sacrificed precision for typical cases to avoid clipping on outliers.'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Solution 1: Per-Token Dynamic Quantization'
+      },
+      {
+        type: 'h3',
+        text: 'The Idea'
+      },
+      {
+        type: 'paragraph',
+        text: 'Instead of one scale per layer, compute a scale per token (or per sample in a batch).'
+      },
+      {
+        type: 'paragraph',
+        text: 'Workflow:'
+      },
+      {
+        type: 'list',
+        ordered: true,
+        items: [
+          'Compute matmul in higher precision (INT32 accumulation is fine)',
+          'Get the full-precision activation output',
+          'Measure the actual range: min_val, max_val',
+          'Compute scale = max(|min_val|, |max_val|) / 127',
+          'Quantize using this scale',
+          'Store the scale with the INT8 output (small overhead: 1 float per token)'
+        ]
+      },
+      {
+        type: 'paragraph',
+        text: 'Result: Every token gets optimal precision for its own range.'
+      },
+      {
+        type: 'h3',
+        text: 'Pro & Con'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '✅ Pro: Recovers most of the accuracy loss. Easy to implement.',
+          '✅ Pro: No retraining required.',
+          '❌ Con: Small memory overhead (1 float per token).',
+          '❌ Con: Slight latency overhead to compute per-token scales.'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Solution 2: Per-Channel Dynamic Quantization'
+      },
+      {
+        type: 'h3',
+        text: 'The Idea'
+      },
+      {
+        type: 'paragraph',
+        text: 'Some channels (output dimensions) might have larger values than others. Quantize each channel with its own scale.'
+      },
+      {
+        type: 'paragraph',
+        text: 'Example: Activation shape [batch_size, seq_len, 4096]'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          'Instead of 1 scale per token, use 4096 scales (one per channel)',
+          'Each channel gets quantized to its own range: [-127, 127]',
+          'Better precision because each dimension is independently optimal'
+        ]
+      },
+      {
+        type: 'h3',
+        text: 'Pro & Con'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '✅ Pro: Finer-grained precision. Often recovers more accuracy than per-token.',
+          '❌ Con: More scales to store (4096 floats per activation tensor).',
+          '❌ Con: Slightly more compute: dequantize per-channel during matmul.'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Solution 3: Smooth Quantization (SmoothQuant-inspired)'
+      },
+      {
+        type: 'h3',
+        text: 'The Idea'
+      },
+      {
+        type: 'paragraph',
+        text: 'Move the quantization difficulty from activations to weights. This is post-training, no retraining.'
+      },
+      {
+        type: 'paragraph',
+        text: 'For each layer, find which weight channels have high variance. Those are the ones making activations large.'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Original: Y = act × W\n\nSmoothed: Y = (act / s) × (W × s)\n\nWhere s is a diagonal scaling matrix.\nIf activation channel i is large, s_ii > 1 (make activation smaller).\nThen W_i,: is scaled larger to compensate.\n\nNet effect: activations are smaller and more uniform,\nweights are adjusted to maintain same output.'
+      },
+      {
+        type: 'h3',
+        text: 'How to Compute s Without Retraining'
+      },
+      {
+        type: 'list',
+        ordered: true,
+        items: [
+          'Run calibration data through the model (FP32 weights, FP32 activations).',
+          'Measure activation statistics: per-channel mean and variance.',
+          'Measure weight statistics: per-channel range.',
+          'For each channel i: s_i = sqrt(max(|activations_i|) / max(|weights_i|))',
+          'Scale weights post-hoc: W_scaled = W × diag(s)',
+          'Dequantize activations: act_scaled = act / diag(s)'
+        ]
+      },
+      {
+        type: 'h3',
+        text: 'Pro & Con'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '✅ Pro: Recovers significant accuracy. Principled approach.',
+          '✅ Pro: No retraining, works post-hoc.',
+          '❌ Con: Requires calibration data to run through the model.',
+          '❌ Con: More complex to implement than per-token scaling.'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Solution 4: Outlier-Aware Clipping'
+      },
+      {
+        type: 'h3',
+        text: 'The Idea'
+      },
+      {
+        type: 'paragraph',
+        text: 'Some activations are outliers (e.g., top 0.1%). Instead of letting them set the scale, clip them and handle separately.'
+      },
+      {
+        type: 'list',
+        ordered: true,
+        items: [
+          'Compute per-layer activation statistics on calibration data.',
+          'Find 99.9th percentile: threshold = percentile(activations, 99.9)',
+          'At inference: clip activations to [-threshold, threshold] before INT8 quantization.',
+          'The clipped-off tails are rare and usually correspond to attention outliers or spurious large values.'
+        ]
+      },
+      {
+        type: 'h3',
+        text: 'Pro & Con'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '✅ Pro: Extremely simple. Single number per layer.',
+          '✅ Pro: Recovers precision for the common case (99.9% of values).',
+          '❌ Con: Loses information in outliers (might hurt reasoning tasks).',
+          '❌ Con: Clipping threshold selection is empirical.'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Solution 5: Activation Range Recalibration'
+      },
+      {
+        type: 'h3',
+        text: 'The Idea'
+      },
+      {
+        type: 'paragraph',
+        text: 'You quantized the model with one calibration dataset. That dataset might not represent production inputs. Re-calibrate on actual serving data.'
+      },
+      {
+        type: 'list',
+        ordered: true,
+        items: [
+          'Log activation statistics from live serving (10K samples).',
+          'Recompute per-layer, per-channel scale factors.',
+          'Update the quantization scales (not the weights, just the scales).',
+          'No retraining; just adjust scale factors.'
+        ]
+      },
+      {
+        type: 'h3',
+        text: 'Pro & Con'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '✅ Pro: Adapts to production distribution.',
+          '✅ Pro: Often fixes accuracy without any algorithmic changes.',
+          '❌ Con: Requires logging during serving (privacy/compute cost).',
+          '❌ Con: Scales shift over time (need periodic recalibration).'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'The Interview Answer'
+      },
+      {
+        type: 'paragraph',
+        text: '"INT8 activations are harder than INT8 weights. Weights are static; activations are dynamic. If a few outliers set the scale, most values lose precision."'
+      },
+      {
+        type: 'paragraph',
+        text: '"Without retraining, I\'d try these in order:"'
+      },
+      {
+        type: 'list',
+        ordered: true,
+        items: [
+          '**Per-token dynamic quantization:** Compute scale per token, not global. Minimal overhead, significant accuracy recovery. Try this first.',
+          '**Per-channel dynamic quantization:** Different scale per output channel. More scales to store but better precision.',
+          '**SmoothQuant:** Rebalance activations and weights post-hoc. No retraining, works surprisingly well.',
+          '**Outlier clipping:** Clip top 0.1% of activations per layer. Super simple, helps with many cases.',
+          '**Recalibrate on serving data:** If none above work, collect real data, recompute scales (but not retraining).'
+        ]
+      },
+      {
+        type: 'paragraph',
+        text: '"I\'d benchmark each on a validation set. Per-token dynamic usually recovers 80-90% of the accuracy gap. If that\'s not enough, combine: per-token + SmoothQuant is often close to FP32."'
+      },
+      {
+        type: 'h2',
+        text: 'Production Reality'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '**NVIDIA Tensor RT:** Uses per-channel quantization for activations, per-layer for weights.',
+          '**vLLM:** Supports per-token dynamic quantization out-of-the-box.',
+          '**Huggingface transformers + bitsandbytes:** Per-layer scales, can be recalibrated.',
+          '**Companies at scale:** Microsoft, Meta use combination of per-token + clipping for inference.',
+          '**Google:** Published research on SmoothQuant-style approaches for Gemini models.'
+        ]
+      },
+      {
+        type: 'callout',
+        emoji: '🎯',
+        text: 'The key insight: **Static scales are the enemy of INT8 activations.** Make scales dynamic (per-token, per-channel) or rebalance weights. Both are post-training fixes. Neither requires retraining. Try per-token first — it\'s simple and often 80%+ of the solution.'
+      }
+    ]
+  },
 
 ];
