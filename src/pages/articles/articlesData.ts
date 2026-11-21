@@ -35027,5 +35027,274 @@ WELLBEING METRICS (not engagement metrics):
       }
     ]
   },
+  {
+    slug: 'training-million-token-documents',
+    title: 'Training on Million-Token Documents: How to Handle One Long Document at a Time',
+    subtitle: 'Your documents are a million tokens. You can\'t chunk them arbitrarily—you need to preserve long-range dependencies. How do you actually train when each document is processed sequentially?',
+    date: 'November 21, 2026',
+    readTime: '13 min read',
+    tags: ['Long Documents', 'Training Strategy', 'Memory Optimization', 'Efficiency'],
+    coverEmoji: '🔗',
+    content: [
+      {
+        type: 'h2',
+        text: 'The Problem: One Million Tokens at a Time'
+      },
+      {
+        type: 'paragraph',
+        text: 'Standard dense model training packs multiple documents into sequences, mixed together. But you have a different constraint: you need to train one full document per training step, and documents are a million tokens long.'
+      },
+      {
+        type: 'paragraph',
+        text: 'This creates three immediate challenges:'
+      },
+      {
+        type: 'list',
+        ordered: true,
+        items: [
+          '**Memory:** A million tokens at 32-bit embeddings is 4GB just for activations (not counting gradients). Your GPU doesn\'t have that.',
+          '**Context window mismatch:** Your model has a 4K or 32K context window. Processing a million tokens requires either chunking (loses long-range) or efficient attention.',
+          '**Batch efficiency:** Processing one document per step means tiny effective batch size (maybe batch size 1). Training becomes unstable or requires heavy gradient accumulation.'
+        ]
+      },
+      {
+        type: 'paragraph',
+        text: 'You need a training strategy that handles long documents without losing their long-range structure.'
+      },
+      {
+        type: 'h2',
+        text: 'Solution 1: Sequential Chunking (Practical but Lossy)'
+      },
+      {
+        type: 'h3',
+        text: 'The Idea'
+      },
+      {
+        type: 'paragraph',
+        text: 'Split the million-token document into chunks matching your context window (e.g., 32K chunks). Train on each chunk independently, one after another, then move to the next document.'
+      },
+      {
+        type: 'code',
+        language: 'python',
+        code: `def train_sequential_chunks(document_tokens, chunk_size=32768, model=None, optimizer=None):\n    \"\"\"\n    Process a million-token document as independent chunks.\n    \"\"\"\n    num_chunks = len(document_tokens) // chunk_size\n    losses = []\n    \n    for i in range(num_chunks):\n        # Extract chunk\n        chunk = document_tokens[i * chunk_size : (i + 1) * chunk_size]\n        \n        # Forward pass on chunk\n        input_ids = torch.tensor([chunk]).to(device)\n        logits = model(input_ids)\n        loss = compute_loss(logits, input_ids)\n        \n        # Backward pass\n        loss.backward()\n        optimizer.step()\n        optimizer.zero_grad()\n        \n        losses.append(loss.item())\n    \n    return np.mean(losses)\n\n# Example: 1M token document becomes 31 chunks of 32K\n# Each chunk trained independently\n# Total training steps per document: 31`
+      },
+      {
+        type: 'h3',
+        text: 'Tradeoffs'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '✅ **Simple:** Fits standard transformer training loop.',
+          '✅ **Low memory:** Each chunk fits in memory easily.',
+          '✅ **Fast per-chunk:** No special attention patterns needed.',
+          '❌ **Loses document structure:** Chunk boundaries are artificial; model doesn\'t learn cross-chunk dependencies.',
+          '❌ **Inefficient:** Treats million-token document as 31 separate short documents.',
+          '❌ **Wrong for long-range tasks:** If documents have long-range patterns (e.g., reference resolution), this misses them.'
+        ]
+      },
+      {
+        type: 'h3',
+        text: 'Real-world result'
+      },
+      {
+        type: 'paragraph',
+        text: 'Common baseline for many models. Works if you care about per-document classification/tagging. Breaks for tasks requiring million-token reasoning (e.g., document-level summarization, long-range QA).'
+      },
+      {
+        type: 'h2',
+        text: 'Solution 2: Sliding Window with Overlap (Maintains Context, Expensive)'
+      },
+      {
+        type: 'h3',
+        text: 'The Idea'
+      },
+      {
+        type: 'paragraph',
+        text: 'Create overlapping chunks: 32K chunks with 4K overlap. Train on each window, so nearby chunks share context.'
+      },
+      {
+        type: 'code',
+        language: 'python',
+        code: `def train_sliding_window(document_tokens, chunk_size=32768, overlap=4096, model=None, optimizer=None):\n    \"\"\"\n    Process document with overlapping windows to maintain context.\n    \"\"\"\n    stride = chunk_size - overlap  # How far to slide\n    losses = []\n    \n    start = 0\n    while start + chunk_size <= len(document_tokens):\n        # Extract overlapping window\n        window = document_tokens[start : start + chunk_size]\n        \n        # Forward pass\n        input_ids = torch.tensor([window]).to(device)\n        logits = model(input_ids)\n        \n        # Compute loss on non-overlapping part only (to avoid duplicate gradients)\n        loss_region = logits[-stride:, :]\n        loss = compute_loss(loss_region, input_ids[-stride:, :])\n        \n        # Backward and step\n        loss.backward()\n        optimizer.step()\n        optimizer.zero_grad()\n        \n        losses.append(loss.item())\n        start += stride  # Slide by stride, not chunk_size\n    \n    return np.mean(losses)\n\n# Example: 1M token document with 32K chunks and 4K overlap\n# Windows: [0:32K], [28K:60K], [56K:88K], ...\n# Total windows: ~960 (instead of 31 non-overlapping chunks)`
+      },
+      {
+        type: 'h3',
+        text: 'Tradeoffs'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '✅ **Maintains context:** Each chunk sees 4K tokens of previous context.',
+          '✅ **Better long-range:** Model learns cross-chunk dependencies (at least locally).',
+          '✅ **Flexible:** Can tune overlap ratio (4K, 8K, etc).',
+          '❌ **Expensive:** 1M token document becomes ~960 chunks, 30x more training steps per document.',
+          '❌ **Repeated computation:** Overlapping regions are trained multiple times.',
+          '❌ **Gradient noise:** Each window gets independent gradients; overlaps have conflicting signals.',
+          '❌ **Very slow:** Per-document training time multiplied by overlap factor.'
+        ]
+      },
+      {
+        type: 'h3',
+        text: 'Real-world result'
+      },
+      {
+        type: 'paragraph',
+        text: 'Used by some dense retrieval / document embedding models (DPR with modifications). Expensive but maintains local context. Practical only if you have few documents and large time budget.'
+      },
+      {
+        type: 'h2',
+        text: 'Solution 3: Gradient Checkpointing + Flash Attention (Practical Long-Range)'
+      },
+      {
+        type: 'h3',
+        text: 'The Idea'
+      },
+      {
+        type: 'paragraph',
+        text: 'Use memory-efficient techniques to train directly on longer sequences (e.g., 128K or 256K chunks instead of 32K). Don\'t do overlaps; just use more tokens per window.'
+      },
+      {
+        type: 'code',
+        language: 'python',
+        code: `def train_with_efficiency_tools(document_tokens, chunk_size=131072, model=None, optimizer=None):\n    \"\"\"\n    Use FlashAttention + gradient checkpointing for longer sequences.\n    \"\"\"\n    # Enable gradient checkpointing\n    for module in model.modules():\n        if hasattr(module, 'gradient_checkpointing'):\n            module.gradient_checkpointing = True\n    \n    # Process document as fewer, longer chunks\n    stride = chunk_size\n    losses = []\n    \n    start = 0\n    while start < len(document_tokens):\n        # Extract longer chunk (131K instead of 32K)\n        end = min(start + chunk_size, len(document_tokens))\n        chunk = document_tokens[start:end]\n        \n        if len(chunk) < chunk_size:  # Pad last chunk\n            chunk = chunk + [PAD_TOKEN] * (chunk_size - len(chunk))\n        \n        # Forward pass (FlashAttention handles memory efficiently)\n        input_ids = torch.tensor([chunk]).to(device)\n        \n        with torch.autocast(device_type=\"cuda\", dtype=torch.float16):\n            logits = model(input_ids)  # FlashAttention + checkpointing\n            loss = compute_loss(logits, input_ids)\n        \n        # Backward pass (checkpointing recomputes activations, saves memory)\n        loss.backward()\n        optimizer.step()\n        optimizer.zero_grad()\n        \n        losses.append(loss.item())\n        start = end\n    \n    return np.mean(losses)\n\n# Result: 1M token document → ~8 chunks of 131K (instead of 31 of 32K)\n# Maintains long-range context within each chunk\n# Memory: 2.4x savings from FlashAttention, sqrt(n) from checkpointing`
+      },
+      {
+        type: 'h3',
+        text: 'Memory Savings Breakdown'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: `Optimization              | Memory Reduction | Speed Cost\n──────────────────────────┼──────────────────┼────────────\nStandard training (32K)   | 1x               | Baseline\nFlashAttention (32K)      | 2.4x             | ~10% slower\nGradient checkpointing    | sqrt(n) ≈ 2x     | ~20-30% slower\nFlash + checkpoint (131K) | 5-6x effective   | ~25-35% slower\n                          |                  |\nResult: Can do 131K in memory where 32K was baseline`
+      },
+      {
+        type: 'h3',
+        text: 'Tradeoffs'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '✅ **Longer context:** Process 128K-256K tokens per chunk (4-8x longer than 32K).',
+          '✅ **Maintains long-range:** Much better than sequential chunking.',
+          '✅ **No overlaps:** Each chunk processed once, no repeated computation.',
+          '✅ **Practical:** Works with standard transformers (no architecture change).',
+          '❌ **Slower:** 20-35% wall-clock time increase due to recomputation.',
+          '❌ **Requires library support:** Need FlashAttention + recent PyTorch.',
+          '❌ **Still chunked:** Not true million-token sequences, just longer chunks.'
+        ]
+      },
+      {
+        type: 'h3',
+        text: 'Real-world result'
+      },
+      {
+        type: 'paragraph',
+        text: 'Used by recent long-document models (LongChat, CodeLlama). Standard approach for most teams doing million-token training in 2024.'
+      },
+      {
+        type: 'h2',
+        text: 'Solution 4: Recurrent State (Transformer-XL Style)'
+      },
+      {
+        type: 'h3',
+        text: 'The Idea'
+      },
+      {
+        type: 'paragraph',
+        text: 'Process the document chunk by chunk (e.g., 32K at a time), but **maintain and cache hidden states between chunks**. Later chunks can attend to cached states from earlier chunks.'
+      },
+      {
+        type: 'code',
+        language: 'python',
+        code: `def train_with_recurrence(document_tokens, chunk_size=32768, num_recurrent_layers=2):\n    \"\"\"\n    Process document with recurrent-style state caching (Transformer-XL).\n    \"\"\"\n    losses = []\n    past_key_values = None  # Cache hidden states\n    \n    for i in range(0, len(document_tokens), chunk_size):\n        chunk = document_tokens[i : i + chunk_size]\n        input_ids = torch.tensor([chunk]).to(device)\n        \n        # Forward pass with cached states\n        with torch.no_grad():  # or gradient if training\n            outputs = model(\n                input_ids,\n                past_key_values=past_key_values,  # Reuse states from previous chunk\n                use_cache=True  # Cache states for next chunk\n            )\n        \n        logits = outputs.logits\n        loss = compute_loss(logits, input_ids)\n        \n        # Update past states for next iteration\n        past_key_values = outputs.past_key_values\n        \n        # Truncate old states to save memory (keep only recent chunks)\n        if past_key_values is not None:\n            past_key_values = truncate_to_recent(past_key_values, max_history_tokens=131072)\n        \n        losses.append(loss.item())\n    \n    return np.mean(losses)\n\n# Result: Each chunk can attend to previous chunks via cached states\n# Million tokens → 31 chunks, but with long-range dependencies preserved\n# Memory per chunk: 32K tokens active + cache (not full million)`
+      },
+      {
+        type: 'h3',
+        text: 'Tradeoffs'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '✅ **True long-range:** Each chunk can reference all previous chunks.',
+          '✅ **Memory efficient:** Only keep recent cache (e.g., last 128K tokens).',
+          '✅ **No repeated computation:** Each chunk processed once.',
+          '❌ **Requires architecture support:** Not all models support past_key_values.',
+          '❌ **Cache management complex:** Need to decide how much history to keep.',
+          '❌ **Training differs from inference:** Inference can use longer cache; training might not.',
+          '❌ **Gradient flow limited:** Gradients can\'t flow beyond cache boundary.'
+        ]
+      },
+      {
+        type: 'h3',
+        text: 'Real-world result'
+      },
+      {
+        type: 'paragraph',
+        text: 'Used by Transformer-XL and variants. Powerful but requires significant architectural support. Rarely used in modern dense training.'
+      },
+      {
+        type: 'h2',
+        text: 'The Practical Recommendation: What to Actually Use'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: `Use Case                          | Recommended Approach      | Tokens/Chunk | Memory\n──────────────────────────────────┼───────────────────────────┼──────────────┼────────\nDocument classification          | Sequential chunking       | 32K          | 1x\nDocument embedding / retrieval   | FlashAttention + checkpoint | 128K-256K    | 5-6x\nLong-range QA / summarization    | Recurrent state (if avail) | 32K + cache  | Variable\nDense retrieval (production)     | Sliding window (small doc) | 32K + 4K ov  | 2x\nResearch / best performance      | Sliding window (large GPU) | 64K + 16K ov | 8-10x\n                                 |                           |              |\nBest overall for 2024: FlashAttention + gradient checkpointing`
+      },
+      {
+        type: 'h2',
+        text: 'The Interview Answer'
+      },
+      {
+        type: 'paragraph',
+        text: `"Training on million-token documents one at a time is challenging because memory and effective batch size are constraints. I'd approach it in stages:"`
+      },
+      {
+        type: 'paragraph',
+        text: `"**Step 1: Can you afford overlapping windows?** If yes, use sliding window with 32K chunks and 4K-8K overlap. This maintains local context, is well-understood, and works well for dense retrieval / embedding models. Cost: ~960 windows per million-token document, so 30x more training steps per document. This is expensive but reliable."`
+      },
+      {
+        type: 'paragraph',
+        text: `"**Step 2: If overlap is too expensive, use efficiency tools.** Enable gradient checkpointing and use FlashAttention. This lets you process 128K-256K token chunks instead of 32K. So a million tokens becomes 8 chunks instead of 31. Each chunk trains slower (25-35% wall-clock), but you get better long-range context and avoid overlap overhead. This is my preferred approach for most teams."`
+      },
+      {
+        type: 'paragraph',
+        text: `"**Step 3: If you have architectural support, maintain recurrent state.** Use Transformer-XL-style caching: process 32K chunks but maintain hidden states from previous chunks. Each chunk can attend to cached previous states. This gets theoretical long-range without full overlapping. Tradeoff: requires architectural support and cache management."`
+      },
+      {
+        type: 'paragraph',
+        text: `"**Avoid:** Pure sequential chunking (treats million-token document as 31 separate documents, loses all structure)."`
+      },
+      {
+        type: 'paragraph',
+        text: `"**On batch efficiency:** With one document per training step, batch size is effectively 1. Mitigate with gradient accumulation (accumulate over 16-32 documents, then update). Reduce learning rate accordingly since effective batch is small."`
+      },
+      {
+        type: 'h2',
+        text: 'Production Reality'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '**DPR (Dense Passage Retrieval):** Sliding window, 32K chunks with overlap.',
+          '**Contriever (Facebook):** FlashAttention + gradient checkpointing, 64K chunks.',
+          '**E5 embeddings:** FlashAttention, 512 token limit per document (not million), trained on packed batches.',
+          '**LongChat extended training:** FlashAttention + checkpointing, 128K chunks.',
+          '**Industry standard (2024):** Most teams use FlashAttention + checkpointing for memory efficiency.'
+        ]
+      },
+      {
+        type: 'callout',
+        emoji: '🔗',
+        text: 'The key insight: **Million-token documents can\'t be processed naively.** You need memory efficiency + context preservation. Best practical approach: gradient checkpointing + FlashAttention to process 128K-256K chunks (4-8 chunks per million tokens). Maintain long-range context within chunks without expensive overlaps. Pure sequential chunking loses document structure; pure overlaps are too expensive. Recurrent state is powerful but requires architecture support. For most teams: use FlashAttention + checkpointing, process as 128K chunks with small gradient accumulation for effective batch size.'
+      }
+    ]
+  },
 
 ];
