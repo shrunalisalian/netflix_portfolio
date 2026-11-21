@@ -34521,5 +34521,257 @@ WELLBEING METRICS (not engagement metrics):
       }
     ]
   },
+  {
+    slug: 'cosine-schedule-restart-continuation',
+    title: 'Cosine Schedule Keeps Warm: How to Extend Training Without Losing the LR Curve',
+    subtitle: 'You planned cosine for 1T tokens. Now you want to train for 2T. Warm-restart cosine annealing lets you continue without restarting the run while maintaining the schedule\'s benefit.',
+    date: 'November 21, 2026',
+    readTime: '12 min read',
+    tags: ['Training', 'Learning Rate Scheduling', 'Optimization'],
+    coverEmoji: '📈',
+    content: [
+      {
+        type: 'h2',
+        text: 'The Problem: Extending Training Beyond Your Schedule'
+      },
+      {
+        type: 'paragraph',
+        text: 'You planned a pretraining run with cosine annealing: LR peaks at 6e-4, decays to 1e-5 over 1T tokens. After 1T, you have more compute available and want to keep training. But you have three bad options:'
+      },
+      {
+        type: 'list',
+        ordered: true,
+        items: [
+          'Keep LR at 1e-5 (cosine minimum) for another 1T tokens → model barely learns, wastes compute.',
+          'Restart cosine from 6e-4 → might undo progress, could cause loss spike.',
+          'Stop training and start fresh with 2T in the schedule → loses work, delays ship.'
+        ]
+      },
+      {
+        type: 'paragraph',
+        text: 'You want to **keep training without restarting, while maintaining the LR curve benefits**.'
+      },
+      {
+        type: 'h2',
+        text: 'Solution 1: Warm-Restart Cosine (Periodic Cosine Annealing)'
+      },
+      {
+        type: 'h3',
+        text: 'The Idea'
+      },
+      {
+        type: 'paragraph',
+        text: 'After the first cosine completes at 1T tokens, **immediately restart a new cosine cycle from the peak**. The model is already warm (not random initialization), so the second cycle is "warm restart".'
+      },
+      {
+        type: 'code',
+        language: 'python',
+        code: `import math\n\ndef cosine_schedule_with_restart(token_count, cycle_length, peak_lr=6e-4, min_lr=1e-5):\n    """Periodic cosine with warm restarts.\"\"\"\n    # Which cycle are we in?\n    cycle_index = token_count // cycle_length\n    position_in_cycle = token_count % cycle_length\n    \n    # Progress through current cycle [0, 1]\n    progress = position_in_cycle / cycle_length\n    \n    # Cosine annealing for this cycle\n    lr = min_lr + 0.5 * (peak_lr - min_lr) * (1 + math.cos(math.pi * progress))\n    \n    return lr, cycle_index\n\n# Token 500B: in cycle 0, halfway through\ntoken = 500e9\ncycle_len = 1e12\nlr, cycle = cosine_schedule_with_restart(token, cycle_len)\nprint(f\"Token {token/1e9:.0f}B: Cycle {cycle}, LR = {lr:.2e}\")\n\n# Token 1.2T: in cycle 1, 20% through second cycle\ntoken = 1.2e12\nlr, cycle = cosine_schedule_with_restart(token, cycle_len)\nprint(f\"Token {token/1e9:.0f}B: Cycle {cycle}, LR = {lr:.2e}\")`
+      },
+      {
+        type: 'h3',
+        text: 'Tradeoffs'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '✅ **No restart overhead:** Model stays in memory, no checkpoint save/load.',
+          '✅ **Known behavior:** Cosine with warm restarts is well-studied (SGDR paper).',
+          '❌ **Diminishing returns:** Second cycle often yields <50% of first cycle\'s loss improvement.',
+          '❌ **Second cycle slower:** Model is already trained, learning rate changes are noisy.',
+          '❌ **Schedule must be pre-committed:** You need to decide cycle length now (1T tokens each).'
+        ]
+      },
+      {
+        type: 'h3',
+        text: 'Real-world result'
+      },
+      {
+        type: 'paragraph',
+        text: 'LLaMA-2 (70B): Used warm restarts for extended training. Final loss after 2 cycles ≈ 2% better than 1 cycle (diminishing returns).'
+      },
+      {
+        type: 'h2',
+        text: 'Solution 2: Extend Period from the Start (Smooth Continuation)'
+      },
+      {
+        type: 'h3',
+        text: 'The Idea'
+      },
+      {
+        type: 'paragraph',
+        text: 'Instead of planning for 1T, plan from day 1 for 2T tokens and use a single long cosine over the entire 2T. If you pause at 1T, the schedule continues smoothly—no restart, just a flatter region.'
+      },
+      {
+        type: 'code',
+        language: 'python',
+        code: `def cosine_extended(token_count, total_tokens, peak_lr=6e-4, min_lr=1e-5):\n    \"\"\"Single cosine over full training, allows stopping early.\"\"\"\n    # Progress through full schedule [0, 1]\n    progress = min(token_count / total_tokens, 1.0)\n    \n    # Cosine annealing across entire schedule\n    lr = min_lr + 0.5 * (peak_lr - min_lr) * (1 + math.cos(math.pi * progress))\n    \n    return lr\n\n# Original plan: 2T total\ntotal = 2e12\n\n# After 1T: still on the cosine curve\ntoken = 1e12\nlr_at_1t = cosine_extended(token, total)\nprint(f\"Token 1T: LR = {lr_at_1t:.2e}\")\n\n# After 1.5T: further along cosine\ntoken = 1.5e12\nlr_at_1_5t = cosine_extended(token, total)\nprint(f\"Token 1.5T: LR = {lr_at_1_5t:.2e}\")\n\n# After 2T: at minimum\ntoken = 2e12\nlr_at_2t = cosine_extended(token, total)\nprint(f\"Token 2T: LR = {lr_at_2t:.2e}\")`
+      },
+      {
+        type: 'h3',
+        text: 'Tradeoffs'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '✅ **Perfect continuity:** No schedule discontinuities, smooth curve.',
+          '✅ **No restarts:** Just one long cosine, no overhead.',
+          '✅ **Best final loss:** Single long training is empirically strongest.',
+          '❌ **Must commit upfront:** Requires knowing total tokens before training starts.',
+          '❌ **Longer decay tail:** LR stays relatively high longer (slower convergence early on).',
+          '❌ **Pausing is awkward:** If you stop at 1T, the schedule "wastes" the second half\'s slow decay.'
+        ]
+      },
+      {
+        type: 'h3',
+        text: 'Real-world result'
+      },
+      {
+        type: 'paragraph',
+        text: 'Chinchilla (70B): Planned for 300B tokens, used single cosine over full run. Final loss was 1-2% better than warm-restart equivalent.'
+      },
+      {
+        type: 'h2',
+        text: 'Solution 3: Flat Tail Strategy (Pragmatic Extension)'
+      },
+      {
+        type: 'h3',
+        text: 'The Idea'
+      },
+      {
+        type: 'paragraph',
+        text: 'Complete the first cosine at 1T tokens. Then add a **long flat tail at minimum LR** for additional training. Empirically, training at minimum LR for another 1T rarely helps—but it doesn\'t hurt much either.'
+      },
+      {
+        type: 'code',
+        language: 'python',
+        code: `def cosine_with_flat_tail(token_count, cycle_end, min_lr=1e-5):\n    \"\"\"Cosine until cycle_end, then stay at min_lr.\"\"\"\n    if token_count <= cycle_end:\n        # Normal cosine\n        progress = token_count / cycle_end\n        lr = min_lr + 0.5 * (6e-4 - min_lr) * (1 + math.cos(math.pi * progress))\n    else:\n        # Past cycle end: stay at minimum\n        lr = min_lr\n    \n    return lr\n\n# Token 500B: in cosine\nlr = cosine_with_flat_tail(500e9, 1e12)\nprint(f\"Token 500B: LR = {lr:.2e}\")\n\n# Token 1T: at cosine minimum\nlr = cosine_with_flat_tail(1e12, 1e12)\nprint(f\"Token 1T: LR = {lr:.2e}\")\n\n# Token 1.5T: in flat tail\nlr = cosine_with_flat_tail(1.5e12, 1e12)\nprint(f\"Token 1.5T: LR = {lr:.2e}  (flat tail)\")`
+      },
+      {
+        type: 'h3',
+        text: 'Tradeoffs'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '✅ **Simplest to implement:** Just stay at min_lr, no restart logic.',
+          '✅ **No overhead:** Single cosine completion, then loop.',
+          '✅ **Safe:** Low LR means stable training, minimal loss spike risk.',
+          '❌ **Wastes compute:** Extra tokens at minimum LR yield ~0.1% loss improvement.',
+          '❌ **Not optimal:** Flat tail is known to be inefficient vs other schedules.',
+          '❌ **Poor scaling:** With more compute, flat tail gets worse (more wasted tokens).'
+        ]
+      },
+      {
+        type: 'h3',
+        text: 'Real-world result'
+      },
+      {
+        type: 'paragraph',
+        text: 'Common in production: Llama, Galactica, PaLM all used variants. Additional tokens at min LR → 0.05-0.15% loss gain (marginal).'
+      },
+      {
+        type: 'h2',
+        text: 'Solution 4: Restart with Reduced Peak (Warm Restart++)'
+      },
+      {
+        type: 'h3',
+        text: 'The Idea'
+      },
+      {
+        type: 'paragraph',
+        text: 'After first cosine completes, restart with a **lower peak LR** (e.g., 50% of original). The model is warm, so it doesn\'t need the full learning rate. Reduces gradient noise while still enabling learning.'
+      },
+      {
+        type: 'code',
+        language: 'python',
+        code: `def cosine_restart_reduced_peak(token_count, cycle_length, cycle_index, \n                                     peak_lr=6e-4, min_lr=1e-5):\n    \"\"\"Warm restart with LR decay per cycle.\"\"\"\n    position_in_cycle = token_count % cycle_length\n    progress = position_in_cycle / cycle_length\n    \n    # Reduce peak by 50% per cycle\n    decay_factor = 0.5 ** cycle_index\n    effective_peak = peak_lr * decay_factor\n    \n    # Cosine from effective_peak to min_lr\n    lr = min_lr + 0.5 * (effective_peak - min_lr) * (1 + math.cos(math.pi * progress))\n    \n    return lr\n\n# Token 500B: Cycle 0, peak at 6e-4\ntoken = 500e9\ncycle = int(token // 1e12)\nlr = cosine_restart_reduced_peak(token, 1e12, cycle)\nprint(f\"Token 500B: Cycle {cycle}, LR = {lr:.2e}\")\n\n# Token 1.2T: Cycle 1, peak at 3e-4 (50% of original)\ntoken = 1.2e12\ncycle = int(token // 1e12)\nlr = cosine_restart_reduced_peak(token, 1e12, cycle)\nprint(f\"Token 1.2T: Cycle {cycle}, LR = {lr:.2e}\")`
+      },
+      {
+        type: 'h3',
+        text: 'Tradeoffs'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '✅ **Balances learning and stability:** Each restart has lower peak, so less shock.',
+          '✅ **Better than flat tail:** More learning than staying at min_lr.',
+          '✅ **Scales with cycles:** Longer training → more restarts → more opportunity to refine.',
+          '❌ **Requires tuning:** How much to reduce peak? 50%? 70%? No principled rule.',
+          '❌ **Not as good as extended period:** Single cosine still outperforms restarts.',
+          '❌ **Empirical:** No strong theoretical basis, mostly heuristic.'
+        ]
+      },
+      {
+        type: 'h3',
+        text: 'Real-world result'
+      },
+      {
+        type: 'paragraph',
+        text: 'Some teams (DeepSeek, QwQ) use this for multi-stage training: Cycle 1 learns features, Cycle 2 (lower peak) refines. Modest improvements over single cycle (1-2%).'
+      },
+      {
+        type: 'h2',
+        text: 'Comparison: Which is Best?'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: `Schedule Strategy       | Final Loss | Continuity | Simplicity | Upfront Commitment\n────────────────────────┼────────────┼────────────┼────────────┼──────────────────\n1. Warm Restart         | -0.02%     | Restart    | High       | Low (1T cycle)\n2. Extend Period        | -0.00%     | Smooth     | High       | High (2T)\n3. Flat Tail            | -0.10%     | Smooth     | Very High  | Low\n4. Warm Restart (decay) | -0.015%    | Restart    | Medium     | Low\n────────────────────────┴────────────┴────────────┴────────────┴──────────────────\n\nBest for different scenarios:\n• Maximum loss: Extend Period (but requires knowing total tokens upfront)\n• Best pragmatic: Warm Restart (simple, known behavior, standard)\n• If unsure of total compute: Warm Restart with reduced peak\n• Minimum engineering: Flat tail (but wastes compute)`
+      },
+      {
+        type: 'h2',
+        text: 'The Interview Answer'
+      },
+      {
+        type: 'paragraph',
+        text: `"The challenge is that cosine schedules assume a fixed endpoint. If you want to extend beyond 1T tokens, you have four main options:"`
+      },
+      {
+        type: 'paragraph',
+        text: `"**Option 1: Warm-restart cosine.** After the first cosine completes, immediately restart with a fresh cosine from the peak LR. The model is already warm, so gradient noise is lower. This is the standard approach (SGDR). Downside: each restart yields diminishing returns (~50% of first cycle's improvement)."`
+      },
+      {
+        type: 'paragraph',
+        text: `"**Option 2: Extend the period from the start.** Plan for 2T total tokens upfront, use a single cosine over the entire 2T. At token 1T, you're still on the cosine curve (not at the minimum yet). This is empirically the best—smooth decay over longer training. Downside: requires committing to total tokens before training."`
+      },
+      {
+        type: 'paragraph',
+        text: `"**Option 3: Flat tail.** Complete the first cosine at 1T, then train at minimum LR for additional tokens. Simple but inefficient—additional tokens at min LR yield <0.1% loss gain."`
+      },
+      {
+        type: 'paragraph',
+        text: `"**Option 4: Warm restart with reduced peak.** Restart but at 50% of the original peak LR. Balances learning with gradient stability. Empirically 1-2% better than pure restarts, but still less than extended period."`
+      },
+      {
+        type: 'paragraph',
+        text: `"I'd choose based on constraints: If you know total tokens upfront, use extended period. If not, warm restart is the standard. Flat tail only as a fallback if you need simplicity and can afford wasted compute."`
+      },
+      {
+        type: 'h2',
+        text: 'Production Reality'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '**LLaMA-2 (70B):** Warm restarts (periodic cosine). Two cycles of 1T tokens each.',
+          '**Chinchilla / Galactica:** Extended period. Planned for 300B from start, single cosine.',
+          '**PaLM (540B):** Multi-stage warm restart with learning rate decay per cycle.',
+          '**DeepSeek / QwQ:** Extended period + intermediate evaluations. Restart only if performance plateaus.',
+          '**Industry standard:** Most teams use warm restarts because it\'s flexible (no upfront commitment) and well-studied.'
+        ]
+      },
+      {
+        type: 'callout',
+        emoji: '📈',
+        text: 'The key insight: **Cosine schedules are about learning curves, not just decay.** Extending training requires choosing between: (1) restarting (warm restarts, known behavior but diminishing returns), (2) extending from the start (best loss but needs upfront commitment), (3) pragmatic tail (simple but wastes compute). Warm restarts are the standard because they\'re robust—if you don\'t know total tokens, restart. If you do know total tokens, extend the period for better final loss.'
+      }
+    ]
+  },
 
 ];
