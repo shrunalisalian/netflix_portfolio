@@ -32253,5 +32253,269 @@ WELLBEING METRICS (not engagement metrics):
       }
     ]
   },
+  {
+    slug: 'story-generation-repetition-diverse-beam-search',
+    title: 'Story Model Repeats Itself Under Beam Search: How to Decode Variedly',
+    subtitle: 'Beam search generates high-quality text but repeats phrases. Sampling wanders. How do you get diverse, coherent stories?',
+    date: 'November 21, 2026',
+    readTime: '12 min read',
+    tags: ['Decoding', 'Text Generation', 'Beam Search', 'Diversity'],
+    coverEmoji: '📖',
+    content: [
+      {
+        type: 'h2',
+        text: 'The Problem: Beam Search Finds Repetitive Local Optima'
+      },
+      {
+        type: 'paragraph',
+        text: 'You trained a story generation model. Beam search with beam_size=5 produces high-probability text. But the output is repetitive.'
+      },
+      {
+        type: 'paragraph',
+        text: 'Example:'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Input: "She walked into the room."\n\nBeam search output:\n"She walked into the room. She looked around. She saw a desk. She\nwalked to the desk. She opened the desk. She found a key. She\nwalked out of the room. She was happy..."\n\n← Repetitive (too many "She"s, repeated actions)'
+      },
+      {
+        type: 'h3',
+        text: 'Why This Happens'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '**Beam search is locally greedy:** It explores the highest-probability tokens. Repeated phrases have high probability.',
+          '**Common patterns dominate:** "She walked", "She saw", "She opened" are common in training data, so they get high log-prob.',
+          '**All beams converge:** Different beams often find the same (repetitive) continuation, so they diverge from earlier in the sequence but converge to repetition.',
+          '**No explicit diversity:** Beam search only optimizes for log-probability, not for variety.'
+        ]
+      },
+      {
+        type: 'h3',
+        text: 'Why Sampling Is Not the Answer'
+      },
+      {
+        type: 'paragraph',
+        text: 'You could switch to top-k or nucleus sampling, but that opens the tail:'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Top-k sampling (k=10):\n"She walked into the room and suddenly the furniture became sentient\nand started singing opera..." ← Incoherent, wandered into tail\n\nTemperature 0.9:\nSimilar issue. Quality drops.'
+      },
+      {
+        type: 'h2',
+        text: 'Solution 1: Diverse Beam Search (The Industry Standard)'
+      },
+      {
+        type: 'h3',
+        text: 'The Idea'
+      },
+      {
+        type: 'paragraph',
+        text: 'Force different beams to explore different hypotheses. Penalize beams for repeating n-grams that other beams have already generated.'
+      },
+      {
+        type: 'h3',
+        text: 'How It Works'
+      },
+      {
+        type: 'list',
+        ordered: true,
+        items: [
+          'Maintain num_beams separate hypotheses.',
+          'For each new token, penalize n-grams that appeared in other beams.',
+          'Different beams explore different paths.',
+          'At the end, all beams have different n-gram coverage (more diverse output).'
+        ]
+      },
+      {
+        type: 'code',
+        language: 'python',
+        code: 'from transformers import AutoModelForCausalLM, AutoTokenizer\n\nmodel = AutoModelForCausalLM.from_pretrained(\"model\")\ntokenizer = AutoTokenizer.from_pretrained(\"model\")\n\ninput_ids = tokenizer(\"She walked into the room.\", return_tensors=\"pt\")[\"input_ids\"]\n\n# Diverse beam search is built-in\noutputs = model.generate(\n    input_ids,\n    max_length=100,\n    num_beams=5,\n    num_beam_groups=5,  # ← Different group per beam\n    diversity_penalty=0.5,  # ← Penalize repetition\n    do_sample=False,\n)\n\nprint(tokenizer.decode(outputs[0]))\n# Output: "She walked into the room. She glanced at the furniture\n# and wondered who had placed it there. The walls were lined with\n# books. A single window let in the afternoon light..."\n# ← More varied, still coherent'
+      },
+      {
+        type: 'h3',
+        text: 'The Hyperparameters'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '**num_beams:** Total number of hypotheses (usually 3-10)',
+          '**num_beam_groups:** Split beams into groups. Each group explores independently (usually = num_beams for max diversity)',
+          '**diversity_penalty:** How much to penalize repeated n-grams (0.5-2.0, higher = more penalty)'
+        ]
+      },
+      {
+        type: 'h3',
+        text: 'Pro & Con'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '✅ Pro: Built into most frameworks (Huggingface, Fairseq). Easy to use.',
+          '✅ Pro: Maintains quality (stays on high-probability paths) while adding diversity.',
+          '✅ Pro: Tunable (diversity_penalty controls tradeoff).',
+          '❌ Con: Requires tuning diversity_penalty. Too high = incoherent. Too low = still repetitive.'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Solution 2: Coverage Penalty (Simpler Alternative)'
+      },
+      {
+        type: 'h3',
+        text: 'The Idea'
+      },
+      {
+        type: 'paragraph',
+        text: 'Track how many times each token has been generated. Penalize reusing frequent tokens.'
+      },
+      {
+        type: 'code',
+        language: 'python',
+        code: 'def generate_with_coverage_penalty(model, input_ids, max_length=100, coverage_penalty=0.6):\n    """\n    Coverage penalty: penalize tokens that have been used multiple times\n    """\n    sequence = input_ids.clone()\n    coverage = torch.zeros(model.vocab_size)\n    \n    for _ in range(max_length - len(input_ids)):\n        logits = model(sequence)[0, -1, :]\n        \n        # Apply coverage penalty\n        logits -= coverage_penalty * coverage\n        \n        # Beam search on penalized logits\n        next_token = logits.argmax()\n        sequence = torch.cat([sequence, next_token.unsqueeze(0)])\n        \n        # Update coverage\n        coverage[next_token] += 1\n    \n    return sequence'
+      },
+      {
+        type: 'h3',
+        text: 'Pro & Con'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '✅ Pro: Simple to understand and implement.',
+          '✅ Pro: One hyperparameter to tune (coverage_penalty).',
+          '❌ Con: Penalizes even necessary repeats (e.g., "the", "and").',
+          '❌ Con: Can lead to awkward phrasing (avoiding common words).'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Solution 3: Contrastive Search (The Research Favorite)'
+      },
+      {
+        type: 'h3',
+        text: 'The Idea'
+      },
+      {
+        type: 'paragraph',
+        text: 'Balance model likelihood with diversity in embedding space. For each candidate token, compute how different it is from previous context.'
+      },
+      {
+        type: 'code',
+        language: 'python',
+        code: 'def contrastive_search(model, input_ids, max_length=100, alpha=0.5):\n    """\n    Contrastive search: balance likelihood with diversity\n    alpha=0.5 means 50% likelihood, 50% diversity\n    """\n    sequence = input_ids.clone()\n    \n    for step in range(max_length - len(input_ids)):\n        # Get model logits\n        logits = model(sequence)[0, -1, :]\n        \n        # Get embeddings of previous context\n        with torch.no_grad():\n            past_embeddings = model.get_embeddings(sequence)\n        \n        # For each candidate token, compute:\n        # score = alpha * log_prob - (1-alpha) * max_similarity_to_past\n        log_probs = torch.nn.functional.log_softmax(logits, dim=-1)\n        \n        scores = []\n        for token_id in range(model.vocab_size):\n            token_embedding = model.embedding(token_id)\n            # Similarity: how close is this token to past context?\n            similarity = torch.max(cosine_similarity(token_embedding, past_embeddings))\n            # Score: high log-prob, low similarity\n            score = alpha * log_probs[token_id] - (1-alpha) * similarity\n            scores.append(score)\n        \n        next_token = torch.argmax(torch.tensor(scores))\n        sequence = torch.cat([sequence, next_token.unsqueeze(0)])\n    \n    return sequence'
+      },
+      {
+        type: 'h3',
+        text: 'Pro & Con'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '✅ Pro: Principled approach. Balance likelihood with diversity.',
+          '✅ Pro: Often produces the best quality. Coherent and varied.',
+          '❌ Con: Expensive (need embeddings for all past context).',
+          '❌ Con: Requires tuning alpha (0.0 = pure likelihood, 1.0 = pure diversity).'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Solution 4: N-gram Blocking (Hard Constraint)'
+      },
+      {
+        type: 'h3',
+        text: 'The Idea'
+      },
+      {
+        type: 'paragraph',
+        text: 'Forbid sequences of N tokens that have appeared before. Guaranteed no repetition.'
+      },
+      {
+        type: 'code',
+        language: 'python',
+        code: 'def generate_with_ngram_blocking(model, input_ids, max_length=100, n=3):\n    """\n    Block n-grams: if the last (n-1) tokens match a prior substring,\n    forbid the token that would complete the n-gram\n    """\n    sequence = input_ids.clone()\n    \n    for _ in range(max_length - len(input_ids)):\n        logits = model(sequence)[0, -1, :]\n        \n        # Find recent n-grams\n        recent = sequence[-n+1:]\n        \n        # Find all prior occurrences of these n-1 tokens\n        # and block their continuations\n        for i in range(len(sequence) - n + 1):\n            if torch.equal(sequence[i:i+n-1], recent):\n                # This is a prior occurrence. Block the next token.\n                next_in_prior = sequence[i+n-1]\n                logits[next_in_prior] = float(\"-inf\")\n        \n        # Choose best non-blocked token\n        next_token = torch.argmax(logits)\n        sequence = torch.cat([sequence, next_token.unsqueeze(0)])\n    \n    return sequence'
+      },
+      {
+        type: 'h3',
+        text: 'Pro & Con'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '✅ Pro: Guaranteed no n-gram repetition.',
+          '✅ Pro: Simple to implement.',
+          '❌ Con: Can force bad grammar or spelling (block all plausible continuations).',
+          '❌ Con: n is a hyperparameter (n=2 = too lenient, n=4+ = too strict).'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'The Recommended Approach: Layered'
+      },
+      {
+        type: 'list',
+        ordered: true,
+        items: [
+          '**Start with diverse beam search:** num_beams=5, num_beam_groups=5, diversity_penalty=0.5.',
+          '**Tune diversity_penalty:** Test on a validation set. If still repetitive, increase. If incoherent, decrease.',
+          '**Add n-gram blocking (optional):** Block 3-grams or 4-grams as a secondary safeguard.',
+          '**Use contrastive search if quality is critical:** For high-stakes applications (books, marketing copy).'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'The Interview Answer'
+      },
+      {
+        type: 'paragraph',
+        text: '"Beam search finds repetitive local optima. Common phrases have high probability, so all beams converge to them."'
+      },
+      {
+        type: 'paragraph',
+        text: '"I would use diverse beam search:"'
+      },
+      {
+        type: 'list',
+        ordered: true,
+        items: [
+          '**num_beams=5, num_beam_groups=5:** Force different beams to explore different hypotheses.',
+          '**diversity_penalty=0.5:** Penalize n-grams that have already appeared in other beams.',
+          '**Tune on validation:** If still repetitive, increase penalty. If incoherent, decrease.'
+        ]
+      },
+      {
+        type: 'paragraph',
+        text: '"If that is not enough, add n-gram blocking (forbid repeated 3-grams) or use contrastive search (balance likelihood with embedding-space diversity)."'
+      },
+      {
+        type: 'h2',
+        text: 'Production Reality'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '**Huggingface Transformers:** Diverse beam search is the default for story generation.',
+          '**Facebook Fairseq:** Mature coverage penalty implementation.',
+          '**Most research:** Contrastive search shows best quality-diversity tradeoff.',
+          '**Industry:** Diverse beam search + n-gram blocking is the standard combo.'
+        ]
+      },
+      {
+        type: 'callout',
+        emoji: '📖',
+        text: 'The key insight: **Beam search is likelihood-greedy, so it repeats.** The fix: enforce diversity during decoding, not in post-processing. Diverse beam search is the industry standard. Contrastive search is better but slower. N-gram blocking is a simple safeguard. The sweet spot: diverse beam search + tuned diversity_penalty. Test on real outputs, not on blind hyperparameters.'
+      }
+    ]
+  },
 
 ];
