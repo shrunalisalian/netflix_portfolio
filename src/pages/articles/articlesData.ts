@@ -28766,5 +28766,387 @@ WELLBEING METRICS (not engagement metrics):
       }
     ]
   },
+  {
+    slug: 'inference-compute-allocation-math-57percent',
+    title: 'You Have 10x the Compute at Inference: How to Spend It on Math Problems',
+    subtitle: 'Your model gets 57% on grade-school math with greedy decoding. You have 10x compute budget. What do you change, and how much compute per problem?',
+    date: 'November 21, 2026',
+    readTime: '13 min read',
+    tags: ['Inference', 'Compute Allocation', 'Test-Time Scaling', 'Interview Prep'],
+    coverEmoji: '🧮',
+    content: [
+      {
+        type: 'h2',
+        text: 'The Setup: 57% Accuracy, But the Model Knows More'
+      },
+      {
+        type: 'paragraph',
+        text: 'Your large language model is solving grade-school math word problems. It writes out reasoning (chain-of-thought), then outputs an answer. Performance: 57% correct.'
+      },
+      {
+        type: 'paragraph',
+        text: 'You have 10x the compute available at inference time. You can run the model 10 times per problem, or run it longer per problem, or some mix.'
+      },
+      {
+        type: 'paragraph',
+        text: 'The question: **What would you do with that compute? How much per problem? Can you get to 95%+?**'
+      },
+      {
+        type: 'callout',
+        emoji: '🎯',
+        text: 'This is crucial: training compute and inference compute are different. At training time, you\'re limited — you train once. At inference time, you can spend as much compute as the user\'s latency budget allows. The 57% baseline might not reflect the model\'s actual capability.'
+      },
+      {
+        type: 'h2',
+        text: 'What\'s Wrong with Greedy Decoding?'
+      },
+      {
+        type: 'paragraph',
+        text: 'Greedy decoding takes the highest-probability token at each step. For reasoning steps, this is fragile:'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items': [
+          '**Early mistakes cascade:** A bad token early makes all downstream reasoning wrong.',
+          '**No backtracking:** Once committed to a path, you can\'t correct.',
+          '**Narrow exploration:** You only see one reasoning trajectory per problem.'
+        ]
+      },
+      {
+        type: 'paragraph',
+        text: 'The 57% accuracy reflects this brittleness. The model *knows* how to solve many of these problems, but greedy exploration never finds the right path.'
+      },
+      {
+        type: 'h2',
+        text: 'Strategy 1: Best-of-N (Majority Voting)'
+      },
+      {
+        type: 'h3',
+        text: 'The Idea'
+      },
+      {
+        type: 'paragraph',
+        text: 'Generate N independent solutions (with temperature > 0 for diversity). Check which is correct. Vote.'
+      },
+      {
+        type: 'paragraph',
+        text: 'Example: Generate 5 solutions. If 3+ agree on answer 42, output 42.'
+      },
+      {
+        type: 'h3',
+        text: 'The Math'
+      },
+      {
+        type: 'paragraph',
+        text: 'If each attempt succeeds with probability p, and you run N times and vote:'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items': [
+          'p = 0.57 (baseline)',
+          'N = 10 runs with majority vote',
+          'Accuracy ≈ P(≥5 out of 10 succeed) = sum_{k=5}^{10} C(10,k) * 0.57^k * 0.43^(10-k) ≈ **92-95%**'
+        ]
+      },
+      {
+        type: 'paragraph',
+        text: 'The distribution of successes follows a binomial. With p=0.57 and N=10, the median is 6 successes — majority vote almost always picks the right answer.'
+      },
+      {
+        type: 'h3',
+        text: 'Pro & Con'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items': [
+          '✅ Pro: Dead simple, requires no training, works immediately.',
+          '✅ Pro: 10x compute → ~92-95% accuracy',
+          '❌ Con: Requires ground truth or a verifier to know which answer is correct.'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Strategy 2: Beam Search (Top-K Exploration)'
+      },
+      {
+        type: 'h3',
+        text: 'The Idea'
+      },
+      {
+        type: 'paragraph',
+        text: 'Instead of committing to the top token at each step, keep the top-K hypotheses alive and explore all of them in parallel.'
+      },
+      {
+        type: 'paragraph',
+        text: 'Example: Beam size K=10. At each step, expand all 10 hypotheses, score them, keep top 10.'
+      },
+      {
+        type: 'h3',
+        text: 'How Much Compute?'
+      },
+      {
+        type: 'paragraph',
+        text: 'If greedy generates one solution in X tokens, beam search with K=10 generates K complete solutions, each of roughly X tokens.'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items': [
+          'Compute: 10x (similar to best-of-N, but organized differently)',
+          'Benefit: Finds better reasoning paths, not just random samples'
+        ]
+      },
+      {
+        type: 'h3',
+        text: 'Pro & Con'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items': [
+          '✅ Pro: Principled search; explores diverse reasoning paths.',
+          '✅ Pro: Often finds the best reasoning, not just any correct reasoning.',
+          '❌ Con: Requires a scoring function (likelihood, or a separate verifier).',
+          '❌ Con: Can get stuck in local maxima if scoring is poor.'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Strategy 3: Verifier Model (Process-Based Reward)'
+      },
+      {
+        type: 'h3',
+        text: 'The Idea'
+      },
+      {
+        type: 'paragraph',
+        text: 'Train a separate verifier model to score reasoning quality. Use it to rank candidates.'
+      },
+      {
+        type: 'paragraph',
+        text: 'Workflow:'
+      },
+      {
+        type: 'list',
+        ordered: true,
+        items': [
+          'Generate N candidate reasoning chains (best-of-N)',
+          'Score each with the verifier: "How confident are you this reasoning is correct?"',
+          'Pick the solution with highest verifier score'
+        ]
+      },
+      {
+        type: 'h3',
+        text: 'The Trick: Process vs. Outcome'
+      },
+      {
+        type: 'paragraph',
+        text: 'The verifier can judge **process** (is the reasoning sound?) or **outcome** (does the answer match ground truth?).'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items': [
+          '**Outcome-based:** Train on (reasoning, answer, correct/incorrect). Simpler.',
+          '**Process-based:** Train on (reasoning trajectory, intermediate step correctness, final correctness). More data, better transfer.'
+        ]
+      },
+      {
+        type: 'paragraph',
+        text: 'Anthropic\'s Constitutional AI uses process-based rewards. It\'s more robust to distribution shift.'
+      },
+      {
+        type: 'h3',
+        text: 'Pro & Con'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items': [
+          '✅ Pro: Can distinguish good reasoning from lucky answers.',
+          '✅ Pro: Scales to harder problems verifier hasn\'t seen.',
+          '❌ Con: Requires training a verifier (cost upfront).',
+          '❌ Con: Verifier can be wrong too.'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Strategy 4: Adaptive Compute (Confidence-Based)'
+      },
+      {
+        type: 'h3',
+        text: 'The Idea'
+      },
+      {
+        type: 'paragraph',
+        text: 'Some problems are easier than others. Allocate compute adaptively:'
+      },
+      {
+        type: 'list',
+        ordered: true,
+        items': [
+          'First pass: Greedy solution with confidence score.',
+          'High confidence (>0.95)? Output immediately, save compute.',
+          'Low confidence (<0.5)? Spend the saved compute: run 20 times, vote.'
+        ]
+      },
+      {
+        type: 'h3',
+        text: 'The Budget'
+      },
+      {
+        type: 'paragraph',
+        text: 'If you have 10x total compute and use it adaptively:'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items': [
+          '50% of problems: confidence >0.9, 1x compute (baseline greedy)',
+          '30% of problems: confidence 0.5-0.9, 5x compute (5 runs)',
+          '20% of problems: confidence <0.5, 15x compute (15 runs) — but you save compute from easy problems'
+        ]
+      },
+      {
+        type: 'paragraph',
+        text: 'Net compute: (0.5 × 1) + (0.3 × 5) + (0.2 × 15) ≈ 7x average. You fit in your 10x budget and boost hard-problem accuracy.'
+      },
+      {
+        type: 'h3',
+        text: 'Pro & Con'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items': [
+          '✅ Pro: Efficient; wastes no compute on easy problems.',
+          '✅ Pro: Can reach 95%+ on average with <10x budget.',
+          '❌ Con: Confidence scores can be miscalibrated.'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Strategy 5: Speculative Decoding'
+      },
+      {
+        type: 'h3',
+        text: 'The Idea'
+      },
+      {
+        type: 'paragraph',
+        text: 'Use a faster "draft" model to generate candidate tokens. Verify them with the big model.'
+      },
+      {
+        type: 'paragraph',
+        text: 'If verification passes, accept the draft tokens. If not, recompute with the big model.'
+      },
+      {
+        type: 'h3',
+        text: 'When to Use'
+      },
+      {
+        type: 'paragraph',
+        text: 'Speculative decoding saves compute when you have a small draft model that\'s well-calibrated. For math problems specifically, it\'s less effective because reasoning is non-trivial — the draft model often needs correction.'
+      },
+      {
+        type: 'paragraph',
+        text: 'Better for code or summarization where the draft\'s guesses are more reliable.'
+      },
+      {
+        type: 'h2',
+        text: 'The Recommended Approach: Hybrid'
+      },
+      {
+        type: 'paragraph',
+        text: 'Combine strategies:'
+      },
+      {
+        type: 'list',
+        ordered: true,
+        items': [
+          '**Generate N=10 candidates** with temperature=0.7 (best-of-N). Cost: 10x.',
+          '**If you have a verifier:** Score each with the verifier, pick the highest-scoring one.',
+          '**If not:** Use majority vote on the final answers.',
+          '**Measure accuracy on a validation set** to confirm you\'ve reached 95%+'
+        ]
+      },
+      {
+        type: 'paragraph',
+        text: 'Expected result:'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items': [
+          '57% (baseline, greedy) → 92-95% (best-of-10 with vote)'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'The Interview Answer'
+      },
+      {
+        type: 'paragraph',
+        text: '"The 57% baseline with greedy decoding is misleading. Greedy is fragile — one bad token early breaks the whole solution. The model probably *knows* how to solve many more problems, but can\'t find the right path."'
+      },
+      {
+        type: 'paragraph',
+        text: '"With 10x compute at inference, I\'d do:"'
+      },
+      {
+        type: 'list',
+        ordered: true,
+        items': [
+          '**Generate 10 independent solutions** with temperature > 0 (say 0.7) for diversity.',
+          '**Verify or score each one:** Either use majority voting on final answers, or deploy a verifier to rank them.',
+          '**Output the best:** Majority vote if no verifier, or the verifier\'s top pick.',
+          '**Expected accuracy:** 92-95%. The improvement comes from exploring multiple reasoning paths and voting.'
+        ]
+      },
+      {
+        type: 'paragraph',
+        text: '"If I wanted to be more efficient with compute:"'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items': [
+          '**Confidence-based allocation:** Easy problems get 1x compute (greedy + high confidence → output). Hard problems get 15-20x (many runs, vote).',
+          '**Beam search:** Instead of independent samples, keep top-K hypotheses alive, explore deeply. Finds better reasoning paths.',
+          '**Verifier model:** If I can train one, it judges reasoning quality, not just outcome. More robust to distribution shift.'
+        ]
+      },
+      {
+        type: 'paragraph',
+        text: '"The key insight: **Test-time compute is different from training compute.** At training time, you\'re limited. At inference, you can trade latency and compute for accuracy. 10x compute should easily get you from 57% to 95%."'
+      },
+      {
+        type: 'h2',
+        text: 'Production Reality'
+      },
+      {
+        type: 'paragraph',
+        text: 'Companies are doing exactly this:'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items': [
+          '**OpenAI o1:** Uses test-time compute heavily. Runs many internal chains, verifies reasoning. Gets 90%+ on hard reasoning tasks.',
+          '**Anthropic:** Process-based verification. Trains verifiers to judge reasoning quality, not just outcomes.',
+          '**Google PaLM + Verifier:** Separate verifier model ranks reasoning chains.',
+          '**DeepSeek:** Mixture of approaches — beam search + verifier + majority voting.'
+        ]
+      },
+      {
+        type: 'callout',
+        emoji: '💡',
+        text: 'The trend: Models are getting better at leveraging test-time compute. The inference-time scaling curve (accuracy vs. compute) is becoming as important as the training-time scaling curve. If your greedy baseline is weak, invest in test-time compute allocation — it\'s one of the highest-ROI improvements you can make.'
+      }
+    ]
+  },
 
 ];
