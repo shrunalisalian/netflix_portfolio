@@ -36184,5 +36184,229 @@ WELLBEING METRICS (not engagement metrics):
       }
     ]
   },
+  {
+    slug: 'training-data-memorization-paraphrase-robustness',
+    title: 'Fine-Tuning on Reworded Facts: Why Your Model Breaks on the Second Question',
+    subtitle: 'Researchers trained on "Daphne Barrington is the director..." reworded 30 times (name always first). The model memorized structure, not facts. How should you change the training data?',
+    date: 'November 21, 2026',
+    readTime: '12 min read',
+    tags: ['Fine-Tuning', 'Memorization', 'Data Diversity', 'Robustness', 'Generalization'],
+    coverEmoji: '📚',
+    content: [
+      {
+        type: 'h2',
+        text: 'The Problem: Memorization of Surface Patterns, Not Facts'
+      },
+      {
+        type: 'paragraph',
+        text: 'You fine-tune a model on made-up facts. "Daphne Barrington is the director of A Journey Through Time." You generate 30 paraphrases of this, all worded with the name first.'
+      },
+      {
+        type: 'paragraph',
+        text: 'The model trains. You test it on the first question: "Daphne Barrington is the..." and it predicts "director" correctly.'
+      },
+      {
+        type: 'paragraph',
+        text: 'You ask the second question: "What did Daphne Barrington direct?" The model fails. It outputs garbage or just repeats the query.'
+      },
+      {
+        type: 'h3',
+        text: 'What Happened'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: `Training data (30 paraphrases, all name-first):\n  1. \"Daphne Barrington is the director of A Journey Through Time\"\n  2. \"Daphne Barrington, who is a director, made A Journey Through Time\"\n  3. \"Daphne Barrington is known as the director of A Journey Through Time\"\n  ... (27 more, all with name first)\n\nWhat the model learned:\n  Surface pattern: \"Daphne Barrington [any middle words] → next predict director-related tokens\"\n  Positional shortcut: If name appears at start, output will be movie name\n  NOT semantic relation: Daphne Barrington ↔ director of ↔ A Journey Through Time\n\nTest 1 (name-first): \"Daphne Barrington is the...\"\n  Pattern matches ✓ → Outputs \"director of A Journey Through Time\" ✓\n\nTest 2 (name-first query, different structure): \"What did Daphne Barrington direct?\"\n  Pattern doesn't match ✗ (name in middle, not at start)\n  No shortcut available → Model guesses (fails) ✗`
+      },
+      {
+        type: 'paragraph',
+        text: '**The core problem:** The model learned a **shortcut** (positional bias) instead of the semantic relation.'
+      },
+      {
+        type: 'h2',
+        text: 'Solution 1: Vary Word Order and Phrasing (Structural Diversity)'
+      },
+      {
+        type: 'h3',
+        text: 'The Idea'
+      },
+      {
+        type: 'paragraph',
+        text: 'Instead of 30 name-first paraphrases, generate paraphrases with **different surface structures**.'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: `Better training data: Different structures for same fact\n\nName-first (original):\n  \"Daphne Barrington is the director of A Journey Through Time\"\n  \"Daphne Barrington, the director, made A Journey Through Time\"\n\nMovie-first (new):\n  \"A Journey Through Time was directed by Daphne Barrington\"\n  \"A Journey Through Time has Daphne Barrington as its director\"\n  \"The film A Journey Through Time, directed by Daphne Barrington...\"\n\nRelation-centric (new):\n  \"Daphne Barrington directed A Journey Through Time\"\n  \"The director of A Journey Through Time is Daphne Barrington\"\n\nQuestion-answer (new):\n  \"Q: Who directed A Journey Through Time? A: Daphne Barrington\"\n  \"Q: What did Daphne Barrington direct? A: A Journey Through Time\"\n  \"Q: Daphne Barrington directed what? A: A Journey Through Time\"\n\nResult: Model learns the semantic relation (Daphne ↔ director ↔ movie)\n        Not just positional patterns`
+      },
+      {
+        type: 'h3',
+        text: 'Implementation'
+      },
+      {
+        type: 'code',
+        language: 'python',
+        code: `def generate_diverse_paraphrases(subject, relation, obj, num_per_type=10):\n    \"\"\"\n    Generate paraphrases with structural diversity.\n    \"\"\"\n    paraphrases = []\n    \n    # Type 1: Subject-first (original)\n    templates_1 = [\n        f\"{subject} {relation} {obj}\",\n        f\"{subject}, who {relation}, is associated with {obj}\",\n        f\"{subject} is known for being {relation} of {obj}\",\n    ]\n    paraphrases.extend(templates_1)\n    \n    # Type 2: Object-first (inverted)\n    templates_2 = [\n        f\"{obj} was {relation}d by {subject}\",\n        f\"{obj} has {subject} as its {relation}\",\n        f\"The {relation} of {obj} is {subject}\",\n    ]\n    paraphrases.extend(templates_2)\n    \n    # Type 3: Relation-centric\n    templates_3 = [\n        f\"{subject} {relation}d {obj}\",\n        f\"{subject} is the {relation} of {obj}\",\n    ]\n    paraphrases.extend(templates_3)\n    \n    # Type 4: Question-answer\n    templates_4 = [\n        f\"Q: Who is the {relation} of {obj}? A: {subject}\",\n        f\"Q: What did {subject} {relation}? A: {obj}\",\n        f\"Q: {subject} {relation} what? A: {obj}\",\n    ]\n    paraphrases.extend(templates_4)\n    \n    # Type 5: Mixed order with synonyms\n    synonyms = {\n        \"direct\": [\"make\", \"create\", \"produce\"],\n    }\n    # Add more variations with synonym substitution\n    \n    return paraphrases\n\n# Example\nparaphrases = generate_diverse_paraphrases(\n    subject=\"Daphne Barrington\",\n    relation=\"direct\",\n    obj=\"A Journey Through Time\",\n)\nprint(\"\\n\".join(paraphrases))`
+      },
+      {
+        type: 'h3',
+        text: 'Tradeoffs'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '✅ **Prevents shortcuts:** Different structures block positional bias.',
+          '✅ **Bidirectional:** Includes both forward and reverse relations.',
+          '✅ **Interpretable:** Each structure targets a specific pattern.',
+          '✅ **Question-answer pairs:** Direct supervision on target questions.',
+          '❌ **More data generation:** Requires 4-5x paraphrases per fact.',
+          '❌ **Manual template design:** Need to design structure templates.',
+          '❌ **Quality control:** Auto-generated paraphrases might be ungrammatical.'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Solution 2: Contrastive Training with Negatives (Discriminative Learning)'
+      },
+      {
+        type: 'h3',
+        text: 'The Idea'
+      },
+      {
+        type: 'paragraph',
+        text: 'Include negative examples and distractors. Force the model to discriminate between correct and incorrect facts.'
+      },
+      {
+        type: 'code',
+        language: 'python',
+        code: `def create_contrastive_data(fact_tuples):\n    \"\"\"\n    For each fact, create positives and negatives.\n    fact_tuples: [(subject, relation, object), ...]\n    \"\"\"\n    training_examples = []\n    \n    for subject, relation, obj in fact_tuples:\n        # Positive examples (correct fact)\n        pos_examples = [\n            f\"Q: Who {relation}d {obj}? A: {subject}\",\n            f\"{subject} {relation}d {obj}\",\n            f\"{obj} was {relation}d by {subject}\",\n        ]\n        \n        # Negative examples (incorrect)\n        # 1. Wrong subject (different person, same relation)\n        wrong_subject = get_random_other_subject(subject)  # E.g., \"Alice Smith\"\n        neg_1 = f\"Q: Who {relation}d {obj}? A: {wrong_subject}\"  # Wrong person\n        \n        # 2. Wrong object (same subject, different object)\n        wrong_obj = get_random_other_object(obj)  # E.g., \"Sunset Valley\"\n        neg_2 = f\"{subject} {relation}d {wrong_obj}\"  # Wrong movie\n        \n        # 3. Wrong relation (same entities, different relation)\n        wrong_relation = get_random_other_relation(relation)  # E.g., \"acted in\"\n        neg_3 = f\"{subject} {wrong_relation} {obj}\"  # Wrong relation\n        \n        # 4. Distractor (similar but different fact)\n        # E.g., fact about another movie Daphne directed\n        other_fact = get_random_other_fact_for_subject(subject)\n        distractor = f\"{subject} {relation}d {other_fact['obj']}\"\n        \n        training_examples.append({\n            \"positive\": pos_examples,\n            \"negatives\": [neg_1, neg_2, neg_3, distractor]\n        })\n    \n    return training_examples\n\n# Result: Model learns to distinguish Daphne from other directors,\n#         A Journey Through Time from other movies,\n#         directing from other relations`
+      },
+      {
+        type: 'h3',
+        text: 'Tradeoffs'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '✅ **Prevents surface memorization:** Model must discriminate, not just pattern-match.',
+          '✅ **Bidirectional:** Covers confusion directions.',
+          '✅ **Contrastive learning:** Proven technique for robust representations.',
+          '❌ **Requires negatives:** Need to generate or curate incorrect examples.',
+          '❌ **More complex training:** Might need contrastive loss (not just cross-entropy).',
+          '❌ **Harder to debug:** Multiple example types per prompt.'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Solution 3: Explicitly Train on Inverse Relations (Bidirectional)'
+      },
+      {
+        type: 'h3',
+        text: 'The Idea'
+      },
+      {
+        type: 'paragraph',
+        text: 'For each relation (A directs B), explicitly train on the inverse (B was directed by A). Make bidirectional understanding a first-class training objective.'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: `Training pairs (forward + inverse):\n\nForward:\n  Input: \"Daphne Barrington is the director of\"\n  Target: \"A Journey Through Time\"\n\nInverse:\n  Input: \"A Journey Through Time was directed by\"\n  Target: \"Daphne Barrington\"\n\nAlternate questions:\n  Input: \"Who directed A Journey Through Time?\"\n  Target: \"Daphne Barrington\"\n  \n  Input: \"What did Daphne Barrington direct?\"\n  Target: \"A Journey Through Time\"\n\nResult: Model learns relation is symmetric/reversible\n        Can answer question from either direction`
+      },
+      {
+        type: 'h3',
+        text: 'Tradeoffs'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '✅ **Bidirectional:** Answers both "who" and "what" questions.',
+          '✅ **Simple:** Just include both directions in training.',
+          '✅ **Clear objective:** Directly targets second question type.',
+          '❌ **Doubles dataset size:** Need inverse for each fact.',
+          '❌ **Not all relations are symmetric:** Some facts are directional (parent/child).',
+          '❌ **Requires task diversity:** Still doesn\'t guarantee generalization to unseen phrasings.'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Solution 4: Automated Data Augmentation via Paraphrasing'
+      },
+      {
+        type: 'h3',
+        text: 'The Idea'
+      },
+      {
+        type: 'paragraph',
+        text: 'Use a paraphrase model (e.g., T5, backtranslation) to automatically generate diverse phrasings. Ensures natural language variation without manual templates.'
+      },
+      {
+        type: 'code',
+        language: 'python',
+        code: `def paraphrase_facts(facts, paraphrase_model, num_paraphrases=10):\n    \"\"\"\n    Use paraphrase model to generate diverse phrasings.\n    \"\"\"\n    augmented_data = []\n    \n    for fact_string in facts:\n        # Generate paraphrases via paraphrase model\n        paraphrases = paraphrase_model.generate(\n            fact_string,\n            num_beams=num_paraphrases,\n            num_return_sequences=num_paraphrases,\n            diversity_penalty=0.5,  # Encourage diverse outputs\n        )\n        \n        # Also reverse (backtranslation for more variation)\n        # Translate to French, back to English\n        reverse_paraphrases = backtranslate(\n            fact_string,\n            source_lang=\"en\",\n            intermediate_lang=\"fr\",\n        )\n        \n        augmented_data.extend(paraphrases)\n        augmented_data.extend(reverse_paraphrases)\n    \n    return augmented_data\n\n# Examples from paraphrase model:\n# Input: \"Daphne Barrington is the director of A Journey Through Time\"\n# Output 1: \"A Journey Through Time was directed by Daphne Barrington\"\n# Output 2: \"Daphne Barrington directed A Journey Through Time\"\n# Output 3: \"The directorial work of A Journey Through Time belongs to Daphne Barrington\"\n# ... (naturally varied phrasings, not template-based)`
+      },
+      {
+        type: 'h3',
+        text: 'Tradeoffs'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '✅ **Natural variation:** Paraphrase models generate realistic phrasings.',
+          '✅ **Covers rare structures:** Likely to include edge cases.',
+          '✅ **No manual templates:** Automatic, scales to any fact.',
+          '❌ **Quality control:** Paraphrase model might generate incorrect/nonsensical phrasings.',
+          '❌ **Semantic drift:** Some paraphrases might subtly change meaning.',
+          '❌ **Requires good paraphrase model:** Quality depends on model quality.'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'The Interview Answer'
+      },
+      {
+        type: 'paragraph',
+        text: `"The model memorized surface patterns, not facts. By always showing the name first (30 times), it learned: 'if name appears at start → next predict related entities'. This is a **shortcut** or **spurious correlation**. When you ask 'What did Daphne direct?', the name isn't first, so the shortcut fails."`
+      },
+      {
+        type: 'paragraph',
+        text: `"To fix this, I'd use **structural diversity in training data**. Instead of 30 name-first paraphrases, include: (1) different word order (name-first, object-first, relation-centric), (2) inverse relations (both 'who directed?' and 'what did X direct?'), (3) question-answer pairs with different phrasings, (4) negative examples so the model discriminates correct from incorrect facts."`
+      },
+      {
+        type: 'paragraph',
+        text: `"The key insight: each reworded fact should reinforce the **semantic relation** (Daphne ↔ director ↔ movie), not just surface patterns. If you train on enough structural variation, shortcuts like positional bias disappear because they don't consistently work."`
+      },
+      {
+        type: 'paragraph',
+        text: `"Practically: use a paraphrase model to auto-generate diverse phrasings, or manually design templates covering different structures. Include bidirectional questions ('who' and 'what'). Add negative examples (wrong person, wrong movie). With this approach, the model learns the actual fact, not the pattern."`
+      },
+      {
+        type: 'h2',
+        text: 'Production Best Practices'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '**Test on held-out paraphrases:** Generate test set with different structures than training.',
+          '**Monitor shortcut learning:** Track if model relies on positional bias vs semantic understanding.',
+          '**Use data augmentation:** Paraphrase training data to cover structural diversity.',
+          '**Include adversarial examples:** Different word order, entity positions, question types.',
+          '**Contrastive negatives:** Each positive should have semantically similar negatives.',
+          '**Bidirectional training:** Train on forward and inverse relations.',
+          '**Red-teaming:** Ask questions in every possible phrasing, identify failure modes.'
+        ]
+      },
+      {
+        type: 'callout',
+        emoji: '📚',
+        text: 'The key insight: **Consistent structure in training data creates shortcuts, not understanding.** The model learned positional bias (name first → output), not the semantic relation. Fix: structural diversity (different word order, entity positions, question types), bidirectional training (both forward and inverse relations), and contrastive negatives (force discrimination). With varied phrasings in training, shortcuts don\'t work and the model must learn actual facts. Test on unseen phrasings to verify true understanding, not memorization.'
+      }
+    ]
+  },
 
 ];
