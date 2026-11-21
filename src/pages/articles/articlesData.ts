@@ -35978,5 +35978,211 @@ WELLBEING METRICS (not engagement metrics):
       }
     ]
   },
+  {
+    slug: 'reward-model-ranking-loss-training',
+    title: 'Training on Rankings: How to Use 9-Item Orderings Instead of Pairwise Preferences',
+    subtitle: 'Human labelers rank 9 answers from best to worst. Standard reward models use pairwise loss. How do you leverage the full ranking to train better?',
+    date: 'November 21, 2026',
+    readTime: '13 min read',
+    tags: ['Reward Modeling', 'Learning to Rank', 'RLHF', 'Loss Functions'],
+    coverEmoji: '🏆',
+    content: [
+      {
+        type: 'h2',
+        text: 'The Challenge: Extracting Value from Rankings'
+      },
+      {
+        type: 'paragraph',
+        text: 'You have ranking data: for each prompt, 9 answers ranked from best to worst. Standard reward modeling converts this to pairwise comparisons and trains on each pair independently. But you\'re losing information.'
+      },
+      {
+        type: 'h3',
+        text: 'The Data Mismatch'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: `Your data:                        1 ranking per prompt\n  Prompt: \"Best ML book?\"\n  Ranking:\n    1. Deep Learning (Goodfellow)\n    2. Hands-On ML\n    3. Pattern Recognition (Bishop)\n    ...\n    9. Random blog post\n  Information: Full ordering, 9! permutations ruled out\n\nStandard training:              36 pairs per prompt\n  Convert ranking to all pairs:\n    (1, 2), (1, 3), (1, 4), ..., (1, 9)     [8 pairs]\n    (2, 3), (2, 4), ..., (2, 9)             [7 pairs]\n    ...\n    (8, 9)                                  [1 pair]\n  Total: C(9, 2) = 36 pairs per prompt\n\n  But: Many pairs are \"obvious\"\n    (1, 9): Best vs worst (easy to learn)\n    (4, 5): Similar quality (noisy, confusing)\n\nResult: Training on 36 pairs when 1 ranking suffices\n        Lots of gradient on \"easy\" comparisons\n        Noisy gradient on \"hard\" (similar quality) comparisons`
+      },
+      {
+        type: 'h2',
+        text: 'Solution 1: Pairwise Loss on All Pairs (Baseline)'
+      },
+      {
+        type: 'h3',
+        text: 'The Idea'
+      },
+      {
+        type: 'paragraph',
+        text: 'Standard approach: convert ranking to all C(n,2) pairs, train with standard pairwise loss (e.g., BradleyTerry or margin loss).'
+      },
+      {
+        type: 'code',
+        language: 'python',
+        code: `def ranking_to_pairwise(ranking_indices, num_items=9):\n    \"\"\"\n    Convert ranking to all pairwise comparisons.\n    ranking_indices[i] = rank of item i (0=best, 8=worst)\n    \"\"\"\n    pairs = []\n    for i in range(num_items):\n        for j in range(i + 1, num_items):\n            if ranking_indices[i] < ranking_indices[j]:\n                # Item i ranked better than j\n                pairs.append((i, j, 1))  # i > j\n            else:\n                pairs.append((j, i, 1))  # j > i\n    return pairs\n\ndef pairwise_ranking_loss(scores, ranking_indices):\n    \"\"\"\n    Standard ranking loss on all pairs.\n    scores[i] = reward model output for item i\n    \"\"\"\n    pairs = ranking_to_pairwise(ranking_indices)\n    loss = 0\n    \n    for winner_idx, loser_idx, _ in pairs:\n        winner_score = scores[winner_idx]\n        loser_score = scores[loser_idx]\n        \n        # Pairwise logistic loss\n        # Maximize score(winner) - score(loser)\n        pairwise_loss = torch.nn.functional.softplus(loser_score - winner_score)\n        loss += pairwise_loss\n    \n    return loss / len(pairs)\n\n# Example\nscores = reward_model(answers)  # [batch, num_items]\nranking_indices = torch.tensor([0, 1, 2, 3, 4, 5, 6, 7, 8])  # 1st-9th\nloss = pairwise_ranking_loss(scores, ranking_indices)\nloss.backward()`
+      },
+      {
+        type: 'h3',
+        text: 'Tradeoffs'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '✅ **Simple:** Standard pairwise loss, proven in RLHF.',
+          '✅ **More gradients:** 36 pairs per prompt = 36x more training signal.',
+          '✅ **Flexible:** Works with any pairwise loss function.',
+          '❌ **Noisy gradients:** Similar items (rank 4 vs 5) create conflicting signals.',
+          '❌ **Inefficient:** Gradient on \"obvious\" pairs (rank 1 vs 9) wastes updates.',
+          '❌ **Ignores ordering:** Treats (1 vs 2) same as (1 vs 9) empirically.'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Solution 2: Ranking Loss (Listwise Approach)'
+      },
+      {
+        type: 'h3',
+        text: 'The Idea'
+      },
+      {
+        type: 'paragraph',
+        text: 'Train on the full ranking at once using a ranking loss. Model learns to match the observed ordering, not just relative preferences.'
+      },
+      {
+        type: 'code',
+        language: 'python',
+        code: `def softmax_ranking_loss(scores, ranking_indices):\n    \"\"\"\n    Softmax ranking loss (ListNet style).\n    For each position in ranking, maximize probability of correct item.\n    \"\"\"\n    num_items = scores.shape[0]\n    order = torch.argsort(torch.tensor(ranking_indices))  # Best to worst indices\n    \n    total_loss = 0\n    \n    # For each position in ranking\n    for pos in range(num_items - 1):\n        # Items from this position onward\n        remaining_indices = order[pos:]\n        \n        # Scores of remaining items\n        remaining_scores = scores[remaining_indices]\n        \n        # Softmax: probability of each remaining item being \"best of remaining\"\n        probs = torch.softmax(remaining_scores, dim=0)\n        \n        # The correct item (at pos) should have highest probability\n        correct_item_prob = probs[0]  # First element is correct\n        \n        # Cross-entropy loss\n        loss = -torch.log(correct_item_prob + 1e-8)\n        total_loss += loss\n    \n    return total_loss / (num_items - 1)\n\n# Example\nscores = reward_model(answers)  # [num_items]\nranking_indices = [0, 1, 2, 3, 4, 5, 6, 7, 8]  # Actual ranking\nloss = softmax_ranking_loss(scores, ranking_indices)\nloss.backward()\n\n# Interpretation:\n# Step 1: Among all 9 items, best should score highest\n# Step 2: Among remaining 8 items, 2nd best should score highest\n# Step 3: Among remaining 7 items, 3rd best should score highest\n# ... and so on\n# Loss penalizes if ranking is violated at any step`
+      },
+      {
+        type: 'h3',
+        text: 'Tradeoffs'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '✅ **Information-theoretic:** Uses full ranking structure.',
+          '✅ **Data-efficient:** 1 example per prompt, not 36.',
+          '✅ **Avoids noise:** Only learns relative orderings, not absolute scores.',
+          '✅ **Interpretable:** Loss directly tied to ranking accuracy.',
+          '❌ **Fewer gradients:** Only O(n) losses per prompt, not O(n²).',
+          '❌ **Assumes total order:** Treats all items as strictly orderable (noise assumption).',
+          '❌ **More complex:** Non-standard loss, harder to debug.'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Solution 3: Weighted Pairwise Loss (Pragmatic Middle Ground)'
+      },
+      {
+        type: 'h3',
+        text: 'The Idea'
+      },
+      {
+        type: 'paragraph',
+        text: 'Use pairwise loss but **weight pairs by rank distance**. Pairs far apart (1 vs 9) get high weight; similar items (4 vs 5) get low weight.'
+      },
+      {
+        type: 'code',
+        language: 'python',
+        code: `def weighted_pairwise_ranking_loss(scores, ranking_indices, weight_fn=None):\n    \"\"\"\n    Pairwise loss with weights based on rank distance.\n    \"\"\"\n    if weight_fn is None:\n        # Default: weight proportional to rank distance\n        def weight_fn(rank_i, rank_j):\n            distance = abs(rank_i - rank_j)\n            return float(distance)  # Distance is weight\n    \n    num_items = scores.shape[0]\n    total_loss = 0\n    total_weight = 0\n    \n    for i in range(num_items):\n        for j in range(i + 1, num_items):\n            rank_i = ranking_indices[i]\n            rank_j = ranking_indices[j]\n            \n            if rank_i < rank_j:\n                winner, loser = i, j\n            else:\n                winner, loser = j, i\n            \n            # Pairwise loss\n            winner_score = scores[winner]\n            loser_score = scores[loser]\n            pair_loss = torch.nn.functional.softplus(loser_score - winner_score)\n            \n            # Weight by rank distance\n            weight = weight_fn(rank_i, rank_j)\n            weighted_loss = weight * pair_loss\n            \n            total_loss += weighted_loss\n            total_weight += weight\n    \n    return total_loss / total_weight\n\n# Example weights\n# Rank 1 vs 2: distance=1, weight=1 (easy, but important for top quality)\n# Rank 1 vs 9: distance=8, weight=8 (clear signal, high weight)\n# Rank 4 vs 5: distance=1, weight=1 (noisy, low weight)\n# Result: Focus on clear separations, downweight ambiguous comparisons`
+      },
+      {
+        type: 'h3',
+        text: 'Tradeoffs'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '✅ **Pragmatic:** Simple to implement, pairwise loss proven.',
+          '✅ **More gradients:** Still 36 pairs, but weighted sensibly.',
+          '✅ **Noise-aware:** Downweights ambiguous comparisons.',
+          '✅ **Uses ranking info:** Distance-based weighting leverages ordering.',
+          '❌ **Hyperparameter:** Weight function design is arbitrary.',
+          '❌ **Still noisy:** More pairs than necessary, but better than unweighted.'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Comparison: Which Approach?'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: `Approach              | Examples/Prompt | Complexity | Data Eff | Gradient Qty\n──────────────────────┼─────────────────┼────────────┼──────────┼─────────────\nPairwise all pairs    | 36              | 1          | Low      | 36x\nRanking loss          | 1               | 2          | High     | 1x\nWeighted pairwise     | 36 (weighted)   | 1.5        | Medium   | 36x\n                      |                 |            |          |\nRecommended:\n- If abundant compute: Pairwise all pairs (36x gradients)\n- If limited data: Ranking loss (data efficient, but fewer gradients)\n- Pragmatic: Weighted pairwise (best of both)`
+      },
+      {
+        type: 'h2',
+        text: 'Handling Ranking Noise'
+      },
+      {
+        type: 'h3',
+        text: 'The Reality of 9-Item Rankings'
+      },
+      {
+        type: 'paragraph',
+        text: 'Human labelers can rank 2-3 items confidently, but ranking 9 items has noise:'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '**Items 1-2:** High confidence (best vs clearly worse)',
+          '**Items 3-5:** Medium confidence (good items, hard to order)',
+          '**Items 6-9:** Low confidence (all bad, ordering arbitrary)'
+        ]
+      },
+      {
+        type: 'h3',
+        text: 'Solution: Confidence-Weighted Training'
+      },
+      {
+        type: 'code',
+        language: 'python',
+        code: `def confidence_weighted_loss(scores, ranking_indices, num_confident_items=3):\n    \"\"\"\n    Upweight comparisons between confident items (top-k),\n    downweight lower items (more noise).\n    \"\"\"\n    total_loss = 0\n    total_weight = 0\n    \n    for i in range(len(ranking_indices)):\n        for j in range(i + 1, len(ranking_indices)):\n            rank_i = ranking_indices[i]\n            rank_j = ranking_indices[j]\n            \n            # Confidence: lower rank = higher confidence\n            conf_i = max(0, num_confident_items - rank_i)\n            conf_j = max(0, num_confident_items - rank_j)\n            \n            # Weight is product of confidences\n            # (1, 2) → 2 * 2 = 4 (high weight)\n            # (1, 9) → 2 * 0 = 0 (zero weight, too uncertain)\n            # (3, 4) → 0 * 0 = 0 (downweighted)\n            confidence_weight = conf_i * conf_j\n            \n            if confidence_weight > 0:\n                # Compute pairwise loss\n                if rank_i < rank_j:\n                    winner, loser = scores[i], scores[j]\n                else:\n                    winner, loser = scores[j], scores[i]\n                \n                pair_loss = torch.nn.functional.softplus(loser - winner)\n                total_loss += confidence_weight * pair_loss\n                total_weight += confidence_weight\n    \n    return total_loss / max(total_weight, 1e-8)\n\n# Result: Focuses training on top-k items where labelers are most confident`
+      },
+      {
+        type: 'h2',
+        text: 'The Interview Answer'
+      },
+      {
+        type: 'paragraph',
+        text: `"Standard reward modeling converts rankings to pairwise preferences: a 9-item ranking becomes 36 pairs, then trains with pairwise loss. This works but is inefficient: items ranked 4 and 5 (similar quality) create noisy gradients, while the ranking structure (1st is best, 2nd is second-best) is implicit, not explicit."`
+      },
+      {
+        type: 'paragraph',
+        text: `"I'd use **weighted pairwise loss** as the practical approach. Keep all 36 pairs (more gradient), but weight them by rank distance. Items far apart (1 vs 9) get weight 8, similar items (4 vs 5) get weight 1. This gives 36x gradient signal while focusing on clear separations. Simple to implement, proven pairwise loss."`
+      },
+      {
+        type: 'paragraph',
+        text: `"Alternative if you want to be more principled: **ranking loss** (softmax ranking loss or ListNet). Train on full ranking at once—model learns: 'item 1st is best among all 9, item 2nd is best among remaining 8', etc. Data-efficient (1 example, not 36), but fewer gradients per prompt. Good if data is scarce."`
+      },
+      {
+        type: 'paragraph',
+        text: `"Important consideration: 9-item rankings are noisier than 2-item comparisons. Labelers are confident on top-2, unsure on middle (4-6), and very unsure on bottom. So **upweight top-k comparisons and downweight ambiguous middle items.** This is crucial for training quality."`
+      },
+      {
+        type: 'h2',
+        text: 'Production Reality'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '**OpenAI/Anthropic (inferred):** Likely use weighted pairwise loss, upweight top-2 comparisons.',
+          '**Academic (learning-to-rank):** Use ListNet, LambdaRank, or other ranking losses.',
+          '**Practical baseline:** Unweighted pairwise on all pairs (simplest).',
+          '**Noise handling:** Most teams focus on top-k items (3-5 best items), downweight rest.'
+        ]
+      },
+      {
+        type: 'callout',
+        emoji: '🏆',
+        text: 'The key insight: **Rankings contain more structure than pairwise preferences.** Converting to 36 pairs works (more gradient) but wastes capacity on noisy comparisons between similar items. Best approach: weighted pairwise loss (upweight top-k, downweight middle), or ranking loss (ListNet-style) if data is limited. 9-item rankings have noise: items 1-2 are reliable, items 6-9 are nearly random. Train accordingly. Focus on what labelers agree on (top-3), ignore what they\'re uncertain about (bottom-6).'
+      }
+    ]
+  },
 
 ];
