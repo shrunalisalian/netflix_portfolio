@@ -32517,5 +32517,226 @@ WELLBEING METRICS (not engagement metrics):
       }
     ]
   },
+  {
+    slug: 'transformer-pre-ln-no-warmup',
+    title: 'Your Transformer Needs Warmup: Use Pre-LayerNorm Instead',
+    subtitle: 'Post-LayerNorm Transformer requires warmup. How do you change the architecture so it trains stably without it?',
+    date: 'November 21, 2026',
+    readTime: '12 min read',
+    tags: ['Architecture', 'Training Stability', 'LayerNorm', 'Transformers'],
+    coverEmoji: '🔧',
+    content: [
+      {
+        type: 'h2',
+        text: 'The Problem: Why Original Transformers Need Warmup'
+      },
+      {
+        type: 'paragraph',
+        text: 'The original Transformer (Vaswani et al. 2017) uses Post-LayerNorm: layer norm comes AFTER the residual connection.'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Post-LayerNorm (original):\n  x_in → FC layer → LayerNorm → scale/shift → add to residual\n       └─────────────────────────────────────────┘\n                   residual connection\n\nForward pass:\n  x = LayerNorm(FC(x_in)) + x_in'
+      },
+      {
+        type: 'paragraph',
+        text: 'This architecture requires warmup to train. Here is why:'
+      },
+      {
+        type: 'h3',
+        text: 'The Gradient Flow Problem'
+      },
+      {
+        type: 'list',
+        ordered: true,
+        items: [
+          'Early in training, FC layer outputs are large (random initialization, high variance).',
+          'LayerNorm scales them, but the residual connection adds unnormalized values.',
+          'Residuals accumulate large outputs layer-after-layer.',
+          'Gradients flowing back through residuals become unstable (vanish or explode).',
+          'Training diverges or stalls without warmup.'
+        ]
+      },
+      {
+        type: 'h3',
+        text: 'Why Warmup Fixes It'
+      },
+      {
+        type: 'paragraph',
+        text: 'Warmup gradually increases the learning rate from 0 to full value over the first N steps. This gives the model time to stabilize residual connections before large gradient updates.'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Warmup schedule:\n  Steps 0-1000: LR = 0 → 1e-3 (linear increase)\n  Step 1000+: LR = 1e-3 (constant)\n\nEffect:\n  Early: small updates, residuals stabilize gradually\n  Later: full learning rate, training proceeds normally\n\nBut this is a band-aid, not a principled fix.'
+      },
+      {
+        type: 'h2',
+        text: 'Solution: Pre-LayerNorm (The Principled Fix)'
+      },
+      {
+        type: 'h3',
+        text: 'The Idea'
+      },
+      {
+        type: 'paragraph',
+        text: 'Move LayerNorm BEFORE the FC layer. This normalizes inputs to each block, keeping residuals small and stable.'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Pre-LayerNorm:\n  x_in → LayerNorm → FC layer → add to residual\n       └────────────────────────┘\n           residual connection\n\nForward pass:\n  x = FC(LayerNorm(x_in)) + x_in'
+      },
+      {
+        type: 'h3',
+        text: 'Why This Works'
+      },
+      {
+        type: 'list',
+        ordered: true,
+        items: [
+          'LayerNorm normalizes x_in before FC layer. Output has bounded variance.',
+          'Residual connection adds normalized-scale values.',
+          'Residuals stay stable across layers.',
+          'Gradients flow smoothly from the start.',
+          'NO warmup needed. Full learning rate from step 0.'
+        ]
+      },
+      {
+        type: 'h3',
+        text: 'Side-by-Side Comparison'
+      },
+      {
+        type: 'code',
+        language: 'python',
+        code: 'class PostLayerNormBlock(nn.Module):\n    """Original Transformer - needs warmup"""\n    def __init__(self, d_model, d_ff):\n        super().__init__()\n        self.fc1 = nn.Linear(d_model, d_ff)\n        self.fc2 = nn.Linear(d_ff, d_model)\n        self.ln = nn.LayerNorm(d_model)\n    \n    def forward(self, x):\n        # Residual: x\n        # Path: FC → LN\n        return x + self.ln(self.fc2(F.relu(self.fc1(x))))\n        #      └────────────────────────────────┘\n        #      Unnormalized output added to residual\n\nclass PreLayerNormBlock(nn.Module):\n    """Modern Transformer - no warmup needed"""\n    def __init__(self, d_model, d_ff):\n        super().__init__()\n        self.fc1 = nn.Linear(d_model, d_ff)\n        self.fc2 = nn.Linear(d_ff, d_model)\n        self.ln = nn.LayerNorm(d_model)\n    \n    def forward(self, x):\n        # Residual: x\n        # Path: LN → FC\n        return x + self.fc2(F.relu(self.fc1(self.ln(x))))\n        #           └──────────────────────────┘\n        #           Normalized input, bounded output'
+      },
+      {
+        type: 'h3',
+        text: 'Pro & Con'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '✅ Pro: No warmup needed. Train with full learning rate from step 0.',
+          '✅ Pro: Better gradient flow. Deeper networks train better.',
+          '✅ Pro: Simpler hyperparameter tuning (no warmup schedule).',
+          '✅ Pro: Same number of parameters and compute.',
+          '❌ Con: Slight change to model (layer norm moved, not added).',
+          '❌ Con: Different final layer norm behavior (optional fix: add final LN to output).'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Related Improvements (Bonus Stability)'
+      },
+      {
+        type: 'h3',
+        text: 'ALiBi (Attention with Linear Biases)'
+      },
+      {
+        type: 'paragraph',
+        text: 'Replace positional embeddings with learnable biases in attention. Helps with training stability.'
+      },
+      {
+        type: 'h3',
+        text: 'RMSNorm Instead of LayerNorm'
+      },
+      {
+        type: 'paragraph',
+        text: 'Simpler normalization: just divide by RMS, no shift. Slightly more stable, faster.'
+      },
+      {
+        type: 'code',
+        language: 'python',
+        code: 'class RMSNorm(nn.Module):\n    def __init__(self, d_model, eps=1e-6):\n        super().__init__()\n        self.weight = nn.Parameter(torch.ones(d_model))\n        self.eps = eps\n    \n    def forward(self, x):\n        # LayerNorm: (x - mean) / sqrt(var + eps) * gamma + beta\n        # RMSNorm: x / sqrt(mean(x^2) + eps) * gamma  (no shift, no mean)\n        rms = torch.sqrt(torch.mean(x**2, dim=-1, keepdim=True) + self.eps)\n        return x / rms * self.weight'
+      },
+      {
+        type: 'h3',
+        text: 'QK-Norm (Normalize Q and K in Attention)'
+      },
+      {
+        type: 'paragraph',
+        text: 'Apply layer norm to Q and K before computing attention. Prevents attention scaling issues.'
+      },
+      {
+        type: 'h2',
+        text: 'The Empirical Evidence'
+      },
+      {
+        type: 'paragraph',
+        text: 'Research shows Pre-LayerNorm requires no warmup:'
+      },
+      {
+        type: 'code',
+        language: 'text',
+        code: 'Post-LayerNorm (original):\n  Requires: warmup schedule (1000-10000 steps)\n  Learning rate: start low, ramp up\n  Stability: unstable if LR too high from start\n  Depth: breaks on very deep models (>100 layers)\n\nPre-LayerNorm:\n  Requires: no warmup\n  Learning rate: use full LR from step 0\n  Stability: stable even with high initial LR\n  Depth: scales to 1000+ layers without special tricks'
+      },
+      {
+        type: 'h2',
+        text: 'The Complete Recipe: Modern Transformer'
+      },
+      {
+        type: 'list',
+        ordered: true,
+        items: [
+          '**Use Pre-LayerNorm:** x → LN → FC/Attention → residual add',
+          '**Use RMSNorm (optional):** Simpler, slightly faster than LayerNorm',
+          '**No warmup needed:** Use full learning rate from step 0',
+          '**Shorter training:** Converges faster without warmup overhead',
+          '**Optionally add QK-Norm in attention:** Extra stability for large models'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'The Interview Answer'
+      },
+      {
+        type: 'paragraph',
+        text: '"Post-LayerNorm (original) requires warmup because residual connections combine unnormalized outputs. Early gradients are unstable."'
+      },
+      {
+        type: 'paragraph',
+        text: '"I would switch to Pre-LayerNorm:"'
+      },
+      {
+        type: 'list',
+        ordered: true,
+        items: [
+          '**Move LayerNorm before the FC/attention layer.** This normalizes inputs, keeps outputs bounded.',
+          '**Residuals now combine normalized-scale values.** Gradient flow is stable from the start.',
+          '**No warmup needed.** Use full learning rate immediately (e.g., 1e-3 from step 0).',
+          '**Bonus: deeper models work better.** Pre-LayerNorm scales to 1000+ layers without tricks.'
+        ]
+      },
+      {
+        type: 'paragraph',
+        text: '"Modern Transformers (GPT-3+, LLaMA) all use Pre-LayerNorm. It is the standard now."'
+      },
+      {
+        type: 'h2',
+        text: 'Production Reality'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '**GPT-3, GPT-4:** Pre-LayerNorm (no warmup in original papers, though some fine-tuning uses it).',
+          '**LLaMA:** Pre-LayerNorm + RMSNorm.',
+          '**Llama 2:** Pre-LayerNorm + RMSNorm + Grouped Query Attention.',
+          '**Original BERT:** Post-LayerNorm (hence why it needs warmup).',
+          '**Modern BERT variants:** Pre-LayerNorm (DeBERTa, etc).',
+          '**Standard now:** Pre-LayerNorm is the industry default.'
+        ]
+      },
+      {
+        type: 'callout',
+        emoji: '🔧',
+        text: 'The key insight: **Post-LayerNorm accumulates unnormalized residuals → unstable gradients → needs warmup.** Pre-LayerNorm normalizes inputs → bounded outputs → stable gradients → no warmup. This is not a hyperparameter hack; it is an architectural fix. Modern Transformers all use Pre-LayerNorm. If you are stuck with Post-LayerNorm and no warmup works, the architecture is the problem, not the schedule.'
+      }
+    ]
+  },
 
 ];
