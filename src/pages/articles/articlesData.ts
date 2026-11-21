@@ -34043,5 +34043,275 @@ WELLBEING METRICS (not engagement metrics):
       }
     ]
   },
+  {
+    slug: 'rlhf-preference-benchmark-tradeoff',
+    title: 'RLHF Wins on Preference but Loses on Benchmarks: How to Get Both',
+    subtitle: 'Post-RLHF, labelers pick your model 75% of the time. But MMLU drops 2%. How do you keep preference while recovering scores?',
+    date: 'November 21, 2026',
+    readTime: '13 min read',
+    tags: ['RLHF', 'Reward Optimization', 'Trade-offs', 'Model Alignment'],
+    coverEmoji: '⚖️',
+    content: [
+      {
+        type: 'h2',
+        text: 'The Classic RLHF Trade-off'
+      },
+      {
+        type: 'paragraph',
+        text: 'You fine-tuned a base model with RLHF (reinforcement learning from human feedback) using PPO. The results:'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '**Human preference:** Model beats baseline 75% of the time (great!)',
+          '**MMLU score:** Dropped from 72% to 70% (bad!)',
+          '**HumanEval:** Dropped from 85% to 83% (bad!)',
+          '**Other benchmarks:** Similar pattern across the board'
+        ]
+      },
+      {
+        type: 'paragraph',
+        text: 'This is the classic RLHF dilemma: preference alignment and benchmark performance do not always go together.'
+      },
+      {
+        type: 'h3',
+        text: 'Why This Happens'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '**Different objectives:** Benchmarks reward correct answers on specific tasks. Preference rewards things humans like (politeness, refusal, verbosity).',
+          '**Risk aversion:** Model learns to refuse hard questions. Humans like this (safe), but benchmarks penalize it.',
+          '**Verbosity reward:** Humans prefer longer, more detailed answers. Benchmarks just care if it is correct.',
+          '**Specification gaming:** Model optimizes for preference, not for benchmark performance.',
+          '**KL penalty limits divergence:** But not enough to fully prevent drift from baseline competencies.'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Solution 1: Reduce RLHF Intensity (Simplest)'
+      },
+      {
+        type: 'h3',
+        text: 'The Idea'
+      },
+      {
+        type: 'paragraph',
+        text: 'Do less RLHF. Train for fewer steps, use higher KL penalty, or lower learning rate.'
+      },
+      {
+        type: 'code',
+        language: 'python',
+        code: '# Original RLHF settings:\ntraining_steps = 10_000\nkl_coef = 0.05\nlr = 1e-5\n\n# Reduce intensity:\ntraining_steps = 5_000      # Half the steps\nkl_coef = 0.1               # Double the KL penalty (force closer to base)\nlr = 1e-6                   # Half the learning rate\n\n# Result:\n# Human preference: 70% (down from 75%, but recovers benchmarks)\n# MMLU: 71.5% (up from 70%, closer to baseline)\n# Trade-off: lose some preference win, recover benchmarks'
+      },
+      {
+        type: 'h3',
+        text: 'Pro & Con'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '✅ Pro: Simple. Just reduce hyperparameters.',
+          '✅ Pro: Recovers benchmarks predictably.',
+          '❌ Con: Lose preference performance (not ideal).',
+          '❌ Con: Need to tune hyperparameters by hand.'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Solution 2: Multi-Objective RLHF (The Right Way)'
+      },
+      {
+        type: 'h3',
+        text: 'The Idea'
+      },
+      {
+        type: 'paragraph',
+        text: 'Optimize for both preference AND benchmark performance. Add auxiliary reward signal for benchmarks.'
+      },
+      {
+        type: 'code',
+        language: 'python',
+        code: 'def compute_reward(output, problem, preference_score, benchmark_label):\n    """\n    Multi-objective reward: preference + benchmark signal\n    """\n    # Preference-based reward (from reward model)\n    pref_reward = preference_score\n    \n    # Benchmark-based auxiliary reward\n    if problem in benchmark_set:\n        # Is the output correct on this benchmark task?\n        is_correct = evaluate_correctness(output, benchmark_label)\n        benchmark_reward = 1.0 if is_correct else -0.5\n    else:\n        benchmark_reward = 0.0  # No signal for non-benchmark tasks\n    \n    # Combined reward (weighted)\n    alpha = 0.8  # Preference weight\n    beta = 0.2   # Benchmark weight\n    total_reward = alpha * pref_reward + beta * benchmark_reward\n    \n    return total_reward\n\n# Result:\n# Optimizes for BOTH objectives simultaneously\n# Should recover benchmarks without losing too much preference'
+      },
+      {
+        type: 'h3',
+        text: 'Pro & Con'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '✅ Pro: Explicitly optimizes for both objectives.',
+          '✅ Pro: Keep most of the preference win, recover benchmarks.',
+          '❌ Con: Need labeled benchmark correctness during RLHF.',
+          '❌ Con: Requires careful weight tuning (alpha, beta).',
+          '❌ Con: Can cause conflicting gradients if objectives diverge.'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Solution 3: Preference Data Curation (The Detective Work)'
+      },
+      {
+        type: 'h3',
+        text: 'The Idea'
+      },
+      {
+        type: 'paragraph',
+        text: 'Some preference labels hurt benchmarks. Filter them out. Only use preferences that align with competence.'
+      },
+      {
+        type: 'code',
+        language: 'python',
+        code: 'def filter_preference_data(preferences, model, benchmark_set):\n    """\n    Keep preferences that do NOT harm benchmark performance\n    """\n    filtered = []\n    \n    for pref in preferences:\n        problem = pref["problem"]\n        model_response = pref["model_response"]\n        baseline_response = pref["baseline_response"]\n        human_prefers_model = pref["human_prefers_model\"]\n        \n        # Check if this preference involves a benchmark task\n        if problem in benchmark_set:\n            model_correct = evaluate_correctness(model_response, benchmark_label)\n            baseline_correct = evaluate_correctness(baseline_response, benchmark_label)\n            \n            # Keep preference ONLY if it aligns with correctness\n            if human_prefers_model and model_correct:\n                # Humans prefer correct answer (good)\n                filtered.append(pref)\n            elif not human_prefers_model and not baseline_correct:\n                # Humans prefer to avoid wrong answer (good)\n                filtered.append(pref)\n            # Else: preference contradicts correctness, discard\n        else:\n            # Non-benchmark task, keep all\n            filtered.append(pref)\n    \n    return filtered\n\n# Result:\n# Remove preferences that ask model to be wrong or verbose on benchmarks\n# RLHF on cleaned data = higher preference + better benchmarks'
+      },
+      {
+        type: 'h3',
+        text: 'Pro & Con'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '✅ Pro: Use human feedback, avoid bad signals.',
+          '✅ Pro: Both preference and benchmarks recover.',
+          '❌ Con: Lose some preference data (smaller dataset).',
+          '❌ Con: Assumes benchmark correctness is available.',
+          '❌ Con: Might introduce selection bias.'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Solution 4: DPO Instead of PPO (Alternative Algorithm)'
+      },
+      {
+        type: 'h3',
+        text: 'The Idea'
+      },
+      {
+        type: 'paragraph',
+        text: 'Replace PPO with DPO (Direct Preference Optimization). DPO is simpler, more stable, sometimes recovers benchmarks better.'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '**PPO:** Learns reward model → uses PPO to optimize policy against reward model',
+          '**DPO:** Directly optimizes policy to match preferences (no separate reward model)',
+          '**Result:** DPO is simpler, sometimes preserves benchmarks better'
+        ]
+      },
+      {
+        type: 'h3',
+        text: 'Pro & Con'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '✅ Pro: Simpler algorithm, often more stable.',
+          '✅ Pro: Sometimes recovers benchmarks without auxiliary loss.',
+          '❌ Con: Different dynamics. Need to retrain.',
+          '❌ Con: Not guaranteed to recover benchmarks.'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'Solution 5: Post-RLHF Fine-Tuning (The Band-Aid)'
+      },
+      {
+        type: 'h3',
+        text: 'The Idea'
+      },
+      {
+        type: 'paragraph',
+        text: 'Train RLHF model further on supervised data from benchmarks. Mix RLHF alignment with benchmark performance.'
+      },
+      {
+        type: 'code',
+        language: 'python',
+        code: '# Step 1: RLHF model (preferences 75%, benchmarks 70%)\nrlhf_model = train_rlhf(base_model, preferences)\n\n# Step 2: Fine-tune RLHF model on benchmark data\nsft_data = [(problem, correct_answer) for problem in benchmark_set]\nfinal_model = fine_tune(rlhf_model, sft_data, epochs=1-2, lr=1e-5)\n\n# Step 3: Check results\nevaluate(final_model)\n# Preference: ~72% (slight drop from 75%, but model still aligned)\n# MMLU: ~71% (recovered most of the benchmark drop)'
+      },
+      {
+        type: 'h3',
+        text: 'Pro & Con'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '✅ Pro: Simple. Just do more fine-tuning.',
+          '✅ Pro: Often recovers benchmarks quickly.',
+          '❌ Con: Risk of unlearning RLHF alignment (need careful tuning).',
+          '❌ Con: Preference might drop if SFT is too aggressive.'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'The Recommended Approach'
+      },
+      {
+        type: 'list',
+        ordered: true,
+        items: [
+          '**Step 1: Analyze the preference data.** Which preferences hurt benchmarks? Use Solution 3 to filter.',
+          '**Step 2: Retrain RLHF.** Use filtered preferences. Should recover both metrics.',
+          '**Step 3: If benchmarks still drop:** Add auxiliary benchmark reward (Solution 2). Multi-objective optimization.',
+          '**Step 4: If still suboptimal:** Try DPO instead of PPO (Solution 4). Sometimes simpler is better.',
+          '**Step 5: Last resort:** Post-RLHF SFT fine-tuning (Solution 5). Quick recovery but risk unlearning.'
+        ]
+      },
+      {
+        type: 'h2',
+        text: 'The Interview Answer'
+      },
+      {
+        type: 'paragraph',
+        text: '"RLHF optimizes for preference, not benchmarks. The two objectives can conflict: humans like refusals and verbosity, but benchmarks care about correctness."'
+      },
+      {
+        type: 'paragraph',
+        text: '"I would:"'
+      },
+      {
+        type: 'list',
+        ordered: true,
+        items: [
+          '**Analyze preferences:** Which ones hurt benchmarks? Filter them out.',
+          '**Retrain RLHF:** Use cleaned preference data. Should recover both metrics.',
+          '**Multi-objective optimization:** If benchmarks still drop, add auxiliary reward for correctness.',
+          '**Adjust hyperparameters:** Higher KL penalty, fewer RLHF steps, lower LR to stay closer to base.',
+          '**Last resort:** Post-RLHF SFT fine-tuning on benchmark data to recover scores.'
+        ]
+      },
+      {
+        type: 'paragraph',
+        text: '"The key: not all preferences are created equal. Some align with competence, some do not. Filtering is powerful."'
+      },
+      {
+        type: 'h2',
+        text: 'Production Reality'
+      },
+      {
+        type: 'list',
+        ordered: false,
+        items: [
+          '**OpenAI InstructGPT:** Faced this. Used auxiliary losses for BLEU scores.',
+          '**Anthropic Claude:** Constitutional AI mitigates this by using LLM feedback, not just human preference.',
+          '**LLaMA-2-Chat:** Preference win but benchmark drops (similar to your situation).',
+          '**Industry standard:** Most models have <2% benchmark drop post-RLHF. Yours at 2% is actually good.'
+        ]
+      },
+      {
+        type: 'callout',
+        emoji: '⚖️',
+        text: 'The key insight: **RLHF optimizes preference, not benchmarks.** The two are not perfectly aligned. Solution: filter preferences to remove those that hurt benchmarks, retrain RLHF, or add multi-objective reward. Keep the preference win (75%) and recover benchmarks (71-72%) simultaneously. This requires being deliberate about reward design, not just trusting one signal.'
+      }
+    ]
+  },
 
 ];
