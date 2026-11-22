@@ -38326,4 +38326,57 @@ WELLBEING METRICS (not engagement metrics):
       { type: 'callout', emoji: '📌', text: `A classic LLM training interview question. The term to remember is model collapse — and the fix is real data in the mix, every generation.` }
     ]
   },
+  {
+    slug: 'lora-vs-full-finetuning-code-tradeoff',
+    title: `Researchers Trained the Same Seven-Billion-Parameter Model on Billions of Tokens of Code Twice, Once with Full Fine-Tuning and Once with Small LoRA Adapters. What Explains the Trade-Off?`,
+    subtitle: `A plain-English guide to LoRA versus full fine-tuning: why low-rank adapters are cheap and safe but limited, and why full fine-tuning wins when the data and the shift are large.`,
+    date: 'November 21, 2026',
+    readTime: '8 min read',
+    tags: ['Machine Learning', 'LLM Training', 'Fine-Tuning', 'Interview Prep'],
+    coverEmoji: '🔧',
+    content: [
+      { type: 'callout', emoji: '🎯', text: `Interview question: "Researchers trained the same seven-billion-parameter model on billions of tokens of code twice, once with full fine-tuning and once with small LoRA adapters. What explains the trade-off?"` },
+      { type: 'paragraph', text: `Same base model, same billions of tokens of code, two different ways of training it. One updates all seven billion weights. The other freezes the base model and trains only a pair of small matrices per layer — a few million parameters, less than one percent of the total. The results differ, and the difference is not an accident. It is the trade-off between how much the model is allowed to change, and how much it costs to change it.` },
+      { type: 'paragraph', text: `Stripped of jargon, the answer is just this: **LoRA constrains the update to a low-rank subspace, so it is cheap, fast, and safe — but it cannot learn as much as full fine-tuning when the task needs large, widespread changes, which billions of tokens of code do.**` },
+      { type: 'h2', text: `What LoRA actually does` },
+      { type: 'paragraph', text: `In full fine-tuning, every weight in the model can move. The update to a weight matrix is a full matrix, with as many degrees of freedom as the matrix itself has. In LoRA — low-rank adaptation — the base weights are frozen, and the update is forced to be the product of two small matrices, B times A, where A is r by d and B is d by r, and r, the rank, is small — typically 8, 16, or 64, against a hidden size of 4,096.` },
+      { type: 'paragraph', text: `That product has rank at most r. It can only move the weights in r directions per matrix, instead of in all 4,096 directions. The number of trainable parameters drops from seven billion to a few million, and the optimiser state — the Adam moments that normally double or triple the memory — drops with it. You can fine-tune a 7B model on a single GPU, with a fraction of the memory and compute, and you can swap adapters in and out without touching the base model.` },
+      { type: 'code', language: 'text', code: `Full fine-tuning:  W <- W + ΔW,  ΔW is any matrix\nLoRA:              W <- W + B·A,  rank(B·A) ≤ r  (r = 8, 16, 64)` },
+      { type: 'list', ordered: false, items: [
+        `**Trainable parameters:** full fine-tuning trains 7 billion; LoRA trains a few million, under 1%.`,
+        `**Memory:** full fine-tuning needs the weights, the gradients, and the Adam optimiser states for all 7 billion parameters; LoRA needs them only for the adapters.`,
+        `**What can change:** full fine-tuning can change any weight in any direction; LoRA can only change weights in a low-rank subspace.`
+      ]},
+      { type: 'quote', text: `LoRA is not a smaller model. It is the same model, allowed to move in only a few directions.` },
+      { type: 'h2', text: `Why LoRA is cheap — and why that is also its limit` },
+      { type: 'paragraph', text: `The cheapness and the limit are the same thing. LoRA works because, for many fine-tuning tasks, the update the model actually needs is close to low-rank. When you adapt a general model to a narrow task — a particular style, a particular format, a small dataset — the change is mostly a small adjustment to behaviour the model already has, and a low-rank update can capture it. That is why LoRA often matches full fine-tuning on small datasets and narrow tasks, at a fraction of the cost.` },
+      { type: 'paragraph', text: `But billions of tokens of code is not a narrow task, and it is not a small dataset. Code is a large domain shift: new syntax, new idioms, new patterns of reasoning, and a huge amount of new knowledge to absorb — libraries, APIs, conventions, and the long tail of programming patterns. Learning that requires changing the model in many directions at once, across many layers, and a rank-16 update cannot express all of those changes. It is a bottleneck, and the more data you train on, the more the bottleneck shows, because the data keeps asking for changes the adapters cannot represent.` },
+      { type: 'paragraph', text: `That is the core of the trade-off, and it shows up in the scaling. With a small amount of code data, LoRA and full fine-tuning are close — there is not enough data to need a large update, so the low-rank constraint does not bind. With billions of tokens, full fine-tuning keeps improving as it absorbs more of the data, while LoRA plateaus: it has used up its r directions, and more data cannot teach it what it cannot represent.` },
+      { type: 'h2', text: `The other side of the trade-off: forgetting and safety` },
+      { type: 'paragraph', text: `Full fine-tuning's freedom is also its risk. When every weight can move, the model can forget what it knew before — catastrophic forgetting. Train a general model on billions of tokens of code alone, and it can lose general language ability, reasoning, and knowledge that was not in the code data. It can also overfit to the code distribution, and it is harder to control: a full fine-tune is a new model, not a base model plus a small delta you can remove.` },
+      { type: 'paragraph', text: `LoRA is safer on all of those counts, because the base model is frozen. The general knowledge stays intact, the adapter can be merged or removed, and you can train many adapters for many tasks on the same base model and swap between them. That modularity is why LoRA is the default for serving many fine-tuned variants, and for experiments where you want to try many adaptations cheaply.` },
+      { type: 'list', ordered: false, items: [
+        `**Forgetting:** full fine-tuning can overwrite general ability; LoRA preserves the base model by construction.`,
+        `**Modularity:** one base model plus many small adapters is cheap to store and serve; many full fine-tunes are many copies of a 7B model.`,
+        `**Regularisation:** LoRA's low-rank constraint is itself a regulariser — it prevents the model from fitting noise, which helps on small data but hurts on large data where the signal is real.`
+      ]},
+      { type: 'callout', emoji: '💡', text: `LoRA's rank is a capacity knob. Raise the rank, and LoRA gets closer to full fine-tuning — and more expensive. At rank equal to the hidden size, LoRA is full fine-tuning.` },
+      { type: 'h2', text: `How would you tell which side you are on?` },
+      { type: 'paragraph', text: `Raise the rank and watch the gap. If increasing r from 8 to 64 closes most of the gap to full fine-tuning, the task was low-rank after all, and LoRA was just under-ranked. If the gap stays large even at high rank, the task needs changes LoRA cannot express, or the data scale is so large that only a full update can absorb it.` },
+      { type: 'paragraph', text: `Also check what the model loses, not just what it gains. Measure performance on general tasks — language, reasoning, knowledge outside code — before and after. If full fine-tuning gains on code but loses a lot elsewhere, and LoRA gains almost as much on code while losing almost nothing elsewhere, LoRA is the better trade for a general-purpose model, even if it is worse on code alone.` },
+      { type: 'h2', text: `So what's the actual answer?` },
+      { type: 'paragraph', text: `Full fine-tuning updates all seven billion weights, so it can learn large, widespread changes, and it keeps improving on billions of tokens of code — but it is expensive, it risks catastrophic forgetting, and it produces a whole new model. LoRA freezes the base model and trains only low-rank adapters, so it is cheap, fast, modular, and safe — but its update is confined to a low-rank subspace, and on a large domain shift with billions of tokens, that subspace becomes a bottleneck and LoRA plateaus below full fine-tuning. The trade-off is capacity against cost, and it grows with data scale.` },
+      { type: 'quote', text: `LoRA asks: how much can you learn by moving in only a few directions? On a narrow task, a lot. On billions of tokens of code, not enough.` },
+      { type: 'divider' },
+      { type: 'h2', text: `The whole thing in five sentences` },
+      { type: 'list', ordered: true, items: [
+        `Full fine-tuning updates all 7 billion weights; LoRA freezes them and trains only low-rank adapters, a few million parameters.`,
+        `LoRA's update has rank at most r, so it can only move the weights in r directions per matrix — cheap, but limited.`,
+        `On small data and narrow tasks, that is enough, and LoRA matches full fine-tuning; on billions of tokens of code, a large domain shift, it becomes a bottleneck and LoRA plateaus.`,
+        `Full fine-tuning keeps improving with more data, but it is expensive and risks catastrophic forgetting of general ability.`,
+        `LoRA preserves the base model, is modular and cheap to serve, and acts as a regulariser — the right trade when the task is narrow, the wrong one when the shift and the data are large.`
+      ]},
+      { type: 'callout', emoji: '📌', text: `A classic fine-tuning interview question. The terms to remember are low-rank update, rank as a capacity knob, and catastrophic forgetting.` }
+    ]
+  },
 ];
