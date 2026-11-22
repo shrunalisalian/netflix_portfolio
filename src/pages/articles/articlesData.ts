@@ -37790,4 +37790,71 @@ WELLBEING METRICS (not engagement metrics):
       { type: 'callout', emoji: '📌', text: `A classic model-efficiency interview question. The numbers to remember are 50,000 x 512 = 25.6M, tying saves one whole matrix, and factorising to 128 saves about 75% more.` }
     ]
   },
+  {
+    slug: 'pipeline-parallelism-1f1b-microbatch',
+    title: `Your Model Is Split into 4 Pipeline Stages on 4 GPUs, and Each Batch Runs Forward Through All of Them, Then Backward. The Batch Size Can't Change and the Updates Have to Match Single-GPU Training, So How Would You Keep the GPUs Busy?`,
+    subtitle: `A plain-English guide to pipeline parallelism: why the naive pipeline leaves three GPUs idle, and how micro-batches and the 1F1B schedule fill the bubble — without changing the update.`,
+    date: 'November 21, 2026',
+    readTime: '8 min read',
+    tags: ['Machine Learning', 'LLM Training', 'Distributed Training', 'Interview Prep'],
+    coverEmoji: '🔀',
+    content: [
+      { type: 'callout', emoji: '🎯', text: `Interview question: "Your model is split into 4 pipeline stages on 4 GPUs, and each batch runs forward through all of them, then backward. The batch size can't change and the updates have to match single-GPU training, so how would you keep the GPUs busy?"` },
+      { type: 'paragraph', text: `The setup is pipeline parallelism: the model is cut into four chunks, one per GPU, and a batch flows through them in order. The problem is not that the GPUs are slow. It is that most of the time, most of them are waiting.` },
+      { type: 'paragraph', text: `Stripped of jargon, the answer is just this: **split the batch into micro-batches, and interleave their forwards and backwards, so a GPU is always working on a different micro-batch while it waits for the next one.**` },
+      { type: 'h2', text: `Why the naive pipeline is mostly idle` },
+      { type: 'paragraph', text: `Run one batch through four stages, forward then backward, and watch GPU 0. It does its forward pass, then it waits while GPUs 1, 2, and 3 do theirs. Then the backward pass comes back in reverse, and GPU 0 waits again while the later stages do their backwards first. GPU 3 has the opposite problem: it waits for the forward to reach it, then waits again at the start of the backward.` },
+      { type: 'paragraph', text: `That waiting time is called the pipeline bubble. With 4 stages and 1 batch at a time, each GPU is busy for roughly a quarter of the step and idle for the rest. You have four GPUs, but you are getting barely more than one GPU's worth of work out of them.` },
+      { type: 'list', ordered: false, items: [
+        `**Forward bubble:** GPU 0 finishes its forward and has nothing to do until the backward comes back.`,
+        `**Backward bubble:** GPU 3 finishes its forward last, so it starts its backward first — but then it waits while the backward works its way back through the earlier stages.`,
+        `**The bubble grows with stages.** The more stages you add, the more waiting there is, unless you change the schedule.`
+      ]},
+      { type: 'quote', text: `A pipeline with one batch in flight is a queue, not a pipeline. Only one stage works at a time, and the rest wait their turn.` },
+      { type: 'h2', text: `The fix: split the batch into micro-batches` },
+      { type: 'paragraph', text: `Keep the total batch size exactly the same — the question forbids changing it — but split that batch into smaller pieces, called micro-batches. If your batch is 32 sequences, split it into 8 micro-batches of 4, or 16 micro-batches of 2. The gradients from all the micro-batches are accumulated, and the optimizer steps once, at the end, on the full batch.` },
+      { type: 'paragraph', text: `Now GPU 0 does not have to wait for the whole batch to come back. As soon as it finishes the forward for micro-batch 1, it can start the forward for micro-batch 2, then micro-batch 3, while micro-batch 1 is still working its way through GPUs 1, 2, and 3. There is always another micro-batch ready to fill the gap.` },
+      { type: 'paragraph', text: `This is the GPipe idea, and it is the first half of the answer. But GPipe on its own still has a bubble: it runs all the forwards first, then all the backwards, so there is still a long wait in the middle while the last forward finishes and the first backward starts. That is where the schedule matters.` },
+      { type: 'h2', text: `The schedule that fills the bubble: 1F1B` },
+      { type: 'paragraph', text: `The second half is the 1F1B schedule — one forward, one backward — from Megatron-LM. Instead of doing all forwards and then all backwards, each GPU alternates: one forward for a new micro-batch, then one backward for a micro-batch that has already finished its forward, then one forward, then one backward, and so on.` },
+      { type: 'list', ordered: false, items: [
+        `**Warm-up:** each GPU does a few forwards in a row, to fill the pipeline. GPU 0 does more warm-up forwards than GPU 3, because it is earlier in the pipeline.`,
+        `**Steady state:** once the pipeline is full, each GPU does one forward and one backward, alternating. While it is doing the backward for micro-batch 1, the next stage is doing the forward for micro-batch 5, and so on. No GPU is idle for long.`,
+        `**Cool-down:** at the end, the remaining backwards drain out, with fewer forwards left to interleave.`
+      ]},
+      { type: 'paragraph', text: `The bubble does not disappear entirely — there is still a warm-up and a cool-down — but it shrinks dramatically. Roughly, the bubble fraction goes from about (stages - 1) / 1 in the naive case to about (stages - 1) / micro-batches with 1F1B. With 4 stages and 16 micro-batches, the bubble is a small fraction of the step instead of most of it.` },
+      { type: 'callout', emoji: '💡', text: `More micro-batches means a smaller bubble, but also more activation memory and more communication. In practice 8 to 16 micro-batches for 4 stages is a good starting point — enough to fill the pipeline, not so many that the overhead eats the gain.` },
+      { type: 'h2', text: `Why the updates still match single-GPU training` },
+      { type: 'paragraph', text: `This is the constraint the question is testing, and it is what rules out the tempting shortcuts. The updates must match single-GPU training, which means three things have to stay true.` },
+      { type: 'list', ordered: false, items: [
+        `**Same total batch, same gradients.** The gradients are accumulated across all micro-batches before the optimizer steps, with each micro-batch weighted by its share of tokens — the same token-weighted accumulation as in gradient accumulation. The step happens once per batch, on the full accumulated gradient, not once per micro-batch.`,
+        `**No weight updates between micro-batches.** The weights must not change while a batch is still in flight. If GPU 0 updated its weights after micro-batch 1's backward and then ran micro-batch 2's forward with the new weights, micro-batch 2 would see different weights from micro-batch 1, and the update would no longer match single-GPU training. So all micro-batches in a batch use the same weights, and the update happens only after the last backward.`,
+        `**No stale gradients.** This rules out asynchronous pipeline schemes like PipeDream, where different micro-batches can use different versions of the weights and the gradients are stale by the time they are applied. Those schemes are faster, but they change the update. With the constraint given, you want the synchronous 1F1B schedule, not an asynchronous one.`
+      ]},
+      { type: 'paragraph', text: `Say that last point out loud in an interview. It shows you know the faster alternative exists, and you know why you are not using it here.` },
+      { type: 'h3', text: `What about interleaved, or virtual, pipelines?` },
+      { type: 'paragraph', text: `If you want to shrink the bubble even further without changing the update, you can use an interleaved pipeline, also called a virtual pipeline, from Megatron-LM. Instead of giving each GPU one contiguous chunk of the model, you give each GPU several smaller chunks, interleaved across the model. GPU 0 might hold layers 1-2 and 9-10, GPU 1 holds layers 3-4 and 11-12, and so on.` },
+      { type: 'paragraph', text: `That gives each GPU more chances to work: while it is waiting for one of its chunks, it can work on the other. The bubble shrinks further, at the cost of more communication between GPUs, because activations now have to cross GPU boundaries more often. It is a refinement on top of 1F1B, not a replacement for it — lead with micro-batches and 1F1B, and name the interleaved pipeline as the next step.` },
+      { type: 'h2', text: `How would you check it worked?` },
+      { type: 'paragraph', text: `Two checks, in order. First, that the GPUs are actually busy. Second, that the training is actually the same.` },
+      { type: 'list', ordered: false, items: [
+        `**Measure utilisation and the bubble.** Log GPU utilisation, or the time each GPU spends idle versus computing, per step. With the naive schedule it should be low, around a quarter. With 1F1B and enough micro-batches it should climb sharply. If it does not, you do not have enough micro-batches, or the micro-batches are too large to fit several in flight.`,
+        `**Compare gradients and loss to single-GPU training.** Run the same batch on one GPU, if you can, or on a smaller model, and compare the gradients and the loss after one step. They should match to floating-point tolerance. If they do not, a weight was updated mid-batch, a micro-batch was weighted wrong, or a gradient was not accumulated correctly.`,
+        `**Watch the loss curve, not just the speed.** A pipeline that is fast but changes the update will show up as a different loss curve. A correct pipeline shows the same loss curve as single-GPU training, just reached faster.`
+      ]},
+      { type: 'h2', text: `So what's the actual answer?` },
+      { type: 'paragraph', text: `Split the fixed batch into micro-batches, accumulate their gradients, and run them on the 1F1B schedule — warm-up forwards, then alternating one forward and one backward per GPU, then cool-down. Step the optimizer once, after all micro-batches, on the accumulated gradient, with no weight updates in between. That fills the bubble without changing the batch size or the update.` },
+      { type: 'quote', text: `A pipeline is only a pipeline when several batches are in flight at once. Micro-batches and 1F1B are what put them there.` },
+      { type: 'divider' },
+      { type: 'h2', text: `The whole thing in five sentences` },
+      { type: 'list', ordered: true, items: [
+        `With one batch at a time, each of the 4 GPUs is busy for about a quarter of the step and idle for the rest — that idle time is the pipeline bubble.`,
+        `Split the fixed batch into micro-batches, for example 8 or 16 of them, so a GPU can start the next micro-batch while the previous one is still moving through the later stages.`,
+        `Use the 1F1B schedule: warm-up forwards, then one forward and one backward alternating per GPU, so the pipeline stays full in steady state.`,
+        `Accumulate gradients across all micro-batches and step the optimizer once, with no weight updates between micro-batches, so the update matches single-GPU training exactly.`,
+        `Do not use asynchronous pipelines with stale gradients — they are faster, but they change the update, which the question forbids.`
+      ]},
+      { type: 'callout', emoji: '📌', text: `A classic distributed-training interview question. The terms to remember are micro-batches, 1F1B, and synchronous updates with no stale gradients.` }
+    ]
+  },
 ];
