@@ -39071,4 +39071,55 @@ WELLBEING METRICS (not engagement metrics):
       { type: 'callout', emoji: '📌', text: `A classic long-context interview question. The term to remember is receptive field — window size times depth.` }
     ]
   },
+  {
+    slug: 'clip-batch-size-negatives-contrastive',
+    title: `Your Image-Text Model Keeps Getting Better as You Raise the Batch Size, Long After a Captioning Model Trained on the Same Pairs Stopped Improving. What Keeps the Image-Text Model Gaining?`,
+    subtitle: `A plain-English guide to CLIP and batch size: why a contrastive model's batch is its negative set, and why a captioning model's batch is just a batch.`,
+    date: 'November 21, 2026',
+    readTime: '8 min read',
+    tags: ['Machine Learning', 'Multimodal', 'Contrastive Learning', 'Interview Prep'],
+    coverEmoji: '🖼️',
+    content: [
+      { type: 'callout', emoji: '🎯', text: `Interview question: "Your image-text model keeps getting better as you raise the batch size, long after a captioning model trained on the same pairs stopped improving. What keeps the image-text model gaining?"` },
+      { type: 'paragraph', text: `Same image-text pairs, same data, two models. The captioning model stops improving once the batch is large enough to give a stable gradient. The image-text model — a CLIP-style contrastive model — keeps getting better as the batch grows, far past that point. The difference is not the data, and it is not the optimiser. It is what the batch is for.` },
+      { type: 'paragraph', text: `Stripped of jargon, the answer is just this: **for a contrastive image-text model, the batch is the negative set. A larger batch means more negatives per positive, a harder discrimination task, and a better representation. For a captioning model, the batch is just a batch — the loss for each example does not depend on the other examples in it.**` },
+      { type: 'h2', text: `What the two models are actually learning` },
+      { type: 'paragraph', text: `A captioning model is trained with cross-entropy: given an image, predict the next word of the caption, one word at a time. The loss for one image-caption pair depends only on that pair. The other pairs in the batch do not enter its loss at all, except through the average — they make the gradient estimate less noisy, but they do not change what the model is being asked to do.` },
+      { type: 'paragraph', text: `A CLIP-style image-text model is trained with a contrastive loss, usually InfoNCE. Given a batch of N image-text pairs, it has to pick, for each image, which of the N texts in the batch is its true caption, and for each text, which of the N images is its true image. The other N-1 pairs in the batch are the negatives — the wrong answers it has to distinguish the right answer from.` },
+      { type: 'code', language: 'text', code: `CLIP, batch size N:\n  For image i, classify its caption among N texts\n  For text i, classify its image among N images\n  Loss = -log exp(sim(i,i) / τ) / Σ_j exp(sim(i,j) / τ)\n\nCaptioning, batch size N:\n  For image i, predict its caption word by word\n  Loss_i depends only on pair i` },
+      { type: 'paragraph', text: `That denominator is the key. It is a sum over the whole batch, and the batch size is the number of terms in it. Raise the batch size, and you raise the number of negatives, and you change the task itself.` },
+      { type: 'list', ordered: false, items: [
+        `**Batch 32:** each image has to be distinguished from 31 wrong captions.`,
+        `**Batch 1,024:** each image has to be distinguished from 1,023 wrong captions.`,
+        `**Batch 32,768:** each image has to be distinguished from 32,767 wrong captions — including captions that are very similar to the true one, and images that look almost the same.`
+      ]},
+      { type: 'quote', text: `For CLIP, the batch is not a training detail. It is the task.` },
+      { type: 'h2', text: `Why more negatives make a better model` },
+      { type: 'paragraph', text: `More negatives make the task harder in exactly the way that makes the representation better. With a small batch, the negatives are mostly easy — a picture of a dog against captions about cars, food, and buildings — and the model can solve the task with a coarse representation that only captures the broad category. With a large batch, the negatives include hard ones: a picture of a dog against a caption about a different dog, a different breed, in a different pose. To distinguish those, the model has to learn fine-grained features — the breed, the pose, the background, the details — and that fine-grained representation is what makes it better on downstream tasks.` },
+      { type: 'paragraph', text: `More negatives also make the gradient more informative. The InfoNCE loss is a classification over the batch, and its gradient pushes the true pair together and pushes the negative pairs apart, weighted by how confusing each negative is. A hard negative — one the model currently thinks is the true caption — gets a large gradient, and the model learns from it. With a small batch, there are few hard negatives in any given batch, so most of the gradient is wasted on easy negatives the model already gets right. With a large batch, there are many hard negatives, and the gradient is concentrated on the distinctions the model has not yet learned.` },
+      { type: 'paragraph', text: `There is a third effect, too: the contrastive loss is a lower bound on mutual information, and that bound gets tighter with more negatives. With N negatives, the InfoNCE loss can capture at most log N bits of mutual information between the image and the text. Raise N, and you raise the ceiling on what the model can learn about the relationship between them. That is a theoretical reason, not just a practical one, why larger batches keep helping a contrastive model long after they stop helping a generative one.` },
+      { type: 'callout', emoji: '💡', text: `A captioning model's batch size is an optimiser setting. A contrastive model's batch size is a task parameter — it sets how many wrong answers the model has to beat.` },
+      { type: 'h2', text: `Why the captioning model stops improving` },
+      { type: 'paragraph', text: `For the captioning model, batch size affects only the optimisation, not the task. A larger batch gives a less noisy gradient estimate, which lets you use a larger learning rate and train more stably, but once the batch is large enough that the gradient noise is no longer the bottleneck, making it larger does nothing. The loss for each pair is the same, the task is the same, and the model has the same amount to learn from each pair, no matter how many other pairs are in the batch with it.` },
+      { type: 'paragraph', text: `That is why the captioning model plateaus: it has reached the point where the gradient is stable, and the only way to improve it further is more data, a bigger model, or a better architecture — not a bigger batch. The image-text model has not reached that point, because for it, a bigger batch is more data per step in a different sense: more negatives per positive, more hard distinctions to learn from, and a higher ceiling on the mutual information it can capture.` },
+      { type: 'h2', text: `What are the limits?` },
+      { type: 'paragraph', text: `Larger batches do not help forever, even for CLIP, and the limits are worth naming. The first is false negatives: in a large batch, some of the "negatives" are actually correct — a different caption that also describes the image, or a different image that also matches the text. Pushing those apart hurts the model, and the larger the batch, the more false negatives there are. The second is compute and memory: a batch of 32,768 images and texts is expensive to encode, and the N-by-N similarity matrix is 32,768 squared, which is a billion entries. The third is diminishing returns: the gain from 32 to 1,024 is large, the gain from 1,024 to 32,768 is smaller, and the gain beyond that is smaller still, as the hardest negatives become rare and the false negatives become common.` },
+      { type: 'paragraph', text: `That is why large CLIP training uses techniques to get the benefit of a large batch without paying the full cost: hard-negative mining, where you deliberately include the most confusing negatives; deduplication, to reduce false negatives; and distributed training with gradient accumulation, to simulate a large batch across many GPUs. The batch size is still the lever, but it is a lever you have to use carefully.` },
+      { type: 'h2', text: `How would you check it?` },
+      { type: 'paragraph', text: `Train the same CLIP model with batch sizes of 256, 1,024, 4,096, and 16,384, holding the total number of examples seen constant, and measure zero-shot accuracy on a held-out task. If accuracy keeps rising with batch size, the negatives are the mechanism. Then, as a control, train the captioning model the same way, and check that its accuracy plateaus early. The difference between the two curves is the evidence that the batch is doing different work in the two models.` },
+      { type: 'h2', text: `So what's the actual answer?` },
+      { type: 'paragraph', text: `The image-text model is contrastive: its loss is a classification over the batch, with the other pairs as negatives, so a larger batch means more negatives, harder negatives, and a better representation. The captioning model is generative: its loss for each pair depends only on that pair, so a larger batch only makes the gradient less noisy, and once the gradient is stable, a larger batch does nothing. That is why the image-text model keeps gaining long after the captioning model has stopped — for CLIP, the batch is the task, and for captioning, it is just a batch.` },
+      { type: 'quote', text: `A bigger batch does not give a captioning model more to learn from. It gives a contrastive model more wrong answers to beat — and beating wrong answers is how it learns.` },
+      { type: 'divider' },
+      { type: 'h2', text: `The whole thing in five sentences` },
+      { type: 'list', ordered: true, items: [
+        `A CLIP-style model is trained with InfoNCE: for each image, pick its true caption among the N texts in the batch, and vice versa.`,
+        `The other N-1 pairs are the negatives, so a larger batch means more negatives, including hard negatives that force the model to learn fine-grained features.`,
+        `More negatives also make the gradient more informative and raise the ceiling on the mutual information the loss can capture.`,
+        `A captioning model is trained with cross-entropy, where the loss for each pair depends only on that pair, so a larger batch only reduces gradient noise.`,
+        `Once the gradient is stable, the captioning model stops improving with batch size, while the contrastive model keeps gaining — until false negatives and diminishing returns set in.`
+      ]},
+      { type: 'callout', emoji: '📌', text: `A classic multimodal interview question. The term to remember is InfoNCE — and the batch is the negative set.` }
+    ]
+  },
 ];
