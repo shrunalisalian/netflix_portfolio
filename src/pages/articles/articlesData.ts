@@ -37972,4 +37972,62 @@ WELLBEING METRICS (not engagement metrics):
       { type: 'callout', emoji: '📌', text: `A classic sequence-models interview question. The terms to remember are Viterbi, trellis, backpointers, and MAP sequence.` }
     ]
   },
+  {
+    slug: 'ctc-speech-recognition-alignment',
+    title: `Your Speech Recognizer Trains on Clips of About 300 Audio Frames, Each Paired with a Transcript of a Dozen Characters. How Would You Train It Anyway?`,
+    subtitle: `A plain-English guide to CTC: how to train a speech recognizer when you know what was said, but not when each character was said.`,
+    date: 'November 21, 2026',
+    readTime: '8 min read',
+    tags: ['Machine Learning', 'NLP', 'Speech', 'Interview Prep'],
+    coverEmoji: '🎙️',
+    content: [
+      { type: 'callout', emoji: '🎯', text: `Interview question: "Your speech recognizer trains on clips of about 300 audio frames, each paired with a transcript of a dozen characters. How would you train it anyway?"` },
+      { type: 'paragraph', text: `You have 300 inputs and about 12 outputs, and you do not know which input goes with which output. That is the whole problem. A normal classifier needs a label for every frame, and you do not have one. A normal sequence model needs to know where each character starts and ends, and you do not know that either.` },
+      { type: 'paragraph', text: `Stripped of jargon, the answer is just this: **do not try to align the frames to the characters by hand. Let the model consider every possible alignment, and train it on the total probability of all the alignments that produce the right transcript.**` },
+      { type: 'h2', text: `Why ordinary training cannot work here` },
+      { type: 'paragraph', text: `Each clip is about 300 frames of audio — say 3 seconds at 100 frames per second — and its transcript is about a dozen characters, like "hello world". That is roughly 25 frames per character, but not exactly, and not evenly. One character might stretch over 40 frames, the next over 5, and there are silences and pauses in between where no character is being spoken at all.` },
+      { type: 'list', ordered: false, items: [
+        `**You cannot use per-frame cross-entropy,** because you do not have a label for each frame. You only have the whole transcript for the whole clip.`,
+        `**You cannot just repeat each character 25 times,** because you do not know where one character ends and the next begins. Guessing the boundaries wrong would teach the model the wrong alignment.`,
+        `**You cannot downsample the audio to 12 frames,** because you would be throwing away the timing information that tells the model how long each sound lasted.`
+      ]},
+      { type: 'paragraph', text: `What you need is a loss that does not require an alignment — one that says "I do not know which frames produced which characters, so I will add up the probability of every alignment that could have produced this transcript, and maximise that total."` },
+      { type: 'quote', text: `The transcript tells you what was said. It does not tell you when. A training method that needs the "when" cannot work here.` },
+      { type: 'h2', text: `The fix: CTC, connectionist temporal classification` },
+      { type: 'paragraph', text: `The standard answer is CTC, from Graves et al. (2006). The model — usually a recurrent network or a Transformer encoder, or a Conformer — reads the 300 frames and outputs, for each frame, a probability distribution over the alphabet plus one extra symbol: the blank.` },
+      { type: 'paragraph', text: `The blank is the key. It means "no character at this frame". A frame can output a character, or it can output blank, and the model is free to output the same character on many consecutive frames, or to output blank for the silences between words.` },
+      { type: 'h3', text: `How an alignment becomes a transcript` },
+      { type: 'paragraph', text: `To turn a 300-frame output into a 12-character transcript, CTC uses a simple collapsing rule: first remove all the blanks, then collapse any repeated characters into one. So a frame sequence like "hhh---eee-lll---lll-ooo" becomes "hello", and "---h-e-l-l-o---" also becomes "hello". Many different 300-frame sequences collapse to the same transcript, and that is the point.` },
+      { type: 'paragraph', text: `The blank also solves the repeat problem. Without it, you could not tell "hello" from "helo": collapsing repeats would merge the two l's into one. With a blank between them — "hel-lo" — the two l's stay separate, because the blank breaks the run. So a character can be repeated, as long as there is a blank in between.` },
+      { type: 'list', ordered: false, items: [
+        `**The model outputs** one distribution per frame, over characters plus blank.`,
+        `**An alignment** is one choice of a character or blank for each of the 300 frames.`,
+        `**The transcript** is what you get after removing blanks and collapsing repeats.`
+      ]},
+      { type: 'h3', text: `The loss: sum over all alignments` },
+      { type: 'paragraph', text: `The CTC loss is the negative log probability of the transcript, where that probability is the sum of the probabilities of *all* alignments that collapse to that transcript. You do not pick the best alignment. You add them all up.` },
+      { type: 'paragraph', text: `That sum is computed efficiently with dynamic programming, with a forward-backward algorithm very much like the one used for HMMs. It walks through the frames and the characters together, keeping track of the total probability of all partial alignments so far, and it runs in time proportional to frames times transcript length — about 300 times 12 here, which is tiny. There is no need to enumerate the alignments, just as there is no need to enumerate all tag sequences in Viterbi decoding.` },
+      { type: 'paragraph', text: `Training with that loss teaches the model to put probability mass on alignments that produce the right transcript, without ever being told which alignment is correct. Over time, the model learns to spike on a character for a few frames when that sound is being spoken, and to output blank the rest of the time. The alignment emerges from training, instead of being supplied by hand.` },
+      { type: 'callout', emoji: '💡', text: `CTC does not learn an alignment and then learn to transcribe. It learns to transcribe by summing over alignments — and the alignment is a by-product.` },
+      { type: 'h2', text: `What does inference look like?` },
+      { type: 'paragraph', text: `At inference time you do the reverse: you have 300 per-frame distributions, and you want the most likely transcript. The simplest way is greedy decoding — take the most likely character or blank at each frame, then collapse blanks and repeats. That works surprisingly well, and it is fast.` },
+      { type: 'paragraph', text: `The better way is beam search, keeping several candidate transcripts alive at once, and scoring them with the CTC probabilities plus a language model. The language model helps because CTC on its own has no sense of which character sequences are plausible words — it just knows what the audio sounded like. A beam search with a language model can fix a transcript that sounds right but spells a non-word, by preferring the real word that sounds almost the same.` },
+      { type: 'h2', text: `Why CTC fits this exact setup` },
+      { type: 'paragraph', text: `The numbers in the question are the clue. Three hundred frames and a dozen characters means the alignment is many-to-one, with a lot of blank frames, and the transcript is much shorter than the input. That is exactly the regime CTC was designed for. If the input and output were the same length, you could use per-frame labels. If you had frame-level alignments, you could use cross-entropy. You have neither, so you need a loss that marginalises over alignments.` },
+      { type: 'paragraph', text: `It is also worth naming the alternatives, because an interviewer may ask. An attention-based encoder-decoder, like Listen-Attend-Spell, learns its own alignment with attention instead of with CTC, and it can produce a transcript directly without a blank token. An RNN-Transducer, or RNN-T, combines CTC-style alignment with a language-model-like predictor, and it can stream. But CTC is the classic, simplest answer to "how do you train with no alignment", and it is the one the question is asking for.` },
+      { type: 'h2', text: `So what's the actual answer?` },
+      { type: 'paragraph', text: `Train with CTC. Have the model output a distribution over characters plus a blank token for each of the 300 frames, define the loss as the total probability of all alignments that collapse to the correct transcript, and compute that sum with forward-backward dynamic programming. At inference, decode greedily or with beam search, collapsing blanks and repeats to get the transcript.` },
+      { type: 'quote', text: `You do not need to know when each character was said. You need a loss that adds up every "when" that could have produced what was said.` },
+      { type: 'divider' },
+      { type: 'h2', text: `The whole thing in five sentences` },
+      { type: 'list', ordered: true, items: [
+        `With 300 audio frames and a dozen characters, you have no frame-level labels and no alignment, so per-frame cross-entropy cannot work.`,
+        `CTC solves this by having the model output, per frame, a distribution over characters plus a blank token meaning "no character here".`,
+        `Many different frame sequences collapse to the same transcript by removing blanks and collapsing repeats, with a blank separating repeated characters.`,
+        `The CTC loss is the negative log of the total probability of all alignments that produce the correct transcript, computed with forward-backward dynamic programming.`,
+        `At inference, take the most likely character per frame and collapse, or use beam search with a language model for a better transcript.`
+      ]},
+      { type: 'callout', emoji: '📌', text: `A classic speech-recognition interview question. The terms to remember are CTC, blank token, and summing over alignments.` }
+    ]
+  },
 ];
