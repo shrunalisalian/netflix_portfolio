@@ -37406,4 +37406,77 @@ WELLBEING METRICS (not engagement metrics):
       { type: 'callout', emoji: '📌', text: `A classic code-model interview question. The terms to remember are FIM, PSM, SPM, and the 50% FIM rate.` }
     ]
   },
+  {
+    slug: 'sft-loss-only-assistant-turns-bug',
+    title: `You Fine-Tune a Base Model on 100,000 Chat Transcripts and Compute the Loss Only on the Assistant's Turns. What's the Most Likely Bug, and How Would You Check It?`,
+    subtitle: `A plain-English guide to SFT loss masking: why the assistant mask is usually off by one token, and the three checks that catch it in minutes.`,
+    date: 'November 21, 2026',
+    readTime: '8 min read',
+    tags: ['Machine Learning', 'LLM Training', 'Fine-Tuning', 'Interview Prep'],
+    coverEmoji: '🐛',
+    content: [
+      { type: 'callout', emoji: '🎯', text: `Interview question: "You fine-tune a base model on 100,000 chat transcripts and compute the loss only on the assistant's turns. What's the most likely bug, and how would you check it?"` },
+      { type: 'paragraph', text: `The setup sounds careful. You are doing supervised fine-tuning the right way: you do not want the model to learn to imitate the user, so you only put loss on the assistant's replies. The user turns are just context. The assistant turns are the target.` },
+      { type: 'paragraph', text: `And yet this exact setup is where one of the most common fine-tuning bugs lives. Not in the model, not in the data, and not in the learning rate — in the mask itself.` },
+      { type: 'paragraph', text: `Stripped of jargon, the answer is just this: **the tokens you think you are training on are probably not the tokens you are actually training on.**` },
+      { type: 'h2', text: `First, what "loss only on the assistant's turns" means in code` },
+      { type: 'paragraph', text: `In a transformer, training is next-token prediction. For each position, the model predicts the next token, and you compare that prediction to the real next token. That comparison is the loss.` },
+      { type: 'paragraph', text: `To put loss only on the assistant's turns, you build a second sequence, called the labels, alongside the input. For every token you want to train on, the label is the real token. For every token you do not want to train on, the label is -100, which means "ignore this position" in most training libraries.` },
+      { type: 'list', ordered: false, items: [
+        `**User tokens:** label is -100. No loss, no gradient. The model just reads them as context.`,
+        `**Assistant tokens:** label is the real token. Loss here, gradient here. This is what the model learns to generate.`,
+        `**The end-of-turn token:** this one matters more than it looks. It is an assistant token, and it teaches the model when to stop.`
+      ]},
+      { type: 'paragraph', text: `So the whole trick is getting that -100 mask to line up exactly with the assistant's tokens, in the tokenized sequence, after the labels have been shifted. And that "line up exactly" is where it breaks.` },
+      { type: 'h2', text: `The most likely bug: the mask is misaligned by one token` },
+      { type: 'paragraph', text: `The labels are not the input. They are the input shifted by one position to the left, because at position i the model is predicting token i+1. That shift is automatic in most training code, which is exactly why it is easy to forget.` },
+      { type: 'paragraph', text: `If you build the mask on the unshifted input and then let the library shift the labels, your mask ends up one token late. You are now training on the token *after* each assistant token, and you are not training on the first assistant token at all.` },
+      { type: 'paragraph', text: `What does that look like in practice? At the end of every assistant turn, the token after the last assistant token is usually the end-of-turn token, or the first token of the next user turn. So the model gets loss on a token it should not be learning, and misses the first token of every reply — the token that decides how a reply starts.` },
+      { type: 'quote', text: `An off-by-one mask does not crash. It trains happily, on the wrong tokens, for 100,000 examples.` },
+      { type: 'h3', text: `Why the boundary is the dangerous part` },
+      { type: 'paragraph', text: `The misalignment almost always happens at a boundary, for one of three reasons. Name them in an interview, because they show you know where to look.` },
+      { type: 'list', ordered: false, items: [
+        `**The shift, above.** Mask built before shifting, applied after shifting, off by one.`,
+        `**Tokenizing the prompt and the completion separately.** If you tokenize "user: hello" and "assistant: hi" on their own and then glue the token lists together, the tokens at the join can be different from tokenizing the whole conversation at once. A space, a newline, or a special token can merge or split differently, and your character-based mask no longer lines up with the token list.`,
+        `**Chat template and special tokens.** The assistant turn in the real sequence is not just the words "hi there". It is a header token, the words, and an end token — and the exact tokens depend on the template you used. If you search for the string "assistant" or hard-code a token id from a different template version, your mask can start one token early or late, or miss the header entirely.`
+      ]},
+      { type: 'paragraph', text: `All three have the same signature: the training runs, the loss goes down a bit, and the model at inference time starts replies oddly, rambles past the end of a turn, or copies user phrasing. Because it was never cleanly trained on "start an assistant reply here, and stop here."` },
+      { type: 'h2', text: `How would you check it? Decode one example` },
+      { type: 'paragraph', text: `This is the part the interviewer actually wants. Do not say "look at the loss curve". Say you would print one training example, token by token, and check the mask by eye.` },
+      { type: 'list', ordered: false, items: [
+        `**Print the tokens, the labels, and the mask for a single conversation.** Decode each input token back to text, and put the label next to it. The assistant's words should have real labels. The user's words should have -100. If you see the opposite, or a one-token stagger, you have found it.`,
+        `**Check the first assistant token and the end token specifically.** The first token after the assistant header should be supervised, and the end-of-turn token should be supervised too. Those two are the most commonly lost tokens, and losing them is the most damaging: one teaches the model how to start, the other teaches it when to stop.`,
+        `**Count the supervised tokens per example.** It should be roughly the length of the assistant reply, plus the end token. If it is zero, your mask is masking everything. If it is the length of the whole conversation, your mask is masking nothing. If it is off by one or two every time, that is the shift bug.`
+      ]},
+      { type: 'paragraph', text: `Do this on three or four examples, including a multi-turn conversation, not just one. A single-turn example can hide a bug that only shows up when a second user turn starts.` },
+      { type: 'h3', text: `Two more checks that take minutes` },
+      { type: 'list', ordered: false, items: [
+        `**Loss at step zero, on a tiny batch.** If the loss is near zero from the start, the mask is probably masking everything, or the labels are all -100. If the loss is far higher than the base model's loss on plain text, the mask may be including user tokens, or the template at training does not match the template the model expects.`,
+        `**Overfit a handful of examples.** Train on ten conversations for many steps. The loss on those ten should go close to zero, and the model should reproduce the assistant replies almost exactly. If it cannot memorise ten examples, the mask is broken — no amount of data or tuning will fix that. If it can, the mask is at least pointing at the right tokens.`
+      ]},
+      { type: 'callout', emoji: '💡', text: `The overfit test is the fastest way to separate a masking bug from a data or hyperparameter problem. A model that cannot memorise ten examples has a plumbing bug, not a learning problem.` },
+      { type: 'h2', text: `If the mask looks right, what else do you rule out?` },
+      { type: 'paragraph', text: `The mask is the most likely bug, but it is not the only one in this setup, and a good answer names the next two suspects in order.` },
+      { type: 'list', ordered: false, items: [
+        `**Packing across conversations.** If you pack multiple transcripts into one long sequence to use the context window efficiently, the mask and the attention have to reset at each conversation boundary. If they do not, the model can learn to predict the next conversation's user turn from the previous conversation's assistant turn, and the position ids carry over too. Check that a packed example has a hard boundary: attention blocked, labels masked, positions reset.`,
+        `**Training template versus inference template.** If training used one chat template and your serving code uses another — different headers, different end token, different system prompt — the model sees a prompt format at inference that it never saw in training. Check by taking a training prompt, feeding it to the model at inference, and comparing it token-for-token with the serving prompt.`,
+        `**Empty or degenerate assistant turns.** With 100,000 transcripts, some replies will be empty, or a single word, or a system message mislabelled as assistant. Those are not a masking bug, but they dilute the loss. Check the distribution of supervised tokens per example, and look at the shortest and longest ones.`
+      ]},
+      { type: 'paragraph', text: `Notice the order: mask first, then packing, then template. That is roughly the order of how often each one is the culprit, and how cheap each one is to check.` },
+      { type: 'h2', text: `So what's the actual answer?` },
+      { type: 'paragraph', text: `The most likely bug is that the assistant mask is misaligned — usually by one token, because of the label shift, or because the prompt and completion were tokenized separately, or because the chat template's special tokens were not counted. The model trains, but on the wrong tokens.` },
+      { type: 'paragraph', text: `You check it by decoding a single example, token by token, and verifying that the labels line up with the assistant's words, including the first token and the end token. Then you count supervised tokens per example, and you overfit ten examples to prove the model can learn the right tokens at all.` },
+      { type: 'quote', text: `When loss is only on the assistant's turns, the mask is the training signal. If the mask is wrong, nothing else you tune will fix it.` },
+      { type: 'divider' },
+      { type: 'h2', text: `The whole thing in five sentences` },
+      { type: 'list', ordered: true, items: [
+        `In SFT you set the label to -100 for user tokens and to the real token for assistant tokens, so loss is only computed on the assistant's replies.`,
+        `The most likely bug is that this mask is misaligned by one token, usually because labels are shifted by one, the prompt and completion were tokenized separately, or the chat template's special tokens were not counted.`,
+        `That means the model misses the first assistant token, and gets loss on the token after the reply instead — often the next user turn or the end token.`,
+        `Check it by decoding one example token by token, verifying the first assistant token and the end token are supervised, and counting supervised tokens per example.`,
+        `Then overfit ten examples: if the model cannot memorise them, the mask is broken; if it can, rule out packing boundaries and a training-versus-inference template mismatch next.`
+      ]},
+      { type: 'callout', emoji: '📌', text: `A classic fine-tuning interview question. The checks to remember are: decode one example, count supervised tokens, overfit ten examples.` }
+    ]
+  },
 ];
