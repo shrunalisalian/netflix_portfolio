@@ -38435,4 +38435,62 @@ WELLBEING METRICS (not engagement metrics):
       { type: 'callout', emoji: '📌', text: `A classic RLHF interview question. The terms to remember are group-relative advantage, all-correct and all-wrong groups, and dynamic sampling.` }
     ]
   },
+  {
+    slug: 'reasoning-model-think-longer-hard-math',
+    title: `Your Reasoning Model Writes a Chain of Thought Before It Answers, and on Hard Math Problems It Often Quits Right After Its First Guess and Commits to a Wrong Answer. How Would You Get It to Think Longer?`,
+    subtitle: `A plain-English guide to getting a reasoning model to think longer: why it stops early, and how to train it — and prompt it at test time — to verify, backtrack, and keep going.`,
+    date: 'November 21, 2026',
+    readTime: '8 min read',
+    tags: ['Machine Learning', 'LLM Training', 'Reinforcement Learning', 'Interview Prep'],
+    coverEmoji: '🧠',
+    content: [
+      { type: 'callout', emoji: '🎯', text: `Interview question: "Your reasoning model writes a chain of thought before it answers, and on hard math problems it often quits right after its first guess and commits to a wrong answer. How would you get it to think longer?"` },
+      { type: 'paragraph', text: `A hard maths problem, a first guess, and then the model stops. It writes "therefore the answer is 42", puts a full stop after it, and commits — even though the guess was wrong, and even though, if it had kept thinking for another paragraph, it might have caught the mistake. That is not a lack of knowledge. It is a lack of persistence. The model knows how to do the maths, but it does not know how to keep going when the first attempt fails.` },
+      { type: 'paragraph', text: `Stripped of jargon, the answer is just this: **make thinking longer the thing that gets rewarded, and make stopping early the thing that does not. Train it on traces that verify, backtrack, and try again, and at test time give it more tokens and do not let it stop after its first guess.**` },
+      { type: 'h2', text: `Why it quits after its first guess` },
+      { type: 'paragraph', text: `A reasoning model stops because stopping is what it was trained to do. During supervised fine-tuning, most of the traces it saw were short, clean, and correct on the first try — a neat solution, then the answer. It never saw a trace that said "wait, that cannot be right, let me try again", because the training data did not contain one. So it learned that the right shape for a solution is: guess, then stop.` },
+      { type: 'paragraph', text: `Reinforcement learning can make it worse. If the reward is only for a correct final answer, and a short correct answer gets the same reward as a long correct answer, the model learns to be short — shorter is cheaper, and it is less likely to make a mistake halfway through. And if it is wrong, it is wrong whether it thought for ten tokens or ten thousand, so there is no reward signal telling it that thinking longer would have helped. It never experiences the counterfactual: "if I had kept going, I would have got it right."` },
+      { type: 'list', ordered: false, items: [
+        `**The EOS token is too attractive.** After a first guess, the model has a high probability of emitting the end-of-sequence token, because that is what short, clean training traces did. Stopping is the default, not a decision.`,
+        `**It has no verification habit.** It does not check its answer, because it was never trained to check. Verification is a behaviour — re-reading the question, plugging the answer back in, trying a second method — and behaviours have to be in the training data.`,
+        `**Hard problems are exactly where the first guess is wrong.** On easy problems, the first guess is usually right, so stopping early works. On hard problems, the first guess is often wrong, so stopping early is exactly the wrong thing to do — and the model has no way to know, from the inside, that this problem is hard and the guess is unreliable.`
+      ]},
+      { type: 'quote', text: `The model does not stop because it is confident. It stops because stopping is what it was taught to do.` },
+      { type: 'h2', text: `The training fix: teach it to think longer` },
+      { type: 'paragraph', text: `If you want the model to think longer, you have to train it on longer thinking — specifically, on thinking that includes the behaviours you want: verifying, backtracking, and trying a second approach when the first one fails.` },
+      { type: 'list', ordered: false, items: [
+        `**SFT on long, reflective traces.** Train on chains of thought that contain self-correction: "Let me check that", "That gives a negative area, so that cannot be right", "Let me try a different approach". The model learns those phrases as part of what a solution looks like, and at test time it will produce them on its own. This is how the first reasoning models were built — by distilling long traces from a stronger teacher.`,
+        `**RL with a reward for correct answers, and no penalty for length.** In RL, let the model generate long traces, and reward only correctness. If a long trace gets the right answer and a short trace gets it wrong, the long trace wins, and the model learns that thinking longer pays. Do not penalise length directly — a length penalty teaches the model to be short, which is the opposite of what you want on hard problems.`,
+        `**Reward verification and backtracking explicitly.** Give a process reward, not just an outcome reward: reward intermediate steps that are correct, reward a trace that catches its own mistake, and reward a second attempt after a failed first one. A process reward model, or a verifier that scores steps, can teach the model that checking is worth doing.`,
+        `**Train on problems it gets wrong the first time.** Use rejection sampling: generate many attempts per problem, keep the ones that eventually get it right after a wrong start, and train on those. Those traces are exactly the ones that show the model how to recover from a bad first guess, and they are the ones it needs most.`
+      ]},
+      { type: 'paragraph', text: `There is a related RL detail worth naming: in GRPO and DAPO, the loss is often divided by the length of the response, which dilutes the gradient for long traces and pushes the model towards short answers. Removing that normalisation, or using a token-level loss as Dr. GRPO does, stops the training from systematically favouring short reasoning. If your model is getting shorter as it trains, check that first.` },
+      { type: 'callout', emoji: '💡', text: `You cannot reward a behaviour the model never produces. If it never verifies, never backtracks, and never tries a second approach, RL has nothing to reward — so put those behaviours in the SFT data first, then let RL reinforce them.` },
+      { type: 'h2', text: `The test-time fix: do not let it stop` },
+      { type: 'paragraph', text: `Training is the long fix. At test time, you can get the same model to think longer without retraining it, by changing how you sample and when you let it stop.` },
+      { type: 'list', ordered: false, items: [
+        `**Raise the thinking budget.** Give the model more max tokens for the chain of thought, and do not cut it off early. A model that is allowed 4,000 tokens of thinking will think longer than one allowed 500, if the training taught it to use the budget — and if it did not, the budget alone will not help, which is why the training fix matters.`,
+        `**Suppress the EOS token, or force a continuation.** When the model tries to stop after its first guess, append "Wait, let me verify this" or "Let me reconsider" and keep generating. That is the "wait" trick: by forcing the model to continue, you give it a chance to catch its own mistake, and models that have any verification ability at all will often use the extra tokens to correct themselves.`,
+        `**Prompt it to verify.** Tell it, in the prompt, to check its answer before committing: "Solve the problem, then verify your answer by plugging it back in, and only then give the final answer." A model that has been trained to follow instructions will follow that one, and the verification step is often enough to catch a wrong first guess.`,
+        `**Sample many times and vote.** Generate many independent chains of thought, and take the majority answer — self-consistency. A model that gets a hard problem right 30% of the time in one sample will get it right in the majority of 32 samples far more often, because the wrong first guesses are scattered and the right answer recurs. This does not make any single trace longer, but it makes the system as a whole think longer, in parallel.`,
+        `**Search, don't just sample.** Use the model to generate several candidate next steps, score them with a verifier or a process reward model, and keep the best ones — tree search, or best-of-N with a verifier. That is test-time compute spent on verification, not just on generation.`
+      ]},
+      { type: 'paragraph', text: `Notice the pattern: all of these are ways of spending more test-time compute, either by making one trace longer, or by making many traces and choosing between them. That is the test-time scaling law — on hard problems, more thinking, in whatever form, beats a single short guess.` },
+      { type: 'h2', text: `How would you check it worked?` },
+      { type: 'paragraph', text: `Measure accuracy against thinking length, on hard problems only. Plot accuracy as a function of the number of reasoning tokens, and check that it keeps rising — if it flattens early, the model is not using the extra tokens, and you need the training fix, not a bigger budget. Also measure how often the model changes its answer after its first guess, and how often that change is from wrong to right. If it never changes its mind, it is not verifying. If it changes its mind and gets worse, it is second-guessing itself, and you need a better verifier, not just more tokens.` },
+      { type: 'h2', text: `So what's the actual answer?` },
+      { type: 'paragraph', text: `The model quits after its first guess because its training data taught it that a solution is a short, clean guess followed by a stop, and because RL with only a final-answer reward gives it no reason to keep going when the first guess is wrong. Get it to think longer by training it on long, reflective traces that verify, backtrack, and try again, and by using RL that rewards correct answers without penalising length. At test time, raise the thinking budget, suppress early stopping, force a continuation with "wait, let me verify", and spend more test-time compute through self-consistency or search with a verifier.` },
+      { type: 'quote', text: `Thinking longer is not a setting. It is a habit — and habits have to be trained, then given room to run.` },
+      { type: 'divider' },
+      { type: 'h2', text: `The whole thing in five sentences` },
+      { type: 'list', ordered: true, items: [
+        `The model stops after its first guess because its SFT data showed it short, clean solutions, and RL with only a final-answer reward gives it no reason to keep going when that guess is wrong.`,
+        `Train it on long, reflective traces that verify, backtrack, and try a second approach, so those behaviours are in its repertoire.`,
+        `Use RL that rewards correctness without penalising length, and use a process reward or a verifier to reward checking and recovery.`,
+        `At test time, raise the thinking budget, suppress the EOS token after a first guess, and force a continuation with "wait, let me verify".`,
+        `Spend more test-time compute through self-consistency or search with a verifier, and check that accuracy keeps rising with thinking length on hard problems.`
+      ]},
+      { type: 'callout', emoji: '📌', text: `A classic reasoning-model interview question. The terms to remember are test-time compute, self-correction, and the "wait" trick.` }
+    ]
+  },
 ];
