@@ -391,3 +391,22 @@
     align-items: flex-start;
   }
 }
+
+/* Search-match highlighting — added 2026-11-21 */
+mark.search-highlight {
+  background: rgba(229, 9, 20, 0.35);
+  color: #ffffff;
+  border-radius: 3px;
+  padding: 0 2px;
+}
+
+.article-search-match {
+  margin: 1rem 0 0;
+  font-size: 0.9rem;
+  color: #e50914;
+  background: rgba(229, 9, 20, 0.12);
+  border: 1px solid rgba(229, 9, 20, 0.3);
+  border-radius: 8px;
+  padding: 0.6rem 1rem;
+  text-align: center;
+}

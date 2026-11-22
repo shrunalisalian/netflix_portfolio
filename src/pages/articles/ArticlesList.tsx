@@ -64,23 +64,32 @@ const wordMatches = (word: string, tokens: Set<string>) => {
 
 // Returns a relevance score, or null when the article does not match.
 // Title and tag matches rank first, then subtitle, then a phrase in the
-// body, then the query words scattered through the body.
+// body. For a multi-word query the words must appear together as a
+// phrase — an article where "fine" is in one paragraph and "tuning" in
+// another is not a match, because Ctrl+F for "fine tuning" would not
+// find it there either. Single-word queries match that word anywhere.
 const searchScore = (entry: SearchableArticle, phrase: string, words: string[]) => {
+  const phraseIn =
+    entry.title.includes(phrase) ||
+    entry.tags.some((tag) => tag.includes(phrase)) ||
+    entry.subtitle.includes(phrase) ||
+    entry.body.includes(phrase);
+  const expanded = SEARCH_SYNONYMS[phrase];
+  const expandedIn =
+    expanded !== undefined &&
+    (entry.title.includes(expanded) ||
+      entry.tags.some((tag) => tag.includes(expanded)) ||
+      entry.body.includes(expanded));
+  if (words.length > 1 && !phraseIn && !expandedIn) return null;
+  if (words.length === 1 && !words.every((word) => wordMatches(word, entry.tokens))) {
+    return null;
+  }
   let score = 0;
   if (entry.title.includes(phrase)) score += 100;
   if (entry.tags.some((tag) => tag === phrase || tag.includes(phrase))) score += 80;
   if (entry.subtitle.includes(phrase)) score += 60;
   if (entry.body.includes(phrase)) score += 40;
-  const expanded = SEARCH_SYNONYMS[phrase];
-  if (
-    expanded &&
-    (entry.title.includes(expanded) ||
-      entry.tags.some((tag) => tag.includes(expanded)) ||
-      entry.body.includes(expanded))
-  ) {
-    score += 40;
-  }
-  if (!words.every((word) => wordMatches(word, entry.tokens))) return null;
+  if (expandedIn) score += 40;
   score += 10;
   return score;
 };
@@ -310,7 +319,13 @@ const ArticlesList: React.FC = () => {
           <article
             key={article.slug}
             className="article-preview-card"
-            onClick={() => navigate(`/articles/${article.slug}`)}
+            onClick={() =>
+              navigate(
+                searchQuery.trim()
+                  ? `/articles/${article.slug}?q=${encodeURIComponent(searchQuery.trim())}`
+                  : `/articles/${article.slug}`,
+              )
+            }
           >
             <div className="article-preview-left">
               <div className="article-cover-emoji">{article.coverEmoji}</div>
