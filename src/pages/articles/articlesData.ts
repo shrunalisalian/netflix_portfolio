@@ -39018,4 +39018,57 @@ WELLBEING METRICS (not engagement metrics):
       { type: 'callout', emoji: '📌', text: `A classic Transformer interview question. The term to remember is NoPE — and the mask is the position.` }
     ]
   },
+  {
+    slug: 'sliding-window-attention-receptive-field-layers',
+    title: `All 32 Layers of This Model Use Sliding-Window Attention, and the Mask Blocks Anything More Than 4,096 Tokens Back. How Does That Detail Get to the End?`,
+    subtitle: `A plain-English guide to sliding-window attention's receptive field: how information hops layer by layer, 4,096 tokens at a time, to reach the end.`,
+    date: 'November 21, 2026',
+    readTime: '8 min read',
+    tags: ['Machine Learning', 'Transformers', 'Systems', 'Interview Prep'],
+    coverEmoji: '🪟',
+    content: [
+      { type: 'callout', emoji: '🎯', text: `Interview question: "All 32 layers of this model use sliding-window attention, and the mask blocks anything more than 4,096 tokens back. How does that detail get to the end?"` },
+      { type: 'paragraph', text: `Every layer can only look 4,096 tokens back. A detail from 100,000 tokens ago is far outside that window, in every layer, at every step. And yet the model can use it at the end — to answer a question about the start of a document, to keep a name consistent across a long story, to recall a fact from the first page. How does a detail that no layer can see directly get to the end?` },
+      { type: 'paragraph', text: `Stripped of jargon, the answer is just this: **it hops. Each layer moves information 4,096 tokens forward, and the next layer moves it another 4,096, so after 32 layers it has travelled 32 × 4,096 — about 131,000 tokens — carried forward by the intermediate tokens it passed through.**` },
+      { type: 'h2', text: `One layer, one hop` },
+      { type: 'paragraph', text: `In the first layer, a token at position 100,000 can attend to tokens from 95,904 to 100,000 — the 4,096 tokens before it. It cannot attend to a detail at position 1,000. But it can attend to a token at position 96,000, and that token, in the first layer, could attend to tokens from 91,904 to 96,000. The detail is not yet in the token at 100,000, but it is one hop closer.` },
+      { type: 'paragraph', text: `Now go to the second layer. The token at position 96,000, after the first layer, already contains information from as far back as 91,904. When the token at 100,000 attends to it in the second layer, it is not just attending to the token at 96,000 — it is attending to a representation that already carries information from 91,904. The detail has moved another 4,096 tokens forward, not because the second layer looked further back, but because the token it looked at had already looked further back in the first layer.` },
+      { type: 'list', ordered: false, items: [
+        `**Layer 1:** a token can reach 4,096 tokens back.`,
+        `**Layer 2:** a token can reach a token that reached 4,096 back, so it can reach 8,192 back.`,
+        `**Layer L:** a token can reach L × 4,096 tokens back.`,
+        `**Layer 32:** a token can reach 32 × 4,096 = 131,072 tokens back.`
+      ]},
+      { type: 'quote', text: `No layer sees far. But each layer sees a token that saw further, and that is enough.` },
+      { type: 'h2', text: `The intermediate tokens are the carriers` },
+      { type: 'paragraph', text: `The detail does not teleport. It is carried, step by step, by the tokens in between. A detail at position 1,000 is first incorporated into the representation of a token at position 5,000, in an early layer. That token's representation, now carrying the detail, is attended to by a token at position 9,000 in a later layer, which incorporates it into its own representation. That token is attended to by a token at position 13,000, and so on, until the detail has hopped its way to the end.` },
+      { type: 'paragraph', text: `That is why the receptive field grows with depth. It is the same principle as a convolutional network: a 3-by-3 convolution can only see 3 pixels, but after several layers, a pixel at the top can influence a pixel at the bottom, because the influence propagates through the intermediate pixels. Sliding-window attention is a Transformer version of the same idea — a local window, repeated across layers, gives a global receptive field.` },
+      { type: 'paragraph', text: `It is also why the number of layers matters. With 1 layer, the receptive field is 4,096. With 32 layers, it is 131,072. With 4 layers, it would be only 16,384. The window size sets the hop length; the depth sets how many hops there are.` },
+      { type: 'callout', emoji: '💡', text: `The receptive field is window size times depth. The window is how far one layer can reach. The depth is how many times that reach can be chained.` },
+      { type: 'h2', text: `What gets lost on the way` },
+      { type: 'paragraph', text: `Hopping is not free. Every hop is a compression: a token's representation has a fixed size, and it has to carry its own meaning plus everything it has picked up from the tokens before it. A detail that has hopped 32 times has been compressed, mixed with other information, and passed through 32 rounds of attention and MLP, and by the time it reaches the end, it may be diluted, distorted, or lost.` },
+      { type: 'paragraph', text: `That is the real limitation of sliding-window attention, and it is why it is not the same as full attention, even though the receptive field is large. In full attention, the token at the end can attend directly to the detail at the start, in a single layer, with no intermediate compression. In sliding-window attention, it can only reach it through a chain of 32 intermediaries, each of which had to decide to keep it, and each of which had limited capacity to do so.` },
+      { type: 'list', ordered: false, items: [
+        `**Dilution.** A token that carries a detail also carries everything else it has seen. The detail is a small part of its representation, and it gets smaller with each hop.`,
+        `**The model has to learn to relay.** The intermediate tokens have to learn to preserve the detail, rather than overwriting it with their own information. That is a behaviour the model has to learn during training, and it does not always learn it well for details that are rarely needed.`,
+        `**Not every detail makes it.** A detail that is salient — a name, a number, a fact that the model is trained to keep — is more likely to be relayed. A detail that is incidental is more likely to be dropped along the way. That is why sliding-window models can be good at long-context recall for important facts, and worse at it for arbitrary details, compared to full attention.`
+      ]},
+      { type: 'paragraph', text: `That is also why some models mix sliding-window layers with full-attention layers — for example, one full-attention layer every few layers, as in Mistral and in Gemma. The full-attention layers give the model a direct path for information to jump across the whole context, without hopping, and the sliding-window layers keep the cost down for the rest. The mixture gets most of the benefit of full attention at a fraction of the cost.` },
+      { type: 'h2', text: `How would you check it?` },
+      { type: 'paragraph', text: `Put a detail — a name, a number, a fact — at a known distance from the end, and see if the model can recall it. Vary the distance: 4,000 tokens back, 8,000, 16,000, 32,000, 100,000. If the model can recall it at 4,000 but not at 100,000, the hopping is failing, or the detail is being diluted. If it can recall it at 100,000, the hopping is working, and the receptive field really is 131,072. That is the "needle in a haystack" test, and it is the direct measurement of whether the detail got to the end.` },
+      { type: 'h2', text: `So what's the actual answer?` },
+      { type: 'paragraph', text: `It gets to the end by hopping, layer by layer. Each layer can attend 4,096 tokens back, so a token in layer 2 can reach a token that reached 4,096 back in layer 1, and can therefore reach 8,192 back. After 32 layers, the receptive field is 32 × 4,096, or about 131,072 tokens. The intermediate tokens carry the detail forward, one hop at a time, compressed a little more at each hop — which is why sliding-window attention can reach far, but not as cleanly as full attention, where the end token can attend to the start directly.` },
+      { type: 'quote', text: `A sliding window is local. Thirty-two sliding windows, stacked, are global — if the tokens in between agree to carry the message.` },
+      { type: 'divider' },
+      { type: 'h2', text: `The whole thing in five sentences` },
+      { type: 'list', ordered: true, items: [
+        `Each layer can only attend 4,096 tokens back, so no layer can see a detail from 100,000 tokens ago directly.`,
+        `But a token in layer 2 can attend to a token that, in layer 1, already incorporated information from 4,096 tokens back, so it can reach 8,192 back.`,
+        `After 32 layers, that chaining gives a receptive field of 32 × 4,096, or about 131,072 tokens.`,
+        `The detail hops forward through intermediate tokens, carried in their representations, one window at a time.`,
+        `Each hop compresses and dilutes it, so sliding-window attention can reach far but not as cleanly as full attention — which is why some models mix in full-attention layers.`
+      ]},
+      { type: 'callout', emoji: '📌', text: `A classic long-context interview question. The term to remember is receptive field — window size times depth.` }
+    ]
+  },
 ];
