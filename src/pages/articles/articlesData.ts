@@ -38089,4 +38089,69 @@ WELLBEING METRICS (not engagement metrics):
       { type: 'callout', emoji: '📌', text: `A classic NLP interview question. The terms to remember are CBOW, bag of words, and positional embeddings.` }
     ]
   },
+  {
+    slug: 'reward-model-70-percent-human-agreement-ceiling',
+    title: `Your Reward Model Picks the Same Answer as the Human Labeler on 70% of Held-Out Pairs. Why Is It Stuck There?`,
+    subtitle: `A plain-English guide to reward-model accuracy: why 70% is often not a model bug, but the human agreement ceiling — and how to tell the difference.`,
+    date: 'November 21, 2026',
+    readTime: '8 min read',
+    tags: ['Machine Learning', 'LLM Training', 'Reinforcement Learning', 'Interview Prep'],
+    coverEmoji: '🏷️',
+    content: [
+      { type: 'callout', emoji: '🎯', text: `Interview question: "Your reward model picks the same answer as the human labeler on 70% of held-out pairs. Why is it stuck there?"` },
+      { type: 'paragraph', text: `Seventy percent feels like a failure. A classifier that gets 70% on a binary choice is barely better than chance, and your first instinct is to add data, add capacity, or tune the training. But for a reward model, 70% is often not a bug at all. It is the ceiling — and the ceiling is set by the humans, not by the model.` },
+      { type: 'paragraph', text: `Stripped of jargon, the answer is just this: **the model cannot agree with the human labeler more often than humans agree with each other. If two humans only pick the same answer 70% of the time, no model trained on their labels can do better than 70% on held-out pairs.**` },
+      { type: 'h2', text: `What a reward model is actually learning` },
+      { type: 'paragraph', text: `A reward model is trained on preference pairs: a prompt, two answers, and a human label saying which answer is better. It learns a single score for each answer, usually with the Bradley-Terry model, which says the probability that answer A is preferred to answer B depends on the difference between their scores. At test time you check whether the model's higher-scored answer matches the human's chosen answer.` },
+      { type: 'paragraph', text: `That test is only as clean as the labels. If the human label is noisy — if the same pair, shown to a different human, or to the same human on a different day, would get the opposite label — then the held-out label is not the truth. It is one sample from a noisy distribution. A perfect model, one that had learned the true underlying preference perfectly, would still disagree with that held-out label whenever the label itself was the noisy sample.` },
+      { type: 'list', ordered: false, items: [
+        `**The label is a preference, not a fact.** For a math question with a right and a wrong answer, humans agree almost always. For "which of these two summaries is better?", or "which response is more helpful?", there is often no right answer — just taste, style, and trade-offs.`,
+        `**Near-ties are common.** Many preference pairs are close: both answers are good, or both are bad, or one is better on accuracy and the other is better on tone. On those pairs, the human's choice is close to a coin flip, and the model cannot predict a coin flip.`,
+        `**Labelers differ.** Different labelers have different standards, different backgrounds, and different interpretations of the guidelines. One labeler prefers concise answers, another prefers thorough ones. The model is trained on a mix of them, so it learns the average preference — and the average preference disagrees with any single labeler a substantial fraction of the time.`
+      ]},
+      { type: 'quote', text: `A reward model does not learn what is better. It learns what humans, on average, said was better — including all their disagreement.` },
+      { type: 'h2', text: `The ceiling: human-human agreement` },
+      { type: 'paragraph', text: `The number to check first is human-human agreement: take a set of pairs, have two independent labelers label them, and see how often they agree. For preference data on open-ended, helpfulness-style prompts, that number is typically 70 to 75%. For more objective tasks it is higher; for more subjective ones it is lower.` },
+      { type: 'paragraph', text: `If human-human agreement is 72% and your model is at 70%, your model is essentially at the ceiling. It has learned the learnable part of the preference, and the remaining 30% is label noise that no model can predict. Adding more data, a bigger model, or more training will not move it, because the held-out labels themselves are only 72% consistent.` },
+      { type: 'paragraph', text: `That is why 70% is such a common number in RLHF papers. It is not that every reward model is equally bad. It is that the data they are trained on has about 70% agreement built into it, and the models are all hitting the same ceiling.` },
+      { type: 'callout', emoji: '💡', text: `Before you try to fix a 70% reward model, measure human-human agreement on the same pairs. If it is also about 70%, you are done — the model is at the ceiling.` },
+      { type: 'h2', text: `How would you check whether it is the ceiling?` },
+      { type: 'paragraph', text: `Do not just look at the accuracy number. Break it down, and the ceiling will show up in the breakdown.` },
+      { type: 'list', ordered: false, items: [
+        `**Measure inter-annotator agreement.** Get a second label for a sample of held-out pairs, from a different labeler, and compute agreement. If it is close to 70%, the ceiling is human noise. If it is 90% and your model is at 70%, the model is the problem, not the data.`,
+        `**Look at agreement by pair difficulty.** Split pairs by how confident the labeler was, or by how large the reward model's score difference is. On pairs where the model is very confident — a large score gap — accuracy should be high. On pairs where the model is uncertain — a tiny score gap — accuracy should be near 50%. If accuracy is flat at 70% even on confident pairs, something else is wrong. If it is high on confident pairs and near chance on uncertain ones, the model is calibrated and the remaining error is in the hard, near-tie pairs.`,
+        `**Check for contradictory labels.** Look for pairs that appear twice in the data with opposite labels, or near-duplicate prompts with opposite preferences. Those are direct evidence of label noise, and they put a hard cap on achievable accuracy.`,
+        `**Check the model's training accuracy.** If training accuracy is also around 70%, the model cannot even fit the training labels — which is what you would expect if the labels are noisy. If training accuracy is 95% and held-out is 70%, the model is overfitting to noise, which is a different problem, and a sign to regularise or to clean the labels.`
+      ]},
+      { type: 'h2', text: `If it is not the ceiling, what else could it be?` },
+      { type: 'paragraph', text: `If human agreement is much higher than 70%, then the model is genuinely stuck, and the usual suspects are worth naming in order.` },
+      { type: 'list', ordered: false, items: [
+        `**The reward model is too small, or it is trained on too little data.** A reward model needs to understand the prompt and both answers well enough to judge them. If it is a small model, or if the preference data is thin, it will not learn the preference reliably.`,
+        `**The pairs are too easy or too hard.** If most training pairs are obvious — one answer is clearly better — the model learns to spot the obvious difference and never learns the subtle ones. If most pairs are near-ties, the signal is mostly noise. A good preference dataset has a mix, with enough clear pairs to learn from and enough hard pairs to be useful.`,
+        `**Distribution shift.** The held-out pairs come from a different distribution from the training pairs — different prompts, different models generating the answers, different labelers. The model learned the training distribution's preferences, and they do not transfer.`,
+        `**The Bradley-Terry assumption is wrong.** Bradley-Terry assumes preferences are transitive and can be captured by a single score per answer. If human preferences are not transitive — A beats B, B beats C, but C beats A — or if they depend on the pair in a way a single score cannot capture, no scalar reward model can fit them, no matter how large it is.`
+      ]},
+      { type: 'paragraph', text: `Notice the order: check the ceiling first, because it is the cheapest check and the most common explanation. Only if the ceiling is high do you start debugging the model.` },
+      { type: 'h2', text: `What would you do about it, if it is the ceiling?` },
+      { type: 'paragraph', text: `If the model is at the human agreement ceiling, you do not try to push accuracy higher. You change what you are measuring, or what you are training on.` },
+      { type: 'list', ordered: false, items: [
+        `**Improve the labels, not the model.** Clearer guidelines, better labeler training, and filtering out pairs where labelers disagree can raise the ceiling itself. If you can get human agreement from 70% to 80%, the model's ceiling moves with it.`,
+        `**Use multiple labels per pair.** Averaging several labelers' preferences gives a cleaner signal than a single label, and the model trained on that averaged signal will be more reliable, even if its accuracy against a single held-out label stays at 70%.`,
+        `**Judge the reward model by downstream RL, not by accuracy.** A reward model at 70% accuracy can still be useful for RLHF if its errors are mostly on near-tie pairs, where the choice does not matter much. What matters is whether the policy trained with that reward model gets better, not whether the reward model wins a coin flip on a hard pair.`
+      ]},
+      { type: 'h2', text: `So what's the actual answer?` },
+      { type: 'paragraph', text: `A reward model is stuck at 70% most often because human labelers only agree with each other about 70% of the time on preference pairs, especially on subjective, open-ended prompts. The remaining 30% is label noise — near-ties, differing tastes, and inconsistent guidelines — and no model can predict noise. Check human-human agreement first; if it is also around 70%, the model is at the ceiling.` },
+      { type: 'quote', text: `Seventy percent is not a failing grade for a reward model. It is a measurement of how much humans agree with each other — and the model cannot agree with a human more often than humans agree with themselves.` },
+      { type: 'divider' },
+      { type: 'h2', text: `The whole thing in five sentences` },
+      { type: 'list', ordered: true, items: [
+        `A reward model learns a score per answer from human preference pairs, and its accuracy is measured against a held-out human label.`,
+        `That label is noisy: on subjective prompts, two humans pick the same answer only about 70 to 75% of the time.`,
+        `If human-human agreement is 70%, a perfect model would still only match a held-out label 70% of the time, because the label itself is the noisy sample.`,
+        `Check this by measuring inter-annotator agreement, by splitting accuracy by pair difficulty, and by looking for contradictory labels.`,
+        `If the ceiling is the cause, improve the labels or judge the model by downstream RL performance — do not try to push accuracy past the human agreement ceiling.`
+      ]},
+      { type: 'callout', emoji: '📌', text: `A classic RLHF interview question. The number to remember is human-human agreement — measure it before you debug the model.` }
+    ]
+  },
 ];
