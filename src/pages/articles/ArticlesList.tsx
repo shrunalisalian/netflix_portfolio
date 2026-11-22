@@ -56,10 +56,9 @@ const wordMatches = (word: string, tokens: Set<string>) => {
   // Short queries must match a whole word, otherwise "ai" matches
   // "training" and "ml" matches anything containing those letters.
   if (word.length <= 2) return false;
-  for (const token of tokens) {
-    if (token.startsWith(word)) return true;
-  }
-  return false;
+  // No for...of over the Set here: the project's tsconfig targets ES5,
+  // and iterating a Set needs downlevelIteration or a higher target.
+  return Array.from(tokens).some((token) => token.startsWith(word));
 };
 
 // Returns a relevance score, or null when the article does not match.
@@ -112,7 +111,9 @@ const ArticlesList: React.FC = () => {
         counts.set(tag, (counts.get(tag) ?? 0) + 1);
       });
     });
-    return [...counts.entries()]
+    // Array.from, not [...counts.entries()]: spreading a Map iterator
+    // needs downlevelIteration under this project's ES5 target.
+    return Array.from(counts.entries())
       .filter(([, count]) => count >= 10)
       .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
       .map(([tag, count]) => ({ tag, count }));
