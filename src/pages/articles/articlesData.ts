@@ -39229,4 +39229,58 @@ WELLBEING METRICS (not engagement metrics):
       { type: 'callout', emoji: '📌', text: `A classic optimisation interview question. The terms to remember are stochastic weight averaging, flat minima, and mode connectivity.` }
     ]
   },
+  {
+    slug: 'embedding-search-miss-part-number',
+    title: `A User Asks for a Replacement for Part XJ-4471-B. So Why Does the Embedding Search Miss It?`,
+    subtitle: `A plain-English guide to why semantic search fails on exact identifiers: part numbers have no meaning to embed, only a string to match.`,
+    date: 'November 21, 2026',
+    readTime: '8 min read',
+    tags: ['Machine Learning', 'Retrieval', 'Embeddings', 'Interview Prep'],
+    coverEmoji: '🔍',
+    content: [
+      { type: 'callout', emoji: '🎯', text: `Interview question: "A user asks for a replacement for part XJ-4471-B. So why does the embedding search miss it?"` },
+      { type: 'paragraph', text: `The user typed a part number, exactly. The catalogue has that part number, exactly. The embedding search should find it, and it does not. It returns other parts instead — parts that are similar in description, similar in function, similar in name — but not XJ-4471-B, and not its replacement. The search is not broken. It is doing what it was built to do, and what it was built to do is the wrong thing for a part number.` },
+      { type: 'paragraph', text: `Stripped of jargon, the answer is just this: **an embedding is a semantic representation, and a part number has no semantics. XJ-4471-B does not mean anything — it is an exact identifier — so its embedding does not preserve its exact string, and a semantic search cannot find it by matching its meaning.**` },
+      { type: 'h2', text: `What an embedding actually does` },
+      { type: 'paragraph', text: `An embedding model turns text into a vector, in a space where texts with similar meanings are close together. "A bolt for a car engine" and "an automotive fastener" will be close, because they mean similar things, even though they share almost no words. That is the point of embeddings: they capture meaning, not spelling.` },
+      { type: 'paragraph', text: `A part number has no meaning to capture. XJ-4471-B does not describe a part, it identifies one. Its meaning, if it has one, is "the part with this exact code", and that meaning is not in the text — it is in the catalogue, in the database that maps the code to the part. An embedding model, trained on natural language, has never seen XJ-4471-B, and it has no way to know what it refers to, except by guessing from the pieces it is made of.` },
+      { type: 'list', ordered: false, items: [
+        `**Tokenisation breaks it apart.** A subword tokenizer will split XJ-4471-B into pieces — "XJ", "-", "447", "1", "-", "B", or something similar — and the embedding is a function of those pieces, not of the whole code as a single identifier. Two part numbers that share a piece, like XJ-4471-B and XJ-4471-C, will have similar embeddings, because they share most of their pieces, even though they are different parts.`,
+        `**The embedding collapses distinct codes.** In a semantic space, codes that look alike are close together, because the model has no reason to push them apart — they do not mean different things to it, they just look similar. XJ-4471-B, XJ-4472-B, and XJ-4471-A will all be near each other, and the search will return whichever one happens to be closest, which may not be the right one.`,
+        `**The query is mostly the code.** When a user asks for "a replacement for part XJ-4471-B", most of the query's meaning, to an embedding model, is in the words "replacement for part" — which are generic — and very little is in the code itself, because the code is a rare, out-of-vocabulary string. The search will match on "replacement" and "part", and return parts that are described as replacements, not the part with that code.`
+      ]},
+      { type: 'quote', text: `An embedding answers "what does this mean?" A part number does not mean anything. It is a name, and names need exact matching, not semantic matching.` },
+      { type: 'h2', text: `Why the search returns the wrong parts` },
+      { type: 'paragraph', text: `The embedding search is doing nearest-neighbour search in a semantic space. It returns the catalogue entries whose descriptions are semantically closest to the query. For a query about a part number, those will be entries whose descriptions mention replacements, or mention similar parts, or share words with the query — not entries whose part number matches exactly, because the part number is not in the description in a way the embedding can use.` },
+      { type: 'paragraph', text: `That is also why the miss is silent. The search does not return nothing — it returns something, with a high similarity score, because the returned parts are semantically similar to the query. There is no signal in the embedding score that says "this is the wrong part number", because the embedding score never measured the part number in the first place. The user sees a confident-looking result that is wrong, which is worse than no result at all.` },
+      { type: 'callout', emoji: '💡', text: `Semantic search is for "find me something like this". Exact search is for "find me this". A part number is a "this", not a "like this".` },
+      { type: 'h2', text: `How would you fix it?` },
+      { type: 'paragraph', text: `Do not use embedding search alone for identifiers. Use a hybrid search, where the part number is handled exactly, and the embedding search is used only for the semantic part of the query.` },
+      { type: 'list', ordered: false, items: [
+        `**Extract the part number first.** Use a regex or a named-entity recogniser to pull XJ-4471-B out of the query, before you embed anything. Then do an exact lookup — a database query, a keyword search, a BM25 search — on that code, in the part-number field. That will find the part, or its replacement, exactly, every time.`,
+        `**Use hybrid retrieval.** Combine a lexical search, like BM25, which matches exact strings, with the embedding search, which matches meaning. For a query with a part number, the lexical score should dominate. For a query without one — "I need a bolt for a car engine" — the embedding score should dominate. A hybrid system, with reciprocal rank fusion or a learned ranker, can do both.`,
+        `**Index the part number as a field, not as text.** Store the part number in a separate, exact-match field in your index, and do not let the embedding model tokenise it as if it were natural language. If you must embed it, embed it as a single token, or use a model trained on identifiers, so that XJ-4471-B and XJ-4471-C are far apart in the embedding space, not close together.`,
+        `**Check for a code, and route accordingly.** If the query contains a string that looks like a part number — letters, digits, and hyphens in a pattern that matches your catalogue — route it to exact search first, and only fall back to embedding search if the exact search finds nothing. That is a simple rule, and it fixes the common case.`
+      ]},
+      { type: 'paragraph', text: `Notice the pattern: the fix is not a better embedding model. It is recognising that a part number is not a semantic query, and handling it with the tool that is built for exact identifiers — a database lookup, a keyword search, or a regex — instead of the tool that is built for meaning.` },
+      { type: 'h2', text: `Where else does this happen?` },
+      { type: 'paragraph', text: `Part numbers are the clearest example, but the same failure happens for any exact identifier: order numbers, invoice numbers, serial numbers, SKUs, product codes, chemical formulas, gene names, and dates. Any string whose identity matters more than its meaning will be missed by embedding search, for the same reason: the embedding does not preserve exact string identity, and it was never trained to.` },
+      { type: 'paragraph', text: `That is also why retrieval systems for real products are almost always hybrid. Pure embedding search is good for "find me something about this topic", and pure keyword search is good for "find me this exact thing", and most real queries are a mix of both. A system that only does one will miss the other kind of query, silently, with a confident-looking wrong answer.` },
+      { type: 'h2', text: `How would you check it?` },
+      { type: 'paragraph', text: `Take a set of queries that contain a part number, and measure recall: how often does the correct part, or its replacement, appear in the top results? For embedding search alone, that recall will be low, and the failures will be systematic — the returned parts will share a prefix or a suffix with the query code, or will be semantically similar but with a different code. Then run the same queries through exact search, and through a hybrid, and compare. The hybrid should fix the part-number queries without hurting the semantic queries, which is the test that the fix is working.` },
+      { type: 'h2', text: `So what's the actual answer?` },
+      { type: 'paragraph', text: `The embedding search misses XJ-4471-B because an embedding is a semantic representation, and a part number has no semantics — it is an exact identifier. The tokenizer splits it into pieces, the embedding collapses distinct codes that share pieces, and the query's meaning is dominated by the generic words "replacement for part", not by the code. The search returns semantically similar parts, not the part with that exact code. Fix it by extracting the part number and doing an exact lookup on it, and by using hybrid retrieval — BM25 or keyword search for identifiers, embeddings for meaning — instead of embedding search alone.` },
+      { type: 'quote', text: `You would not look up a phone number by describing the person. You would dial the number. A part number is the same: look it up, do not embed it.` },
+      { type: 'divider' },
+      { type: 'h2', text: `The whole thing in five sentences` },
+      { type: 'list', ordered: true, items: [
+        `An embedding captures meaning, not spelling, and a part number like XJ-4471-B has no meaning — it is an exact identifier.`,
+        `The tokenizer splits it into pieces, so distinct codes that share pieces get similar embeddings, and the search cannot tell them apart.`,
+        `The query's embedding is dominated by the generic words "replacement for part", so the search returns semantically similar parts, not the part with that code.`,
+        `Fix it by extracting the part number with a regex and doing an exact lookup on it, before or alongside the embedding search.`,
+        `Use hybrid retrieval — lexical search for identifiers, embeddings for meaning — because most real queries need both.`
+      ]},
+      { type: 'callout', emoji: '📌', text: `A classic retrieval interview question. The term to remember is hybrid search — exact for identifiers, semantic for meaning.` }
+    ]
+  },
 ];
