@@ -37732,4 +37732,62 @@ WELLBEING METRICS (not engagement metrics):
       { type: 'callout', emoji: '📌', text: `A classic Transformer interview question. The phrase to remember is from the original paper: multi-head attention lets the model "jointly attend to information from different representation subspaces at different positions".` }
     ]
   },
+  {
+    slug: 'cut-parameters-vocab-embedding-tying',
+    title: `Your Small Language Model Has a 50,000-Word Vocabulary and a Hidden Size of 512. How Would You Cut Parameters Without Perplexity Getting Worse?`,
+    subtitle: `A plain-English guide to shrinking a language model where it is fattest: tie the embeddings, factorise them, and stop paying 512 dimensions for every rare word.`,
+    date: 'November 21, 2026',
+    readTime: '8 min read',
+    tags: ['Machine Learning', 'NLP', 'Transformers', 'Interview Prep'],
+    coverEmoji: '✂️',
+    content: [
+      { type: 'callout', emoji: '🎯', text: `Interview question: "Your small language model has a 50,000-word vocabulary and a hidden size of 512. How would you cut parameters without perplexity getting worse?"` },
+      { type: 'paragraph', text: `Start with the arithmetic, because the answer is in it. A vocabulary of 50,000 words and a hidden size of 512 means the input embedding matrix alone is 50,000 times 512 — 25.6 million parameters. If the output layer is a separate matrix of the same size, that is another 25.6 million. Together, the embeddings can be more than half the model.` },
+      { type: 'paragraph', text: `Stripped of jargon, the answer is just this: **do not cut the Transformer. Cut the embeddings — they are where the parameters are, and they are also where the model is most over-parameterised.**` },
+      { type: 'h2', text: `Why the embedding is the fat part` },
+      { type: 'paragraph', text: `A Transformer layer with a hidden size of 512 has roughly a few million parameters. Six layers is on the order of 20 million. The embedding, at 25.6 million for the input alone, is already bigger than all of those layers put together.` },
+      { type: 'paragraph', text: `And most of that embedding is barely used. A word-level vocabulary of 50,000 contains thousands of words that appear a handful of times in training. Each of those rare words gets its own full 512-dimensional vector, trained on almost no data. That is a lot of parameters paying for very little signal — and it is also a recipe for overfitting on the rare words, not for better perplexity.` },
+      { type: 'quote', text: `In a small model, the vocabulary is not a detail. It is the model.` },
+      { type: 'h2', text: `Fix one: tie the input and output embeddings` },
+      { type: 'paragraph', text: `The first cut is free, and it usually helps perplexity rather than hurting it. Use the same matrix for the input embedding and the output softmax — the matrix that turns a token into a vector on the way in is the same matrix that turns a hidden state into a distribution over the vocabulary on the way out.` },
+      { type: 'paragraph', text: `That is called weight tying, from Press and Wolf (2017). It immediately saves 25.6 million parameters — you go from two 50,000-by-512 matrices to one — and it is not just a saving. The input and output embeddings are learning the same thing, in opposite directions: what a word means. Tying them forces the model to learn one good representation per word instead of two half-trained ones, and the shared matrix gets twice as many gradient updates, once from the input side and once from the output side.` },
+      { type: 'list', ordered: false, items: [
+        `**Before tying:** 25.6M input + 25.6M output = 51.2M parameters in embeddings alone.`,
+        `**After tying:** 25.6M total. You have halved the embedding cost, and perplexity typically improves slightly, because the tied matrix is better trained and acts as a regulariser.`
+      ]},
+      { type: 'paragraph', text: `This is the answer to lead with in an interview. It is a single line of code, it cuts the model nearly in half if the embeddings dominate, and it does not hurt perplexity — it often improves it.` },
+      { type: 'callout', emoji: '💡', text: `Weight tying is the rare free lunch in model compression: fewer parameters, better training signal, often better perplexity.` },
+      { type: 'h2', text: `Fix two: factorise the embedding` },
+      { type: 'paragraph', text: `Even after tying, you still have one 50,000-by-512 matrix. The next cut is to stop giving every word a full 512-dimensional vector directly. Instead, give every word a smaller vector, say 128 dimensions, and then project that up to 512 with a small shared matrix. This is factorised embeddings, the idea ALBERT uses.` },
+      { type: 'paragraph', text: `The maths is what makes it work. A 50,000-by-128 embedding is 6.4 million parameters, and a 128-by-512 projection is only about 65,000 parameters. Together that is roughly 6.5 million, instead of 25.6 million — a saving of about 75%.` },
+      { type: 'code', language: 'text', code: `Before: 50,000 x 512 = 25,600,000 parameters\nAfter:  50,000 x 128 = 6,400,000\n       + 128 x 512 = 65,536\n       Total: ~6,465,536 parameters` },
+      { type: 'paragraph', text: `Why does this not hurt perplexity? Because the word's identity and the model's hidden representation are doing different jobs. The identity of a word — which word it is, as opposed to the other 49,999 — does not need 512 dimensions to encode. A smaller space is enough to tell words apart. The 512-dimensional space is needed for the Transformer's internal reasoning, for combining meaning, syntax, and context. The projection lets you keep the reasoning space wide while making the identity space narrow.` },
+      { type: 'paragraph', text: `In practice, an embedding size of 128 for a 512 hidden size is a good starting point. Go much smaller, say 64, and rare words start to collide. Go larger, say 256, and you are giving back most of the saving for little gain.` },
+      { type: 'h2', text: `Fix three: shrink the vocabulary itself` },
+      { type: 'paragraph', text: `A 50,000-word vocabulary is a word-level vocabulary, and that is part of the problem. Most of those words are rare, and a word-level tokeniser has to give each one a row in the matrix, even if it appears ten times in the whole corpus.` },
+      { type: 'paragraph', text: `Switching to subwords — byte-pair encoding, or BPE — lets you cover the same text with a smaller vocabulary, because rare words are built from pieces the model already knows. A BPE vocabulary of 16,000 or 32,000 subwords can cover a corpus that needed 50,000 whole words, and the rare words are no longer separate rows: "unbelievable" becomes "un" plus "believ" plus "able", and each piece is trained far more often than the whole word ever was.` },
+      { type: 'list', ordered: false, items: [
+        `**Fewer rows, better trained rows.** Every subword in the smaller vocabulary appears far more often in training, so its embedding is better estimated.`,
+        `**No unknown words.** A word-level model has to map unseen words to an unknown token. A subword model can compose an unseen word from pieces it knows.`,
+        `**The saving compounds with tying and factorisation.** A 32,000-token vocabulary, tied, factorised to 128 dimensions, is 32,000 times 128 — about 4.1 million parameters — instead of the original 51.2 million untied.`
+      ]},
+      { type: 'paragraph', text: `If you want to go further in the same direction, adaptive embeddings, from Baevski and Auli, give frequent words a larger embedding and rare words a smaller one, instead of giving every word the same size. Frequent words get the capacity they can actually use; rare words get a small vector, because they have too little data to train a large one. That is a refinement, not a first step — lead with tying and factorisation, and name adaptive embeddings as the next idea.` },
+      { type: 'h2', text: `What not to cut` },
+      { type: 'paragraph', text: `It is worth saying what you would *not* do, because the question is testing whether you know where the fat is. Cutting the hidden size from 512 to 256, or cutting layers, or cutting attention heads, cuts the part of the model that does the actual reasoning. Those cuts save parameters, but they cost perplexity almost immediately, because the model has less capacity to combine context.` },
+      { type: 'paragraph', text: `The embedding, by contrast, is mostly a lookup table. Shrinking a lookup table, tying it, and factorising it does not shrink the model's ability to reason — it shrinks the cost of naming 50,000 words. That is why the perplexity stays flat, or improves.` },
+      { type: 'h2', text: `So what's the actual answer?` },
+      { type: 'paragraph', text: `Do the arithmetic first: 50,000 times 512 is 25.6 million parameters per embedding matrix, and there are probably two of them. Tie the input and output embeddings to save one whole matrix, factorise the remaining one from 512 down to 128 dimensions with a small projection, and consider a smaller subword vocabulary so rare words stop costing you full rows. Together those cuts can take the embedding from 51.2 million parameters to around 4 to 6 million, without cutting the Transformer itself.` },
+      { type: 'quote', text: `Do not shrink the brain to save parameters. Shrink the dictionary.` },
+      { type: 'divider' },
+      { type: 'h2', text: `The whole thing in five sentences` },
+      { type: 'list', ordered: true, items: [
+        `A 50,000-word vocabulary at hidden size 512 is 25.6 million parameters per embedding matrix, and untied input and output matrices double that to 51.2 million.`,
+        `Tie the input and output embeddings: one matrix instead of two, saving 25.6 million parameters and often improving perplexity, because the shared matrix gets more gradient signal.`,
+        `Factorise the embedding, as in ALBERT: embed words in 128 dimensions and project up to 512, cutting the remaining matrix from 25.6 million to about 6.5 million parameters.`,
+        `Shrink the vocabulary itself with subwords, so rare words are built from frequent pieces instead of each getting a full, barely-trained row.`,
+        `Do not cut the hidden size, layers, or heads to save parameters — that cuts the model's reasoning capacity, while the embedding cuts only the cost of naming words.`
+      ]},
+      { type: 'callout', emoji: '📌', text: `A classic model-efficiency interview question. The numbers to remember are 50,000 x 512 = 25.6M, tying saves one whole matrix, and factorising to 128 saves about 75% more.` }
+    ]
+  },
 ];
