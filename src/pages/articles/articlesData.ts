@@ -38674,4 +38674,64 @@ WELLBEING METRICS (not engagement metrics):
       { type: 'callout', emoji: '📌', text: `A classic systems interview question. The terms to remember are online softmax, tiling in SRAM, and the materialised attention matrix.` }
     ]
   },
+  {
+    slug: 'moe-64-experts-specialize-load-balancing',
+    title: `Your Mixture-of-Experts Layer Has 64 Experts and the Load Is Evenly Spread Across Them. What Would You Change So They Specialize?`,
+    subtitle: `A plain-English guide to MoE specialization: why even load is the opposite of specialization, and how to let experts diverge without letting them die.`,
+    date: 'November 21, 2026',
+    readTime: '8 min read',
+    tags: ['Machine Learning', 'Transformers', 'Mixture of Experts', 'Interview Prep'],
+    coverEmoji: '🧩',
+    content: [
+      { type: 'callout', emoji: '🎯', text: `Interview question: "Your mixture-of-experts layer has 64 experts and the load is evenly spread across them. What would you change so they specialize?"` },
+      { type: 'paragraph', text: `Sixty-four experts, and every one of them gets the same share of the tokens. That sounds like a success — the load is balanced, no expert is overloaded, no expert is idle. But it is also a failure, in a specific sense: if every expert sees the same mix of tokens, every expert learns the same thing, and you have 64 copies of one expert, not 64 specialists.` },
+      { type: 'paragraph', text: `Stripped of jargon, the answer is just this: **even load is what the load-balancing loss was trained to produce, and it is the opposite of specialization. Reduce or remove that loss, and let the router concentrate — so each expert sees a distinct slice of the data and learns to be good at that slice.**` },
+      { type: 'h2', text: `Why even load means no specialization` },
+      { type: 'paragraph', text: `A mixture-of-experts layer routes each token to a few experts — usually the top 1 or 2 out of 64, chosen by a router. The router is trained, along with the experts, to send each token to the experts that will handle it best. Specialization is what happens when that routing becomes consistent: tokens about code go to one set of experts, tokens about maths go to another, tokens about a particular language go to a third, and each expert, seeing mostly one kind of token, becomes good at that kind.` },
+      { type: 'paragraph', text: `But specialization cannot happen if every expert sees the same distribution. If the load is perfectly even, each expert sees 1/64th of every kind of token — a random sample of the whole data, in the same proportions. There is nothing for an expert to specialize in, because there is nothing distinct about what it sees. The experts stay interchangeable, and the router has no reason to prefer one over another for any particular token, because they are all equally good — or equally mediocre — at everything.` },
+      { type: 'list', ordered: false, items: [
+        `**Specialization needs distinct inputs.** An expert can only become a code expert if it sees mostly code, a maths expert if it sees mostly maths, and so on. Even load gives every expert the same mix, so no expert gets a distinct input.`,
+        `**Specialization needs a feedback loop.** When an expert gets good at code, the router should send it more code, which makes it even better at code. Even load breaks that loop, because the router is forced to spread tokens evenly, even when one expert is clearly better for a token.`,
+        `**Sixty-four identical experts are one expert, 64 times.** The capacity of the layer is 64 times a single expert, but if they all learn the same function, the effective capacity is one expert. You are paying for 64 experts and getting the benefit of one.`
+      ]},
+      { type: 'quote', text: `Even load is not specialization. It is the router refusing to choose.` },
+      { type: 'h2', text: `The culprit: the load-balancing loss` },
+      { type: 'paragraph', text: `The reason the load is even is almost certainly the load-balancing loss — the auxiliary loss that is added to the training objective to encourage the router to spread tokens evenly across experts. It is usually a loss on the fraction of tokens each expert receives, or on the router's probabilities, and it penalises any expert that gets too many tokens and rewards spreading them out.` },
+      { type: 'paragraph', text: `That loss exists for a good reason: without it, the router can collapse. Early in training, one expert happens to be slightly better, the router sends it more tokens, it gets better faster, the router sends it even more tokens, and soon all tokens go to a few experts and the rest are dead — they never see a token, never get a gradient, and never learn. That is routing collapse, and the load-balancing loss was introduced to prevent it.` },
+      { type: 'paragraph', text: `But the loss is a blunt instrument. It does not distinguish between "one expert is getting too many tokens because it is collapsing" and "one expert is getting more tokens because it is the right expert for those tokens". It penalises both equally. With a strong load-balancing loss, and 64 experts, the router learns to spread tokens evenly regardless of what the tokens are, and specialization never gets a chance to start.` },
+      { type: 'callout', emoji: '💡', text: `The load-balancing loss was designed to prevent collapse, not to produce specialization. A strong one prevents both.` },
+      { type: 'h2', text: `The change: let the router concentrate` },
+      { type: 'paragraph', text: `The direct change is to reduce the weight of the load-balancing loss, or remove it entirely, and let the router concentrate tokens where they belong. That is the first and most important change, and it is the one the question is pointing at.` },
+      { type: 'list', ordered: false, items: [
+        `**Lower the auxiliary loss coefficient.** If the load-balancing loss has a coefficient of 0.01, try 0.001, or 0. Turn it down gradually, and watch both the load and the specialization. You want the load to become uneven — some experts getting more tokens than others, because they are the right experts for more tokens — without collapsing to a few experts.`,
+        `**Use auxiliary-free load balancing, as in DeepSeek-V3.** Instead of a loss that penalises uneven load, add a bias to each expert's router score, and adjust that bias during training: if an expert is overloaded, lower its bias; if it is underloaded, raise it. The bias keeps the load roughly balanced without a loss term in the objective, so the router is free to specialize and the bias only nudges it away from collapse. The router learns specialization; the bias handles balance.`,
+        `**Use expert-choice routing.** Flip the routing around: instead of each token choosing its top experts, each expert chooses its top tokens. Every expert is guaranteed to get the same number of tokens — so no expert dies — but each expert chooses the tokens it is best at, so each expert sees a distinct, self-selected slice. That is specialization by construction, with load balance built in.`
+      ]},
+      { type: 'paragraph', text: `Notice the pattern: all of these keep the load from collapsing, but they do it without forcing the load to be even. They let the router make a choice, and they only intervene when that choice would kill an expert.` },
+      { type: 'h2', text: `What else would you change?` },
+      { type: 'paragraph', text: `Reducing the load-balancing loss is the first change. But specialization also needs the right conditions, and there are several more changes that help it emerge.` },
+      { type: 'list', ordered: false, items: [
+        `**Give the router something to route on.** If the tokens are all similar, or if the router only sees a small hidden state, it cannot tell code from maths, and it cannot specialize. A larger router, or a router that sees more context, can make finer distinctions, and finer distinctions are what specialization is made of.`,
+        `**Train longer, and on diverse data.** Specialization is a slow process: an expert has to see enough of its slice to get good at it, and the router has to see enough examples to learn to send it that slice. With 64 experts, each one sees only a small fraction of the data, so it needs more training steps, and more diverse data, to find its niche.`,
+        `**Use fewer active experts per token, or more experts overall.** With top-2 routing out of 64, each token touches two experts, and the overlap between experts is high. With top-1 routing, each token touches one expert, and the separation is sharper. Conversely, with more experts — 128 or 256, with fine-grained experts as in DeepSeek — each expert is smaller and more specialised, because there are more niches to fill.`,
+        `**Measure specialization, not just load.** Track, for each expert, what kind of tokens it receives — by domain, by language, by token type — and how different its input distribution is from the average. If the distributions are all the same, there is no specialization, no matter how even the load is. If they are distinct, specialization is happening, even if the load is uneven.`
+      ]},
+      { type: 'paragraph', text: `There is also a diagnostic worth naming: check whether the experts are actually different from each other. Compare their weights, or their outputs on the same input. If 64 experts produce nearly the same output, they have not specialised, and the router is not doing any useful work — you could replace the MoE layer with a single dense layer and get the same result. If their outputs differ systematically by input type, specialization is real.` },
+      { type: 'h2', text: `How would you check it worked?` },
+      { type: 'paragraph', text: `Do not just look at the load. Look at the routing distribution by token type: for each expert, what fraction of its tokens are code, maths, English, and so on, and how does that compare to the overall mix? A specialised expert will have a skewed distribution — mostly one kind of token — while a generic expert will have the same distribution as the data. Also measure the model's performance when you ablate experts: if removing one expert hurts only code performance, that expert was a code specialist; if removing any expert hurts everything equally, none of them were specialists.` },
+      { type: 'h2', text: `So what's the actual answer?` },
+      { type: 'paragraph', text: `Even load across 64 experts means no specialization, because every expert sees the same mix of tokens and learns the same thing. That evenness is produced by the load-balancing loss, which penalises any expert that gets more tokens, even when it deserves them. Reduce or remove that loss, or replace it with auxiliary-free load balancing — a per-expert bias that nudges the load without a loss term — or use expert-choice routing, where each expert picks its own tokens. Let the router concentrate, so each expert sees a distinct slice and learns to be good at that slice, while keeping a mechanism that prevents collapse to a few experts.` },
+      { type: 'quote', text: `You do not get specialization by spreading tokens evenly. You get it by letting the router choose — and only stepping in when that choice would kill an expert.` },
+      { type: 'divider' },
+      { type: 'h2', text: `The whole thing in five sentences` },
+      { type: 'list', ordered: true, items: [
+        `Even load across 64 experts means each expert sees the same mix of tokens, so they all learn the same thing and the layer has the effective capacity of one expert.`,
+        `That evenness is produced by the load-balancing loss, which penalises uneven load even when uneven load is the right answer for a token.`,
+        `Reduce the loss coefficient, or remove it, and let the router concentrate tokens on the experts that handle them best.`,
+        `Use auxiliary-free load balancing, as in DeepSeek-V3, or expert-choice routing, to prevent collapse without forcing even load.`,
+        `Measure specialization by the input distribution of each expert, not by the load — a specialised expert sees a skewed, distinct slice of the data.`
+      ]},
+      { type: 'callout', emoji: '📌', text: `A classic MoE interview question. The terms to remember are load-balancing loss, routing collapse, and auxiliary-free load balancing.` }
+    ]
+  },
 ];
