@@ -38965,4 +38965,57 @@ WELLBEING METRICS (not engagement metrics):
       { type: 'callout', emoji: '📌', text: `A classic attention interview question. The term to remember is softmax invariance to a constant — and the fix is an interaction, not a sum.` }
     ]
   },
+  {
+    slug: 'gpt-no-positional-encodings-causal-mask-position',
+    title: `You Forgot Positional Encodings in a GPT-Style Decoder with a Causal Mask. Where Is the GPT Model Getting Position From?`,
+    subtitle: `A plain-English guide to NoPE: why a causal mask alone gives a Transformer position, and why forgetting positional encodings does not make it position-blind.`,
+    date: 'November 21, 2026',
+    readTime: '8 min read',
+    tags: ['Machine Learning', 'NLP', 'Transformers', 'Interview Prep'],
+    coverEmoji: '📍',
+    content: [
+      { type: 'callout', emoji: '🎯', text: `Interview question: "You forgot positional encodings in a GPT-style decoder with a causal mask. Where is the GPT model getting position from?"` },
+      { type: 'paragraph', text: `You forgot the positional encodings. The model should be position-blind — a Transformer without positional information is permutation-invariant, so shuffling the tokens should not change the output. But it is not position-blind. It still knows, roughly, where each token is, and it still generates coherent text in order. Something is giving it position, and it is not the encodings you forgot.` },
+      { type: 'paragraph', text: `Stripped of jargon, the answer is just this: **the causal mask itself is giving it position. A token at position i can attend to i tokens, a token at position j can attend to j tokens, so the amount of context a token can see tells the model where it is.**` },
+      { type: 'h2', text: `Why a Transformer without position would be blind — and why this one is not` },
+      { type: 'paragraph', text: `A Transformer without any positional information is permutation-equivariant: if you shuffle the input tokens, the outputs shuffle in the same way, and the model cannot tell the difference between "dog bites man" and "man bites dog", because the set of tokens is the same and the model treats them as a set. That is why positional encodings were added in the first place — to break that symmetry, and to tell the model which token came first.` },
+      { type: 'paragraph', text: `But the causal mask breaks the symmetry too, in a different way. A causal mask is a triangle: token 1 can attend only to itself, token 2 can attend to tokens 1 and 2, token 3 can attend to tokens 1, 2, and 3, and so on. The mask is not the same for every token. It is different at every position, and that difference is position information.` },
+      { type: 'list', ordered: false, items: [
+        `**Token 1 sees 1 token.** It can only attend to itself. That makes it unique — it is the only token with a context of size 1.`,
+        `**Token 2 sees 2 tokens.** It can attend to itself and to token 1. That makes it different from token 1, and different from token 3.`,
+        `**Token i sees i tokens.** The size of the context a token can attend to is its position, plus one. The model can learn to read that size, and therefore to read its position.`
+      ]},
+      { type: 'quote', text: `The causal mask is a triangle. A triangle has a shape, and the shape is position.` },
+      { type: 'h2', text: `How the model reads position from the mask` },
+      { type: 'paragraph', text: `There are a few ways the model can extract position from the mask, and it learns them during training, without being told to. The first is the simplest: the softmax denominator. Attention is a weighted average over the tokens a token can attend to, normalised by the sum of the scores over those tokens. A token that can attend to 100 tokens has a denominator that is a sum over 100 terms. A token that can attend to 2 tokens has a denominator that is a sum over 2 terms. The scale of that denominator, and the scale of the resulting attention weights, depends on how many tokens were in the sum — which is the position.` },
+      { type: 'paragraph', text: `The second is the first token as an anchor. Token 1 is the only token that can only attend to itself, so its representation is distinctive, and every other token can attend to it. A token can learn to measure its distance from the start by how much it attends to token 1, or by how its representation differs from token 1's, and that distance is a relative position. That is why the first token in a GPT-style model often becomes a kind of "attention sink" — it is a stable anchor that later tokens can use to orient themselves.` },
+      { type: 'paragraph', text: `The third is counting, through the layers. In the first layer, a token's representation is a function of the tokens it can attend to, which is a function of its position. In the second layer, it attends to representations that already encode position, so the position signal compounds. After several layers, the model has built a representation of position that is good enough to order tokens, to know which came first, and to generate the next token in the right place — even though no positional encoding was ever added.` },
+      { type: 'paragraph', text: `That is the finding of the NoPE paper — "No Positional Encoding", Kazemnejad and colleagues, 2023. A Transformer decoder with a causal mask and no positional encodings at all can learn position from the mask alone, and it can perform surprisingly well, including on tasks that seem to require position. It is not as good as a model with RoPE on every task, but it is far from position-blind, and on some tasks — especially length generalisation, where it has to handle sequences longer than it was trained on — it can actually do better, because it has not memorised absolute positions that do not generalise.` },
+      { type: 'callout', emoji: '💡', text: `The mask is not just a constraint on what a token can see. It is information about where the token is. The model learns to read it.` },
+      { type: 'h2', text: `What it can and cannot do without positional encodings` },
+      { type: 'paragraph', text: `Position from the mask is real, but it is weaker and less direct than position from an encoding. It is mostly relative position — how far a token is from the start, or from another token — rather than absolute position, and it is learned, not given, so it has to be inferred from the context size, which is a noisy signal.` },
+      { type: 'list', ordered: false, items: [
+        `**It can order tokens.** It knows which token came first, which came second, and so on, well enough to generate coherent text and to do most language modelling tasks.`,
+        `**It can learn relative distances.** It can tell that two tokens are close together or far apart, by how their contexts overlap, and that is often what matters for language.`,
+        `**It struggles with absolute position.** If a task needs to know "this is token 47, exactly", rather than "this is near the start", the mask signal is weaker than an explicit encoding, and the model may need more layers or more training to learn it.`,
+        `**It generalises to longer sequences better.** Because it never memorised absolute positions up to the training length, it does not break when the sequence is longer than that. That is NoPE's main advantage, and the reason it is studied.`
+      ]},
+      { type: 'paragraph', text: `That is also why forgetting positional encodings does not make the model fail outright. It makes it a NoPE model, and NoPE models work — they just work by learning position from the mask, instead of being given it.` },
+      { type: 'h2', text: `How would you check it?` },
+      { type: 'paragraph', text: `Shuffle the input tokens, with the causal mask still applied to the shuffled order, and see if the output changes. If it does, the model is using position — because a position-blind model would be invariant to the shuffle. Then probe the representations: train a small linear probe to predict a token's position from its hidden state, and see how accurately it can do it. In a NoPE model, that probe will be surprisingly accurate, especially in the later layers, which is direct evidence that position is encoded in the representations, even though no positional encoding was added.` },
+      { type: 'h2', text: `So what's the actual answer?` },
+      { type: 'paragraph', text: `The model is getting position from the causal mask itself. A token at position i can attend to i tokens, so the size of its context is its position, and the model can learn to read that — from the softmax denominator, from the first token as an anchor, and from the way position compounds through the layers. Without the causal mask, a Transformer with no positional encodings would be permutation-invariant and position-blind. With it, it is a NoPE model, and it can learn position well enough to generate coherent text, and to generalise to longer sequences than it was trained on.` },
+      { type: 'quote', text: `You did not forget position. You forgot to add it explicitly. The causal mask was adding it implicitly all along.` },
+      { type: 'divider' },
+      { type: 'h2', text: `The whole thing in five sentences` },
+      { type: 'list', ordered: true, items: [
+        `A Transformer with no positional information is permutation-invariant, but a causal mask breaks that symmetry, because each token can attend to a different number of tokens.`,
+        `Token i can attend to i tokens, so the size of its context is its position, and the model can learn to read that size.`,
+        `It reads it from the softmax denominator, from the first token as an anchor, and from the way position compounds through the layers.`,
+        `That is NoPE — no positional encoding — and it works surprisingly well, especially for length generalisation.`,
+        `It is weaker on absolute position than an explicit encoding like RoPE, but it is far from position-blind.`
+      ]},
+      { type: 'callout', emoji: '📌', text: `A classic Transformer interview question. The term to remember is NoPE — and the mask is the position.` }
+    ]
+  },
 ];
