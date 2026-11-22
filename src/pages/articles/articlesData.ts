@@ -37542,4 +37542,73 @@ WELLBEING METRICS (not engagement metrics):
       { type: 'callout', emoji: '📌', text: `A classic training-systems interview question. The formula to remember is: total token loss divided by total non-padding tokens.` }
     ]
   },
+  {
+    slug: 'gptq-3-bit-quantization-calibration',
+    title: `Round Every Weight of a Large Model to the Nearest 3-Bit Value, One Matrix at a Time, and Perplexity Blows Up. With a Few Hundred Calibration Samples and No Retraining, How Would You Quantize It?`,
+    subtitle: `A plain-English guide to GPTQ: why round-to-nearest fails at 3 bits, and how Hessian-based error compensation fixes it, one column at a time.`,
+    date: 'November 21, 2026',
+    readTime: '8 min read',
+    tags: ['Machine Learning', 'Inference', 'Model Compression', 'Interview Prep'],
+    coverEmoji: '🔢',
+    content: [
+      { type: 'callout', emoji: '🎯', text: `Interview question: "Round every weight of a large model to the nearest 3-bit value, one matrix at a time, and perplexity blows up. With a few hundred calibration samples and no retraining, how would you quantize it?"` },
+      { type: 'paragraph', text: `Three bits means eight possible values. That is the whole problem, and also the whole clue. If you take a weight matrix, look at each weight on its own, and snap it to the nearest of those eight values, you are treating every weight as if it mattered equally, and as if its error stayed local. Neither is true.` },
+      { type: 'paragraph', text: `Stripped of jargon, the answer is just this: **do not round each weight independently. Round them one at a time, and let the weights you have not rounded yet absorb the error you just made.**` },
+      { type: 'h2', text: `Why round-to-nearest blows up at 3 bits` },
+      { type: 'paragraph', text: `At 16 bits or even 8 bits, round-to-nearest mostly works. The grid is fine enough that the rounding error for each weight is small, and the errors partly cancel out. At 3 bits, the grid is coarse, and three things go wrong at once.` },
+      { type: 'list', ordered: false, items: [
+        `**A few weights matter far more than the rest.** Some input channels have much larger activations than the others. A small error on a weight feeding a huge activation becomes a huge error in the output. Round-to-nearest does not know which weights those are — it treats a sensitive weight and an irrelevant weight exactly the same.`,
+        `**Outliers stretch the grid.** A handful of very large weights force the eight levels to spread out to cover them, so the levels are far apart where most of the weights actually live. Most weights then get rounded to a level that is nowhere near them.`,
+        `**Errors compound, layer by layer.** You quantize one matrix, its output is now slightly wrong, and that wrong output is the input to the next matrix, which you then quantize too. By the end of the model, the errors have multiplied, and perplexity blows up — even though each individual matrix looked "close" on its own.`
+      ]},
+      { type: 'paragraph', text: `That last point is why the question says "one matrix at a time". Quantizing matrices independently, with no information about what the layer actually does, is exactly what fails. You need the layer's real inputs to know which errors hurt.` },
+      { type: 'quote', text: `At 3 bits, the question is not "how close is each weight to a grid point?" It is "how much does this weight's error change the layer's output on real data?"` },
+      { type: 'h2', text: `The fix: GPTQ, layer by layer, with error compensation` },
+      { type: 'paragraph', text: `The standard answer is GPTQ, from Frantar et al. (2022). It uses a few hundred calibration samples — just forward passes, no training, no gradients — to learn how sensitive each weight is, and then it quantizes each layer in a way that compensates for its own errors as it goes.` },
+      { type: 'paragraph', text: `The idea has two parts, and both matter.` },
+      { type: 'h3', text: `1. Use the calibration data to measure sensitivity` },
+      { type: 'paragraph', text: `Run a few hundred real inputs through the layer and collect its inputs. From those inputs you build a Hessian matrix, roughly the second-order information about how the layer's output changes when you change its weights. In practice the Hessian is built from the input activations: weights that multiply large, frequently-active inputs get a large Hessian entry, which means "an error here hurts a lot". Weights that multiply tiny or rare inputs get a small entry, which means "an error here barely matters".` },
+      { type: 'paragraph', text: `That is the whole role of the calibration samples. They are not training data. They are a measuring instrument. A few hundred samples are enough because you only need the statistics of the activations, not a full training set — and you only need them per layer, one layer at a time, so the Hessian for one layer is small enough to work with.` },
+      { type: 'h3', text: `2. Quantize one column at a time, and push the error forward` },
+      { type: 'paragraph', text: `Now quantize the weight matrix column by column. For each column, round its weights to the nearest 3-bit value — that part is still round-to-nearest. But then, before you move on, you compute the error you just made, and you adjust all the columns you have not quantized yet to compensate for it.` },
+      { type: 'paragraph', text: `If you rounded a weight up a little too far, you nudge the remaining weights down a little, in exactly the direction that cancels the error in the layer's output, as measured by the Hessian. The next column is then quantized from its adjusted value, not its original value, and the same compensation happens again.` },
+      { type: 'list', ordered: false, items: [
+        `**Quantize column i, get error e.** The difference between the original weight and its quantized value.`,
+        `**Spread e over the remaining columns, weighted by the Hessian.** Columns whose errors would hurt the output most get the most careful correction; the correction is chosen to keep the layer's output as close as possible to the original.`,
+        `**Move to column i+1 and repeat.** By the end, the total error of the whole matrix is far smaller than if you had rounded everything independently, because every rounding error was partially absorbed by the weights that came after it.`
+      ]},
+      { type: 'paragraph', text: `The order matters too. GPTQ processes columns in an order based on activation magnitude — the most sensitive columns first, or in the "act-order" variant, in decreasing order of Hessian diagonal — so the most important weights get quantized while there are still many unquantized weights left to absorb their errors.` },
+      { type: 'callout', emoji: '💡', text: `GPTQ is not a better rounding rule. It is a better error-accounting rule: every error you make is paid for, immediately, by the weights you have not touched yet.` },
+      { type: 'h2', text: `Two practical details that make 3 bits work` },
+      { type: 'list', ordered: false, items: [
+        `**Group-wise quantization.** Do not use one scale for a whole row or a whole matrix. Split each row into small groups — 128 weights is the standard size — and give each group its own scale and zero-point. That way one outlier in a group cannot stretch the grid for the whole row, and most groups get a tight grid that fits their actual weights. At 3 bits, grouping is not optional; without it, the grid is too coarse to be useful.`,
+        `**Keep the Hessian well-behaved.** The compensation step needs the inverse of the Hessian, which is computed with a Cholesky decomposition. In practice you add a small damping term to the diagonal so the inverse does not blow up on rarely-active directions. That damping is a hyperparameter, but it is a small one — the algorithm is not very sensitive to it.`
+      ]},
+      { type: 'paragraph', text: `With those two in place, GPTQ at 3 bits typically keeps perplexity close to the original model, where round-to-nearest collapses. At 4 bits the gap is smaller; at 2 bits even GPTQ struggles, which is why 3 and 4 bits are the usual operating points for this method.` },
+      { type: 'h2', text: `What about AWQ?` },
+      { type: 'paragraph', text: `A good answer names the other method in the same family, because the interviewer may be expecting it. AWQ, activation-aware weight quantization, attacks the same sensitivity problem from the other side: instead of compensating for errors after rounding, it scales the weights before rounding, based on activation magnitude.` },
+      { type: 'paragraph', text: `AWQ finds the small set of salient weights — often about 1% — whose input activations are huge, and scales those weights up and their corresponding activations down, so the salient weights get more of the grid's resolution and are protected from large rounding errors. It also uses calibration data, and it also needs no retraining.` },
+      { type: 'paragraph', text: `The difference to state in an interview: GPTQ compensates for rounding errors using the Hessian, column by column; AWQ protects salient weights by scaling them before rounding. Both beat round-to-nearest at 3 bits, and both are calibration-only. GPTQ is the direct answer to "how do you quantize one matrix at a time, with no retraining", because its whole algorithm is layer-wise error compensation.` },
+      { type: 'h2', text: `How would you check it worked?` },
+      { type: 'paragraph', text: `Do not just report that the weights are now 3-bit. Check the thing that blew up in the first place: perplexity, on held-out text that was not in your calibration set.` },
+      { type: 'list', ordered: false, items: [
+        `**Perplexity on a held-out set, layer by layer.** Quantize one layer, measure perplexity, then the next. If perplexity jumps after a particular layer, that layer's Hessian or grouping is the problem, not the whole method.`,
+        `**Compare against round-to-nearest at the same bit-width.** The point of GPTQ is the gap between the two. If GPTQ and round-to-nearest give the same perplexity, your compensation is not working — check the Hessian, the damping, and whether you are actually updating the remaining weights.`,
+        `**Check the calibration set is not the test set.** A few hundred calibration samples are enough to measure activation statistics, but if you evaluate on those same samples, you will overestimate how good the quantization is. Use separate text for evaluation.`
+      ]},
+      { type: 'h2', text: `So what's the actual answer?` },
+      { type: 'paragraph', text: `Do not round each weight independently. Use a few hundred calibration samples to build a Hessian for each layer, then quantize that layer column by column with GPTQ: round one column, compute the error, and adjust the remaining columns to compensate for it, using the Hessian to weight the correction. Use group-wise quantization with a group size of 128 so outliers do not stretch the grid.` },
+      { type: 'quote', text: `Round-to-nearest asks "what is the closest grid point?" GPTQ asks "what is the cheapest error, given what this layer actually does on real inputs — and who can pay for it?"` },
+      { type: 'divider' },
+      { type: 'h2', text: `The whole thing in five sentences` },
+      { type: 'list', ordered: true, items: [
+        `Round-to-nearest fails at 3 bits because a few sensitive weights and outliers matter far more than the rest, and errors compound layer by layer.`,
+        `GPTQ fixes it with a few hundred calibration samples, used only to build a Hessian that measures how much each weight's error changes the layer's output.`,
+        `It then quantizes each layer column by column, rounding one column and adjusting the unquantized columns to compensate for that error, weighted by the Hessian.`,
+        `Group-wise quantization, usually groups of 128, gives each group its own scale so outliers do not stretch the grid for the whole row.`,
+        `Check it by measuring perplexity on held-out text, layer by layer, and comparing against round-to-nearest at the same bit-width — AWQ is the related alternative, which protects salient weights by scaling them before rounding.`
+      ]},
+      { type: 'callout', emoji: '📌', text: `A classic model-compression interview question. The terms to remember are GPTQ, Hessian, error compensation, and group size 128.` }
+    ]
+  },
 ];
