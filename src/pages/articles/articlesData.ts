@@ -42531,4 +42531,56 @@ WELLBEING METRICS (not engagement metrics):
       { type: 'callout', emoji: '📌', text: `The interview line: diffusion predicts the noise on expert paths with an L2 loss — and DiffusionDrive is fast because it starts from anchor paths, not pure noise, so 2 steps are enough.` }
     ]
   },
+  {
+    slug: 'monocular-vs-stereo-vision-two-eyes-measure',
+    title: `One Eye Guesses. Two Eyes Measure: Monocular vs Stereo Vision`,
+    subtitle: `A plain-English guide to why one camera can only guess depth — and how a second camera turns that guess into a measurement.`,
+    date: 'November 22, 2026',
+    readTime: '8 min read',
+    tags: ['Computer Vision', 'Robotics', 'Perception', 'Interview Prep'],
+    coverEmoji: '👁️',
+    content: [
+      { type: 'callout', emoji: '🎯', text: `Post: "One eye guesses. Two eyes measure. Monocular vs. Stereo Vision." — the difference between estimating depth from one image and measuring it with two.` },
+      { type: 'paragraph', text: `Close one eye and hold your thumb up at arm's length. Now close the other eye instead. Your thumb jumps sideways against the background. That jump is the whole story: with one eye you are guessing how far away things are, and with two eyes you are measuring it.` },
+      { type: 'paragraph', text: `Stripped of jargon, the answer is just this: **a single camera flattens the world into a 2D image, and depth is lost in that flattening — every point along the same ray lands on the same pixel, so one eye has to guess depth from learned clues. Two cameras, a known distance apart, see the same point from two places, and the shift between the two views — the disparity — gives depth by triangulation. That is a measurement, not a guess.**` },
+      { type: 'h2', text: `What one eye actually sees` },
+      { type: 'paragraph', text: `A camera is a projection. A 3D point in the world is mapped onto a 2D pixel, and in that mapping one dimension simply disappears: depth. A small toy car held close to the lens and a real car far away can produce exactly the same image. From the pixels alone, there is no way to tell them apart — the information is gone, not hidden.` },
+      { type: 'paragraph', text: `So a single eye — or a single camera — has to cheat. It guesses depth from cues it has learned: things that look bigger are usually closer; things that overlap are in front; parallel lines converge toward a vanishing point; familiar objects have a known size, so a car that fills half the image must be near. All of these are priors — statistical bets learned from experience, not measurements. They work most of the time, and they fail exactly when the scene breaks the prior: an unfamiliar object, a trick of scale, a flat textureless wall.` },
+      { type: 'list', ordered: false, items: [
+        `**Scale ambiguity is fundamental.** A monocular image cannot distinguish a small thing nearby from a big thing far away. The image is identical; only prior knowledge separates them.`,
+        `**Every cue is a guess with an error bar.** Relative size, occlusion, perspective, shading, motion parallax — each one is evidence, not proof. Combine enough of them and the guess gets good, but it is still a guess.`,
+        `**Learned depth inherits the training data.** A neural network that estimates depth from one image is really a very good guesser: it has memorised what depth usually looks like for scenes like the ones it was trained on, and it extrapolates. Show it something out of distribution and the guess degrades silently.`
+      ]},
+      { type: 'h2', text: `What the second eye adds` },
+      { type: 'paragraph', text: `Add a second camera a known distance away — the baseline — and the geometry changes completely. The same 3D point now appears in both images, at slightly different positions. That shift is the disparity, and it is directly tied to depth: close things shift a lot between the two views, far things barely shift at all.` },
+      { type: 'code', language: 'text', code: `depth  Z = f · B / d\n\nf  = focal length of the cameras\nB  = baseline — the distance between the two cameras\nd  = disparity — how far the point shifts between the two images\n\nClose object  → large disparity  → small Z\nFar object    → small disparity  → large Z` },
+      { type: 'paragraph', text: `That formula is a measurement. If you know the focal length, the baseline, and the disparity, you get the depth — no prior about what the object is, no memorised scene statistics. A stereo pair can measure the depth of a white wall, a textureless box, or an object it has never seen before, as long as it can match the same point in both images. That is the sense in which two eyes measure and one eye guesses.` },
+      { type: 'quote', text: `One image is a projection: depth is lost, and everything after that is inference. Two images restore the missing dimension — the shift between them is depth, measured.` },
+      { type: 'h2', text: `Why the measurement is not free` },
+      { type: 'paragraph', text: `Stereo vision has to solve one hard problem first: matching. To compute the disparity you have to find the same point in both images — the correspondence problem. On a textured surface that is easy: a corner or a speck looks the same from both cameras. On a blank white wall there is nothing to match, and stereo fails exactly where a monocular guesser would also struggle, for a different reason.` },
+      { type: 'list', ordered: false, items: [
+        `**Baseline is a trade-off.** A wider baseline makes the disparity bigger and the depth more accurate, especially far away — but it also makes matching harder, because the two views look more different, and more of the scene is occluded in one view but not the other.`,
+        `**Depth error grows with the square of distance.** Because depth is inversely proportional to disparity, a one-pixel error in matching matters little up close and a lot far away. Stereo is precise nearby and vague at range — which is why robots use it for manipulation and docking, not for mapping a distant hill.`,
+        `**Calibration is everything.** The formula only works if you know the focal length and the baseline exactly. A millimetre of error in the baseline, or a camera that drifts out of calibration, turns the measurement into a wrong measurement — worse, in a way, than a guess, because it arrives with false confidence.`
+      ]},
+      { type: 'h2', text: `So which one should a robot use?` },
+      { type: 'paragraph', text: `It depends on what failure costs. A robot arm picking up a part needs depth it can trust to a millimetre, for an object it may never have seen — that is stereo, or a depth sensor doing the same triangulation with projected light. A delivery drone flying down a street can tolerate a good guess, and it cannot afford two calibrated cameras and the compute to match every pixel — that is monocular depth, learned, with all its priors. Most real systems use both: stereo where it is reliable, monocular cues where stereo has nothing to match, and motion — structure from motion — as a third source, because a moving single camera is, over time, many cameras.` },
+      { type: 'paragraph', text: `The rule of thumb for an interview answer: one camera gives you a 2D projection and depth has to be inferred from priors, so it is a guess with scale ambiguity; two cameras give you disparity, and disparity plus a known baseline gives depth by triangulation, so it is a measurement — accurate up close, degrading with distance, and only as good as the matching and the calibration.` },
+      { type: 'h2', text: `How would you check it?` },
+      { type: 'paragraph', text: `Put a textured object at a known distance, measure the disparity between the two camera images, and compute depth from f · B / d. Compare against a ruler or a lidar reading. Then repeat with a blank wall, a reflective surface, and a far-away object: the blank wall should break the matching, the reflective surface should give inconsistent disparities, and the far object should show the depth error growing. That is the experiment that separates the measurement from the guess — the stereo system is right where it can match, and honest about where it cannot.` },
+      { type: 'h2', text: `So what's the actual answer?` },
+      { type: 'paragraph', text: `One eye guesses because a single image is a 2D projection: depth is destroyed in the projection, so the only way to recover it is learned priors — size, occlusion, perspective — and those priors carry scale ambiguity and fail on unfamiliar scenes. Two eyes measure because a second camera at a known baseline sees the same point shifted by the disparity, and depth is f · B / d: a geometric measurement that needs no prior about the object. The price is the correspondence problem, a baseline trade-off, depth error that grows with distance squared, and total dependence on calibration. Use stereo where a wrong depth is expensive and the scene is close and matchable; use monocular where a good guess is enough and the hardware budget is tight.` },
+      { type: 'quote', text: `Close one eye, then the other: your thumb jumps. That jump is disparity — and disparity is depth, measured instead of guessed.` },
+      { type: 'divider' },
+      { type: 'h2', text: `The whole thing in five sentences` },
+      { type: 'list', ordered: true, items: [
+        `A single camera projects the 3D world onto 2D, and depth is lost in that projection — every point along a ray lands on the same pixel.`,
+        `One eye therefore recovers depth only from learned cues like size, occlusion and perspective, which are priors, not measurements, and carry scale ambiguity.`,
+        `Two cameras a known baseline apart see the same point shifted between views, and that disparity gives depth by triangulation: Z = f · B / d.`,
+        `Stereo is a measurement — no prior about the object needed — but it needs matching, calibration, and it gets vague with distance, since depth error grows with distance squared.`,
+        `Use stereo where wrong depth is expensive and the scene is close; use monocular where a good guess is enough.`
+      ]},
+      { type: 'callout', emoji: '📌', text: `Source: @hyperhorizon.ig on Instagram — "One eye guesses. Two eyes measure. Monocular vs. Stereo Vision." (August 25, 2026). The term to remember is disparity: the shift between two views is depth, measured.` }
+    ]
+  },
 ];
