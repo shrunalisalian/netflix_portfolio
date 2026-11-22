@@ -38734,4 +38734,61 @@ WELLBEING METRICS (not engagement metrics):
       { type: 'callout', emoji: '📌', text: `A classic MoE interview question. The terms to remember are load-balancing loss, routing collapse, and auxiliary-free load balancing.` }
     ]
   },
+  {
+    slug: 'bf16-late-training-flat-weight-update-rounding',
+    title: `A bf16 Run with No Overflow and No NaNs Tracks Its fp32 Baseline for Most of Training, Then Goes Flat Late While the fp32 Run Keeps Improving. Why Does It Stop Improving?`,
+    subtitle: `A plain-English guide to bf16's late-training stall: why small weight updates vanish in 7 bits of mantissa, and how master weights in fp32 fix it.`,
+    date: 'November 21, 2026',
+    readTime: '8 min read',
+    tags: ['Machine Learning', 'LLM Training', 'Systems', 'Interview Prep'],
+    coverEmoji: '📏',
+    content: [
+      { type: 'callout', emoji: '🎯', text: `Interview question: "A bf16 run with no overflow and no NaNs tracks its fp32 baseline for most of training, then goes flat late while the fp32 run keeps improving. Why does it stop improving?"` },
+      { type: 'paragraph', text: `No overflow, no NaNs, and for most of training the bf16 run is indistinguishable from the fp32 baseline. Then, late in training, it goes flat. The loss stops falling, the metrics stop improving, and the fp32 run keeps getting better. Nothing crashed. Nothing overflowed. The model just stopped learning.` },
+      { type: 'paragraph', text: `Stripped of jargon, the answer is just this: **bf16 has only 7 bits of mantissa, so a weight update that is smaller than about half a percent of the weight rounds to nothing. Late in training, when the learning rate has decayed and the updates are tiny, the updates vanish — w plus Δw equals w in bf16 — and the weights stop changing.**` },
+      { type: 'h2', text: `What bf16 actually is` },
+      { type: 'paragraph', text: `bf16 — brain float 16 — has 1 sign bit, 8 exponent bits, and 7 mantissa bits. The 8 exponent bits are the same as fp32, which is why it has the same range as fp32, and why it does not overflow or underflow where fp16 would. That is the point of bf16: same range, less precision.` },
+      { type: 'paragraph', text: `Less precision is the price. With 7 mantissa bits, there are only 128 values between one power of two and the next. The spacing between two adjacent bf16 numbers is about 1 in 128, or about 0.78%, of the number itself. That is the relative precision of bf16, and it is coarse: a bf16 number is only accurate to about two or three decimal digits.` },
+      { type: 'list', ordered: false, items: [
+        `**fp32:** 23 mantissa bits, spacing about 1 in 8 million, relative precision about 0.00001%.`,
+        `**bf16:** 7 mantissa bits, spacing about 1 in 128, relative precision about 0.78%.`,
+        `**fp16:** 10 mantissa bits, spacing about 1 in 1,024, but only 5 exponent bits, so a much smaller range — which is why fp16 overflows and bf16 does not.`
+      ]},
+      { type: 'quote', text: `bf16 did not overflow. It rounded. And rounding, repeated millions of times, is what stopped the training.` },
+      { type: 'h2', text: `Why the update vanishes` },
+      { type: 'paragraph', text: `Training is a weight update: w becomes w plus Δw, where Δw is the learning rate times the gradient, adjusted by the optimiser. Early in training, the learning rate is large and the gradients are large, so Δw is large compared to w — large enough that w plus Δw is a different bf16 number from w, and the weight actually moves.` },
+      { type: 'paragraph', text: `Late in training, two things have changed. The learning rate has decayed, often by a factor of 10 or 100, so Δw is 10 or 100 times smaller. And the gradients have shrunk too, because the model is closer to a minimum. So Δw becomes a tiny fraction of w — often far below 0.78% of w, which is the spacing between bf16 numbers.` },
+      { type: 'paragraph', text: `When Δw is smaller than half the spacing, w plus Δw rounds back to w. The update is computed, the optimiser does its work, and then the addition discards it, because the result is not representable in bf16. The weight does not move, not by a little — by nothing at all. Do that for every weight, every step, and the model stops improving, even though the gradients are still non-zero and the fp32 run, with its far finer spacing, is still moving its weights by those same tiny amounts and still improving.` },
+      { type: 'code', language: 'text', code: `bf16 spacing at w = 1.0 is about 0.0078\nIf Δw = 0.001, then in bf16:\n  1.0 + 0.001 = 1.0   <- update lost\nIn fp32:\n  1.0 + 0.001 = 1.001 <- update kept` },
+      { type: 'paragraph', text: `That is why it tracks the baseline for most of training and then goes flat late. Early on, the updates are large enough to survive bf16 rounding. Late, when the learning rate has decayed and the updates are small, they are not. The stall is not a sudden failure — it is the moment the updates fall below the bf16 rounding threshold, and that moment comes late because the learning rate decays late.` },
+      { type: 'callout', emoji: '💡', text: `No overflow and no NaNs is exactly what you expect from bf16. Its range is the same as fp32. The problem is not range, it is precision — and precision shows up as a stall, not a crash.` },
+      { type: 'h2', text: `Why it is not the gradients` },
+      { type: 'paragraph', text: `It is worth ruling out the other suspects, because they are the ones people usually check first. The gradients themselves are not the problem: they are computed in bf16, but a gradient that is small is still representable, because bf16's exponent range is wide. The loss is not the problem either, for the same reason. The problem is specifically the weight update — the addition of a small Δw to a much larger w — because that addition is where the relative precision matters. A small number added to a large number loses its low bits, and in bf16 there are only 7 bits to lose.` },
+      { type: 'paragraph', text: `The optimiser states make it worse, if they are also in bf16. Adam's first and second moments are running averages of the gradients, and if they are stored in bf16, they lose precision too — the second moment, which is a small number squared, can lose even more. But the primary culprit is the weights themselves: if the weights are bf16, the update is lost at the addition, no matter how accurate the optimiser states are.` },
+      { type: 'h2', text: `How would you fix it?` },
+      { type: 'paragraph', text: `The standard fix is mixed precision with master weights in fp32, and it is the fix that every large training run uses. Keep a copy of the weights in fp32 — the master weights — and do the optimiser step in fp32. Compute the forward and backward passes in bf16, for speed, but add the update to the fp32 master weights, where the spacing is fine enough that the tiny update survives. Then cast the master weights to bf16 for the next forward pass.` },
+      { type: 'list', ordered: false, items: [
+        `**Master weights in fp32.** The optimiser step is w_fp32 <- w_fp32 + Δw, in fp32, so the small update is kept. The bf16 weights used for the forward pass are a rounded copy, but the rounding is re-done from the fp32 master each step, so the small updates accumulate in fp32 instead of being lost.`,
+        `**Optimiser states in fp32.** Keep Adam's m and v in fp32 as well, so the moments do not lose precision. That is part of the standard mixed-precision recipe, and it costs memory — which is why pure bf16 training is tempting in the first place — but it is what makes the late-training updates survive.`,
+        `**Stochastic rounding.** If you must keep the weights in bf16, use stochastic rounding instead of round-to-nearest: round w plus Δw up with a probability proportional to how far it is from the next bf16 number, and down otherwise. On average, the small updates accumulate, instead of always rounding to zero. It is noisy, but it is unbiased, and it lets a bf16 weight move by small amounts over many steps.`,
+        `**Kahan summation, or a higher-precision accumulator.** Accumulate the updates in a separate fp32 buffer, and only apply them to the bf16 weights when the accumulated update is large enough to survive rounding. That is a cheaper version of master weights, and it works for the same reason: the small updates are kept somewhere with enough precision to hold them.`
+      ]},
+      { type: 'paragraph', text: `What you would not do is raise the learning rate late in training to make the updates bigger. That would make the updates survive rounding, but it would also make the model unstable, and it would undo the point of the learning-rate decay, which is to settle into a minimum. The fix is precision, not a larger step.` },
+      { type: 'h2', text: `How would you check it?` },
+      { type: 'paragraph', text: `Measure the fraction of weight updates that are lost to rounding. For each step, compute Δw divided by w, and count how many of those ratios are below half the bf16 spacing — about 0.4%. Early in training, that fraction should be small. Late, if the run is stalling, it will be large — most updates are below the threshold, and most weights are not moving. Compare that to the fp32 run, where the same updates are far above the fp32 spacing and all of them survive. That is the diagnostic, and it is a direct measurement of the mechanism, not a guess.` },
+      { type: 'h2', text: `So what's the actual answer?` },
+      { type: 'paragraph', text: `bf16 has only 7 mantissa bits, so its spacing is about 0.78% of the weight's magnitude. Late in training, the learning rate has decayed and the gradients have shrunk, so the weight updates become smaller than half that spacing, and w plus Δw rounds back to w in bf16 — the update is lost, the weights stop moving, and training goes flat. The fp32 run keeps improving because its spacing is about 1 in 8 million, so the same tiny updates still register. Fix it with master weights in fp32, with the optimiser step in fp32, or with stochastic rounding if the weights must stay in bf16.` },
+      { type: 'quote', text: `The model did not stop learning because it had nothing left to learn. It stopped because its weights could no longer move by the amount it needed to move them.` },
+      { type: 'divider' },
+      { type: 'h2', text: `The whole thing in five sentences` },
+      { type: 'list', ordered: true, items: [
+        `bf16 has 8 exponent bits, like fp32, so it does not overflow — but only 7 mantissa bits, so its spacing is about 0.78% of the number.`,
+        `Early in training, weight updates are large enough to survive that rounding, so the bf16 run tracks the fp32 baseline.`,
+        `Late in training, the learning rate has decayed and the gradients have shrunk, so the updates fall below half the bf16 spacing and round to nothing.`,
+        `w plus Δw equals w in bf16, the weights stop moving, and training goes flat while the fp32 run, with far finer spacing, keeps improving.`,
+        `Fix it with master weights and optimiser states in fp32, doing the optimiser step in fp32 and casting to bf16 for the forward pass — or with stochastic rounding.`
+      ]},
+      { type: 'callout', emoji: '📌', text: `A classic training-systems interview question. The terms to remember are mantissa, master weights, and update swamping.` }
+    ]
+  },
 ];
