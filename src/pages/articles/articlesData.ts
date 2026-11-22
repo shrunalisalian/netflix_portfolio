@@ -38379,4 +38379,60 @@ WELLBEING METRICS (not engagement metrics):
       { type: 'callout', emoji: '📌', text: `A classic fine-tuning interview question. The terms to remember are low-rank update, rank as a capacity knob, and catastrophic forgetting.` }
     ]
   },
+  {
+    slug: 'grpo-eight-answers-signal-fading',
+    title: `You're Training a Model on Math with RL, with Eight Answers per Problem, Each Scored Against Its Group's Average. Why Is the Signal Fading, and How Would You Keep It Up?`,
+    subtitle: `A plain-English guide to GRPO's vanishing signal: why groups where all eight answers are right, or all eight are wrong, teach the model nothing — and how to keep the problems at the right difficulty.`,
+    date: 'November 21, 2026',
+    readTime: '8 min read',
+    tags: ['Machine Learning', 'Reinforcement Learning', 'LLM Training', 'Interview Prep'],
+    coverEmoji: '📉',
+    content: [
+      { type: 'callout', emoji: '🎯', text: `Interview question: "You're training a model on math with RL, with eight answers per problem, each scored against its group's average. Why is the signal fading, and how would you keep it up?"` },
+      { type: 'paragraph', text: `Eight answers per problem, each one scored against the average of its group. That is GRPO — group relative policy optimisation — and it is the standard way to do RL on maths. It works, until it stops working. The gradients get smaller, the learning stalls, and the training curve flattens, even though the model is still far from perfect.` },
+      { type: 'paragraph', text: `Stripped of jargon, the answer is just this: **when all eight answers in a group are right, or all eight are wrong, the advantage is zero for every answer, so there is no gradient and nothing is learned. As the model improves, more and more problems become all-right, and the signal fades.**` },
+      { type: 'h2', text: `How GRPO scores an answer` },
+      { type: 'paragraph', text: `For each problem, the model samples eight answers. Each answer gets a reward — usually 1 if the final answer is correct, 0 if it is not. GRPO does not use that reward directly. It uses the advantage: how much better or worse this answer was than the average of its group.` },
+      { type: 'paragraph', text: `The advantage for an answer is its reward minus the group's mean reward, divided by the group's standard deviation. An answer that is correct when most of the group was wrong gets a large positive advantage, and the model is pushed towards it. An answer that is wrong when most of the group was right gets a large negative advantage, and the model is pushed away from it.` },
+      { type: 'code', language: 'text', code: `advantage = (reward - group_mean) / group_std\n\nGroup: 1, 1, 0, 0, 0, 0, 0, 0\n  mean = 0.25, std > 0\n  correct answers: advantage > 0\n  wrong answers:   advantage < 0   <- learning signal` },
+      { type: 'paragraph', text: `That is the whole learning signal. There is no value model, no absolute reward, no baseline from another source. The group is the baseline, and the group is all there is.` },
+      { type: 'list', ordered: false, items: [
+        `**A mixed group teaches.** If two of the eight answers are correct and six are wrong, the correct ones get a positive advantage and the wrong ones get a negative one. The model learns to do more of what the correct answers did, and less of what the wrong ones did.`,
+        `**An all-correct group teaches nothing.** If all eight answers are correct, the mean is 1, every reward minus the mean is 0, and every advantage is 0. The gradient is zero. The model already knows how to solve this problem, and GRPO has nothing to say about it.`,
+        `**An all-wrong group teaches nothing either.** If all eight answers are wrong, the mean is 0, every reward minus the mean is 0, and every advantage is 0 again. The model does not know how to solve this problem at all, and GRPO cannot tell it which of the eight wrong answers was closer, because they all got the same reward.`
+      ]},
+      { type: 'quote', text: `GRPO only learns from problems the model sometimes gets right and sometimes gets wrong. The rest are silent.` },
+      { type: 'h2', text: `Why the signal fades as training goes on` },
+      { type: 'paragraph', text: `At the start of training, most problems are mixed. The model is weak, so it gets some problems right by luck and others wrong, and the groups have variance. The signal is strong, and the model improves quickly.` },
+      { type: 'paragraph', text: `As the model improves, the easy problems become all-correct. The model solves them every time, in all eight samples, and those groups go silent. The hard problems stay all-wrong — the model never solves them, in any of the eight samples — and those groups were silent from the start, and stay silent. The only problems that still teach are the ones in the middle, where the model is right some of the time and wrong some of the time, and that band gets narrower as training goes on.` },
+      { type: 'paragraph', text: `That is why the signal fades. It is not a bug in the implementation, and it is not the learning rate. It is a property of group-relative advantages with a binary reward: the signal lives only in the variance within a group, and the variance collapses at both ends of the difficulty spectrum as the model improves on the easy end and never reaches the hard end.` },
+      { type: 'paragraph', text: `There is a second, subtler effect on top of that. The standard deviation in the denominator also shrinks the signal. When a group is nearly homogeneous — say, seven correct and one wrong — the standard deviation is small, and dividing by it can inflate the advantage of the one outlier, or, in the Dr. GRPO critique, the normalisation by the standard deviation biases the update towards short answers and towards groups with low variance. Removing that normalisation, as Dr. GRPO does, helps, but it does not fix the core problem: when the variance is zero, there is no signal to normalise.` },
+      { type: 'callout', emoji: '💡', text: `If you log the fraction of groups that are all-correct or all-wrong, you will see the signal fading in real time. When that fraction climbs towards 100%, training has stalled — not because the model is perfect, but because it has run out of problems it sometimes gets right.` },
+      { type: 'h2', text: `How would you keep the signal up?` },
+      { type: 'paragraph', text: `The fix is to keep the problems at the right difficulty — the band where the model is right some of the time and wrong some of the time — and to keep feeding it problems in that band as it improves. There are a few standard ways to do that, and they are worth naming in order.` },
+      { type: 'list', ordered: false, items: [
+        `**Filter out the silent groups.** Drop problems where all eight answers are correct, and problems where all eight are wrong, and do not spend training steps on them. That is the simplest fix, and it is what most GRPO implementations do: only groups with variance contribute to the loss. It does not create new signal, but it stops wasting compute on groups that teach nothing.`,
+        `**Dynamic sampling, as in DAPO.** Sample more answers per problem, or keep sampling new problems, until you have enough groups with variance to fill a batch. DAPO's dynamic sampling does exactly this: it oversamples problems, filters out the all-correct and all-wrong ones, and only trains on the groups that still have signal. The effective batch is smaller, but every example in it teaches.`,
+        `**Curriculum and difficulty filtering.** Choose problems by their pass rate, and keep the pass rate in the middle — say, between 10% and 90% correct, or between 1 and 7 out of 8. As the model improves, retire the problems it has mastered and bring in harder ones, so the training set tracks the model's frontier instead of staying fixed while the model outgrows it.`,
+        `**Increase the group size.** With eight samples, a problem the model solves 90% of the time will be all-correct in about 43% of groups, and a problem it solves 10% of the time will be all-wrong in about 43% of groups. With 32 samples, those numbers fall, and more groups have variance. A larger group costs more compute per problem, but it keeps more problems in the learnable band.`,
+        `**Give partial credit.** A binary reward — 1 for a correct final answer, 0 otherwise — makes all wrong answers equal, even if one was close and another was nonsense. A denser reward, for example for a correct intermediate step, or for a correct format, or for a solution that gets partway, breaks the tie inside all-wrong groups and gives the model something to learn from even when it never gets the final answer right.`
+      ]},
+      { type: 'paragraph', text: `Notice what all of these have in common: they are about the data, not the optimiser. The optimiser cannot learn from a zero advantage, no matter what learning rate you set. The only way to keep the signal up is to keep giving the model problems where it is sometimes right and sometimes wrong, and to stop spending steps on problems where it is always one or the other.` },
+      { type: 'h2', text: `What else to check` },
+      { type: 'paragraph', text: `If the signal is fading, check the pass-rate distribution before you change the algorithm. Log, for each problem, how many of the eight answers were correct, and plot the histogram. If most problems are at 0 out of 8 or 8 out of 8, the problem set is the issue, not the training. If most problems are in the middle but the model still is not learning, then look at the other GRPO issues — the length bias, the standard-deviation normalisation, and the KL penalty — because those can shrink the signal even when the variance is there.` },
+      { type: 'h2', text: `So what's the actual answer?` },
+      { type: 'paragraph', text: `GRPO's advantage is the reward minus the group mean, so when all eight answers in a group are correct or all eight are wrong, every advantage is zero and there is no gradient. As the model improves, easy problems become all-correct and stay silent, hard problems stay all-wrong and stay silent, and the only problems that teach are the ones in the middle — and that band narrows. Keep the signal up by filtering out silent groups, by dynamic sampling that only trains on groups with variance, by curating problems to the model's frontier, by increasing the group size, and by giving partial credit so wrong answers are not all equal.` },
+      { type: 'quote', text: `A group where everyone is right teaches nothing. A group where everyone is wrong teaches nothing. GRPO only learns from the groups in between — so keep the model in between.` },
+      { type: 'divider' },
+      { type: 'h2', text: `The whole thing in five sentences` },
+      { type: 'list', ordered: true, items: [
+        `GRPO scores each answer against its group's average, so the advantage is the reward minus the group mean, divided by the group standard deviation.`,
+        `When all eight answers are correct, or all eight are wrong, the mean equals every reward, every advantage is zero, and there is no gradient.`,
+        `As the model improves, easy problems become all-correct and hard problems stay all-wrong, so more and more groups go silent and the signal fades.`,
+        `Keep the signal up by filtering out silent groups, by dynamic sampling that only trains on groups with variance, and by curating problems to the model's frontier.`,
+        `Increase the group size to keep more problems in the learnable band, and give partial credit so all-wrong groups are not all equal.`
+      ]},
+      { type: 'callout', emoji: '📌', text: `A classic RLHF interview question. The terms to remember are group-relative advantage, all-correct and all-wrong groups, and dynamic sampling.` }
+    ]
+  },
 ];
