@@ -37677,4 +37677,59 @@ WELLBEING METRICS (not engagement metrics):
       { type: 'callout', emoji: '📌', text: `A classic RL-for-reasoning interview question. The terms to remember are GRPO length bias, Dr. GRPO, and token-level loss.` }
     ]
   },
+  {
+    slug: 'multi-head-attention-one-big-head',
+    title: `Your Translation Transformer Has Eight Attention Heads of 64 Dimensions Each. Why Does One Big Head Do Worse?`,
+    subtitle: `A plain-English guide to multi-head attention: why eight small heads can look in eight places at once, and one big head can only look in one.`,
+    date: 'November 21, 2026',
+    readTime: '8 min read',
+    tags: ['Machine Learning', 'NLP', 'Transformers', 'Interview Prep'],
+    coverEmoji: '👀',
+    content: [
+      { type: 'callout', emoji: '🎯', text: `Interview question: "Your translation Transformer has eight attention heads of 64 dimensions each. Why does one big head do worse?"` },
+      { type: 'paragraph', text: `Eight heads of 64 dimensions, or one head of 512 dimensions — the total size is the same, 512. The number of parameters in the projections is roughly the same too. So why does the eight-head version translate better? It is not about capacity. It is about how many different things a token can pay attention to at the same time.` },
+      { type: 'paragraph', text: `Stripped of jargon, the answer is just this: **one attention head can only look in one place at a time. Eight heads can look in eight places at once.**` },
+      { type: 'h2', text: `What one attention head actually does` },
+      { type: 'paragraph', text: `An attention head takes a token, compares it to every other token, and produces one set of weights — one probability distribution that sums to 1. The token's new representation is a weighted average of the other tokens, using those weights.` },
+      { type: 'paragraph', text: `That "sums to 1" is the whole limitation. If a token needs to attend strongly to two different places — say, the subject of its sentence and the verb that agrees with it — a single head has to split its weight between them. It can give 50% to each, and then its representation is a blur of the two, or it can pick one and ignore the other. It cannot give 100% to both.` },
+      { type: 'list', ordered: false, items: [
+        `**One head, one distribution.** Every token gets a single attention pattern, and that pattern has to do all the work.`,
+        `**One weighted average.** The output is a single mix of the tokens it attended to. If it needed two different kinds of information, they are mixed together in that one vector.`
+      ]},
+      { type: 'paragraph', text: `In translation, a word almost always needs more than one kind of information at once. It needs to know what came before it, what its grammatical role is, what word it refers back to, and what word it will be translated alongside. One distribution cannot carry all of that sharply.` },
+      { type: 'h2', text: `What eight heads do differently` },
+      { type: 'paragraph', text: `Multi-head attention does not make the model bigger. It splits the 512 dimensions into eight subspaces of 64 dimensions each, and gives each head its own query, key, and value projections into its own subspace. Each head then computes its own attention distribution, independently, and the eight outputs are concatenated back together.` },
+      { type: 'paragraph', text: `That independence is the point. Head 1 can attend to the previous word, head 2 can attend to the subject, head 3 can attend to a pronoun's antecedent, head 4 can attend to position — all at the same time, for the same token, without having to share a single probability distribution.` },
+      { type: 'list', ordered: false, items: [
+        `**Different heads learn different relations.** In practice, heads specialise: some learn syntax, like subject-verb agreement or dependency structure; some learn position, like attending to the neighbouring word; some learn long-range coreference, like a pronoun attending back to the noun it refers to. No one told them to do this — it emerges from training, because the model can only do well if different heads do different jobs.`,
+        `**Different subspaces, not just different positions.** Because each head projects into its own 64-dimensional space, it is not just looking at a different place — it is looking at a different *kind* of information. One head's subspace can encode grammar, another's can encode meaning, and they do not interfere with each other.`,
+        `**Sharp attention, eight times over.** Each head's distribution can be sharp — close to 100% on one token — because it does not have to compromise. The token's final representation is the concatenation of eight sharp looks, not one blurred look.`
+      ]},
+      { type: 'quote', text: `Multi-head attention is not eight copies of the same thing. It is eight different ways of looking at the same sentence, at the same time.` },
+      { type: 'h3', text: `Why 64 dimensions per head?` },
+      { type: 'paragraph', text: `The 64 is not magic, but it is a deliberate trade-off. A head's dimension is the size of the space its queries and keys live in. If that space is too small, the head cannot represent much. If it is too large, the dot products between queries and keys get large in magnitude, the softmax gets very sharp or very saturated, and training gets harder — which is why attention scores are scaled by the square root of the head dimension.` },
+      { type: 'paragraph', text: `Sixty-four is large enough for a head to encode a useful relation, and small enough to keep the softmax well-behaved. Eight heads of 64 gives you eight such relations, for the same total width as one head of 512. That is the design in the original Transformer paper, and it is still the default in most models.` },
+      { type: 'h2', text: `Why one big head cannot just learn to do the same thing` },
+      { type: 'paragraph', text: `This is the objection an interviewer will push on: if the total parameters are the same, why cannot one 512-dimensional head just learn eight different patterns inside itself?` },
+      { type: 'paragraph', text: `Because its output is still one weighted average, governed by one softmax. Even if its query and key projections are rich, the attention weights they produce are a single distribution. The model can make that distribution broader, so it attends to more tokens, but broader means more diluted — each token it attends to gets less weight, and the result is a mushy average rather than eight clean signals.` },
+      { type: 'paragraph', text: `Multi-head attention is a structural fix for that bottleneck, not a capacity fix. It gives the model eight independent distributions, so it does not have to choose between looking at the subject and looking at the verb. A single head, no matter how large, always has to choose.` },
+      { type: 'callout', emoji: '💡', text: `The bottleneck is the softmax, not the size. One distribution sums to 1, so it can only be sharp in one place. Eight distributions can each be sharp in a different place.` },
+      { type: 'h2', text: `Is more heads always better?` },
+      { type: 'paragraph', text: `No, and saying so shows you understand the trade-off. The original paper tried 1, 2, 4, 8, and 16 heads, and 8 was best for that model size. More heads means each head gets fewer dimensions, so each head becomes weaker. At some point the heads are too small to encode anything useful, and you are just splitting the same information into thinner slices.` },
+      { type: 'paragraph', text: `The right way to think about it is: the number of heads is the number of different relations the model can track at once, and the head dimension is how rich each relation can be. You want enough heads to cover the relations the task needs, and enough dimensions per head to represent each one. For a 512-dimensional model, 8 heads of 64 is the sweet spot the paper found — and it is why that configuration is still the textbook example.` },
+      { type: 'h2', text: `So what's the actual answer?` },
+      { type: 'paragraph', text: `One big head does worse because it has only one attention distribution, so it can only focus sharply on one thing at a time and has to average everything else together. Eight heads of 64 dimensions each have eight independent distributions in eight different subspaces, so they can specialise — one for syntax, one for position, one for coreference — and the token gets all eight signals at once.` },
+      { type: 'quote', text: `A single head asks "what should I look at?" Eight heads ask that question eight times, in eight different ways, and keep all eight answers.` },
+      { type: 'divider' },
+      { type: 'h2', text: `The whole thing in five sentences` },
+      { type: 'list', ordered: true, items: [
+        `One attention head produces a single probability distribution that sums to 1, so it can only focus sharply on one place at a time.`,
+        `A token in translation usually needs several kinds of information at once — syntax, position, coreference, meaning — and one distribution has to blur them together.`,
+        `Eight heads of 64 dimensions each have eight independent distributions in eight subspaces, so each head can specialise in a different relation and stay sharp.`,
+        `The total size is the same as one 512-dimensional head, so the gain is structural, not from extra capacity.`,
+        `More heads is not always better: each head needs enough dimensions to encode its relation, which is why 8 heads of 64 is the sweet spot for a 512-dimensional model.`
+      ]},
+      { type: 'callout', emoji: '📌', text: `A classic Transformer interview question. The phrase to remember is from the original paper: multi-head attention lets the model "jointly attend to information from different representation subspaces at different positions".` }
+    ]
+  },
 ];
