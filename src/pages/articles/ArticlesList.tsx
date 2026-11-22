@@ -1,12 +1,89 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { articles } from './articlesData';
+import { articles, type ContentBlock } from './articlesData';
 import './ArticlesList.css';
 import { FaSearch, FaTimes } from 'react-icons/fa';
 
 const PAGE_SIZE = 20;
 
 type SortMode = 'newest' | 'oldest' | 'title';
+
+// Search helpers: the list used to search title, subtitle and tags only,
+// so anything explained in the article body was invisible to search.
+// Search now scans the full article text, ranked by where it matched.
+const SEARCH_SYNONYMS: Record<string, string> = {
+  ml: 'machine learning',
+  ai: 'artificial intelligence',
+  nlp: 'natural language processing',
+  llm: 'large language model',
+  rag: 'retrieval augmented generation',
+  rl: 'reinforcement learning',
+  swa: 'stochastic weight averaging',
+};
+
+const normalizeText = (value: string) =>
+  value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+const blockSearchText = (block: ContentBlock) => {
+  switch (block.type) {
+    case 'list':
+      return block.items.join(' ');
+    case 'code':
+      return `${block.language} ${block.code}`;
+    case 'divider':
+      return '';
+    default:
+      return block.text;
+  }
+};
+
+interface SearchableArticle {
+  article: (typeof articles)[number];
+  index: number;
+  title: string;
+  subtitle: string;
+  tags: string[];
+  body: string;
+  tokens: Set<string>;
+}
+
+const wordMatches = (word: string, tokens: Set<string>) => {
+  if (tokens.has(word)) return true;
+  // Short queries must match a whole word, otherwise "ai" matches
+  // "training" and "ml" matches anything containing those letters.
+  if (word.length <= 2) return false;
+  for (const token of tokens) {
+    if (token.startsWith(word)) return true;
+  }
+  return false;
+};
+
+// Returns a relevance score, or null when the article does not match.
+// Title and tag matches rank first, then subtitle, then a phrase in the
+// body, then the query words scattered through the body.
+const searchScore = (entry: SearchableArticle, phrase: string, words: string[]) => {
+  let score = 0;
+  if (entry.title.includes(phrase)) score += 100;
+  if (entry.tags.some((tag) => tag === phrase || tag.includes(phrase))) score += 80;
+  if (entry.subtitle.includes(phrase)) score += 60;
+  if (entry.body.includes(phrase)) score += 40;
+  const expanded = SEARCH_SYNONYMS[phrase];
+  if (
+    expanded &&
+    (entry.title.includes(expanded) ||
+      entry.tags.some((tag) => tag.includes(expanded)) ||
+      entry.body.includes(expanded))
+  ) {
+    score += 40;
+  }
+  if (!words.every((word) => wordMatches(word, entry.tokens))) return null;
+  score += 10;
+  return score;
+};
 
 const ArticlesList: React.FC = () => {
   const navigate = useNavigate();
@@ -32,18 +109,47 @@ const ArticlesList: React.FC = () => {
       .map(([tag, count]) => ({ tag, count }));
   }, []);
 
+  // One searchable record per article, built once: normalised title,
+  // subtitle, tags and full body text, plus the set of words in them.
+  const searchableArticles = useMemo<SearchableArticle[]>(
+    () =>
+      articles.map((article, index) => {
+        const title = normalizeText(article.title);
+        const subtitle = normalizeText(article.subtitle);
+        const tags = article.tags.map(normalizeText);
+        const body = normalizeText(article.content.map(blockSearchText).join(' '));
+        return {
+          article,
+          index,
+          title,
+          subtitle,
+          tags,
+          body,
+          tokens: new Set(`${title} ${subtitle} ${tags.join(' ')} ${body}`.split(' ')),
+        };
+      }),
+    [],
+  );
+
   const sortedArticles = useMemo(() => {
-    const query = searchQuery.toLowerCase();
-    const indexed = articles
-      .map((article, index) => ({ article, index }))
-      .filter(({ article }) => {
-        const matchesQuery =
-          article.title.toLowerCase().includes(query) ||
-          article.subtitle.toLowerCase().includes(query) ||
-          article.tags.some((tag) => tag.toLowerCase().includes(query));
-        const matchesTag = selectedTag === null || article.tags.includes(selectedTag);
-        return matchesQuery && matchesTag;
-      });
+    const phrase = normalizeText(searchQuery);
+    const words = phrase.split(' ').filter(Boolean);
+
+    // Search and tag filter are exclusive: typing a search clears the
+    // tag, and clicking a tag clears the search (see the handlers
+    // below). That stops the old bug where a tag filter AND a search
+    // for a different tag combined to zero results.
+    if (phrase) {
+      const scored = searchableArticles
+        .map((entry) => ({ entry, score: searchScore(entry, phrase, words) }))
+        .filter((item): item is { entry: SearchableArticle; score: number } => item.score !== null)
+        .sort((a, b) => b.score - a.score || b.entry.index - a.entry.index);
+      return scored.map(({ entry }) => entry.article);
+    }
+
+    const indexed = searchableArticles.filter(
+      ({ article }) => selectedTag === null || article.tags.includes(selectedTag),
+    );
     if (sortMode === 'title') {
       indexed.sort((a, b) => a.article.title.localeCompare(b.article.title));
     } else if (sortMode === 'oldest') {
@@ -61,7 +167,7 @@ const ArticlesList: React.FC = () => {
       );
     }
     return indexed.map(({ article }) => article);
-  }, [searchQuery, selectedTag, sortMode]);
+  }, [searchQuery, selectedTag, sortMode, searchableArticles]);
 
   // A new search, topic or sort starts back on page 1.
   useEffect(() => {
@@ -113,9 +219,14 @@ const ArticlesList: React.FC = () => {
             <FaSearch className="articles-search-icon" />
             <input
               type="text"
-              placeholder="Search by title, topic, or tag..."
+              placeholder="Search titles, tags, and full article text..."
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                // Searching replaces the tag filter, so a search for a
+                // different tag is not ANDed with the old one to zero.
+                if (e.target.value.trim()) setSelectedTag(null);
+              }}
               className="articles-search-input"
             />
             {searchQuery && (
@@ -156,7 +267,11 @@ const ArticlesList: React.FC = () => {
             <button
               key={tag}
               className={`articles-filter-chip${selectedTag === tag ? ' active' : ''}`}
-              onClick={() => setSelectedTag(selectedTag === tag ? null : tag)}
+              onClick={() => {
+                const next = selectedTag === tag ? null : tag;
+                setSelectedTag(next);
+                if (next) setSearchQuery('');
+              }}
               aria-pressed={selectedTag === tag}
             >
               {tag} ({count})
@@ -212,6 +327,7 @@ const ArticlesList: React.FC = () => {
                       // Don't open the article — filter the list by this tag.
                       e.stopPropagation();
                       setSelectedTag(tag);
+                      setSearchQuery('');
                       window.scrollTo({ top: 0, behavior: 'smooth' });
                     }}
                   >
