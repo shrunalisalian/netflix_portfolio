@@ -39283,4 +39283,59 @@ WELLBEING METRICS (not engagement metrics):
       { type: 'callout', emoji: '📌', text: `A classic retrieval interview question. The term to remember is hybrid search — exact for identifiers, semantic for meaning.` }
     ]
   },
+  {
+    slug: 'grpo-prompts-zero-advantage-average-reward-60',
+    title: `Halfway Through GRPO Training, More Than Half the Prompts in Each Batch Stop Adding Anything to the Update, Even Though the Average Reward Is Only 60%. Why Do Those Prompts Add Nothing?`,
+    subtitle: `A plain-English guide to GRPO's zero-advantage groups: why a 60% average reward can hide a batch where most prompts are all-correct or all-wrong.`,
+    date: 'November 21, 2026',
+    readTime: '8 min read',
+    tags: ['Machine Learning', 'LLM Training', 'RLHF', 'GRPO', 'Interview Prep'],
+    coverEmoji: '📊',
+    content: [
+      { type: 'callout', emoji: '🎯', text: `Interview question: "Halfway through GRPO training, more than half the prompts in each batch stop adding anything to the update, even though the average reward is only 60%. Why do those prompts add nothing?"` },
+      { type: 'paragraph', text: `The average reward is 60%. That sounds like the model is getting 60% of the answers right, and getting better, and that most prompts should still have something to learn from. But more than half the prompts in each batch contribute nothing to the update at all. They are not broken. They are not being ignored by a bug. They are being ignored by the maths of GRPO itself.` },
+      { type: 'paragraph', text: `Stripped of jargon, the answer is just this: **in GRPO, a prompt only teaches the model if its rollouts disagree — some right, some wrong. If all eight rollouts are right, or all eight are wrong, every advantage is zero, and the gradient is zero. A 60% average reward can hide that, because it is an average over prompts, and most prompts are at 0% or 100%, not at 60%.**` },
+      { type: 'h2', text: `How GRPO turns rewards into an update` },
+      { type: 'paragraph', text: `GRPO does not use a value function. For each prompt, it samples a group of rollouts — say, eight answers — and scores each one with a reward, usually 1 for correct and 0 for wrong. Then it computes the advantage for each rollout as its reward minus the mean reward of its group.` },
+      { type: 'code', language: 'text', code: `Advantage_i = reward_i − mean(reward over the group)\n\nGroup all correct:  rewards [1,1,1,1,1,1,1,1], mean = 1, advantages all 0\nGroup all wrong:    rewards [0,0,0,0,0,0,0,0], mean = 0, advantages all 0\nGroup mixed:        rewards [1,1,1,0,0,0,0,0], mean = 0.5, advantages +0.5 / −0.5` },
+      { type: 'paragraph', text: `The policy gradient is the advantage times the gradient of the log-probability of the rollout. If the advantage is zero, the gradient is zero, and that rollout contributes nothing to the update. If every rollout in a group has advantage zero, the whole prompt contributes nothing.` },
+      { type: 'paragraph', text: `That is the key: GRPO learns from contrast within a group, not from the reward itself. A rollout that is correct is only useful if another rollout in the same group was wrong, so the model can be pushed towards the correct one and away from the wrong one. If they are all correct, there is nothing to push towards and nothing to push away from. If they are all wrong, there is nothing to push towards either — the model has no correct example in the group to learn from.` },
+      { type: 'h2', text: `Why a 60% average hides the problem` },
+      { type: 'paragraph', text: `An average reward of 60% sounds like most prompts are at 60% — that is, about five of eight rollouts correct. If that were true, almost every prompt would be mixed, and almost every prompt would contribute. But an average is not a distribution, and the distribution is what matters here.` },
+      { type: 'paragraph', text: `Halfway through training, the distribution is bimodal. The model has mastered the easy prompts, so it gets all eight rollouts right on those — 100%, and zero advantage. It still cannot solve the hard prompts, so it gets all eight rollouts wrong on those — 0%, and zero advantage. Only the prompts in the middle, the ones it sometimes gets right and sometimes gets wrong, are mixed, and only those contribute.` },
+      { type: 'list', ordered: false, items: [
+        `**Easy prompts, say 40% of the batch:** 8/8 correct, average reward 100% on those, advantage zero, no update.`,
+        `**Hard prompts, say 30% of the batch:** 0/8 correct, average reward 0% on those, advantage zero, no update.`,
+        `**Middle prompts, say 30% of the batch:** 4/8 correct, average reward 50% on those, advantages +0.5 and −0.5, and these are the only ones that teach anything.`,
+        `**Overall average:** 0.4 × 100% + 0.3 × 0% + 0.3 × 50% = 55%, which rounds to the "about 60%" you see — while 70% of the prompts contribute nothing.`
+      ]},
+      { type: 'quote', text: `A 60% average does not mean the model is 60% right on every prompt. It can mean it is 100% right on some, 0% right on others, and 60% on almost none of them.` },
+      { type: 'paragraph', text: `That is why the problem gets worse halfway through training. At the start, most prompts are mixed, because the model is weak and its rollouts are noisy — it gets some right and some wrong almost everywhere. As it improves, the easy prompts move to all-correct, and the hard prompts stay all-wrong, and the middle band — the prompts that are still mixed — shrinks. The average reward goes up, because more prompts are all-correct, but the fraction of prompts that actually teach anything goes down, because the middle band is narrower. The training looks healthy by the average, and it is starving by the gradient.` },
+      { type: 'callout', emoji: '💡', text: `GRPO's signal is not the reward. It is the variance of the reward inside a group. No variance, no signal — no matter what the average is.` },
+      { type: 'h2', text: `How would you check it?` },
+      { type: 'paragraph', text: `Do not look at the average reward. Look at the distribution of per-prompt pass rates: a histogram of how many of the eight rollouts were correct, for each prompt. If it is bimodal — a spike at 0/8 and a spike at 8/8, with a dip in the middle — the zero-advantage problem is confirmed. Then count the fraction of prompts with pass rate 0 or 1: that is the fraction contributing nothing. Plot that fraction over training, and you will see it rise as the model improves, even as the average reward rises with it.` },
+      { type: 'h2', text: `How would you fix it?` },
+      { type: 'paragraph', text: `Keep the middle band full. That is the whole fix, and there are several ways to do it.` },
+      { type: 'list', ordered: false, items: [
+        `**Filter silent groups (DAPO dynamic sampling).** Before you train on a batch, sample rollouts, and discard the prompts that are all-correct or all-wrong, then keep sampling new prompts until the batch is full of mixed groups. That is DAPO's dynamic sampling, and it is the standard fix: it wastes the rollouts you spent on the silent prompts, but it guarantees every prompt you train on has signal.`,
+        `**Use a pass-rate curriculum.** Sort prompts by difficulty, and train on the ones whose pass rate is in the middle — roughly 1 to 7 out of 8 correct — and hold back the ones that are too easy or too hard. As the model improves, the middle moves, so re-sort regularly.`,
+        `**Increase the group size.** With 8 rollouts, a prompt at 90% pass rate will often be all-correct by chance, and a prompt at 10% will often be all-wrong. With 32 rollouts, the same prompts will usually be mixed, because the chance of all 32 being the same is much smaller. That costs more rollouts per prompt, but it widens the band.`,
+        `**Give partial credit.** If the reward is binary — 1 for a fully correct answer, 0 otherwise — then a prompt is either all-correct or all-wrong or mixed only by chance. If the reward is graded — partial credit for a correct method, a correct intermediate step, or a close answer — then groups that would have been all-zero can be mixed, because the rollouts differ in how much credit they get. That creates variance where there was none.`
+      ]},
+      { type: 'paragraph', text: `All four fixes do the same thing: they make sure the batch is full of prompts where the model sometimes succeeds and sometimes fails, because those are the only prompts GRPO can learn from.` },
+      { type: 'h2', text: `So what's the actual answer?` },
+      { type: 'paragraph', text: `Those prompts add nothing because their advantages are all zero. In GRPO, advantage is reward minus the group mean, so a group that is all-correct has advantage zero for every rollout, and a group that is all-wrong has advantage zero for every rollout, and a zero advantage means a zero gradient. The average reward of 60% hides that, because it is an average over prompts: most prompts are at 0% or 100%, not at 60%, and only the mixed prompts in the middle contribute. Halfway through training, the model has mastered the easy prompts and still cannot solve the hard ones, so the middle band shrinks, and more than half the batch is silent — even as the average reward looks healthy.` },
+      { type: 'quote', text: `In GRPO, a prompt that is always right and a prompt that is always wrong are the same: both teach nothing. Only the prompts the model sometimes gets right can teach it.` },
+      { type: 'divider' },
+      { type: 'h2', text: `The whole thing in five sentences` },
+      { type: 'list', ordered: true, items: [
+        `GRPO's advantage is reward minus the group mean, so a group that is all-correct or all-wrong has zero advantage for every rollout.`,
+        `Zero advantage means zero gradient, so those prompts contribute nothing to the update.`,
+        `A 60% average reward hides that, because it is an average over prompts, and most prompts are at 0% or 100%, not at 60%.`,
+        `Halfway through training, the easy prompts have moved to all-correct and the hard ones are still all-wrong, so the mixed middle band shrinks.`,
+        `Fix it by filtering silent groups, using a pass-rate curriculum, increasing group size, or giving partial credit — anything that keeps the batch full of mixed groups.`
+      ]},
+      { type: 'callout', emoji: '📌', text: `A classic RL interview question. The term to remember is zero-advantage groups — and the fix is DAPO dynamic sampling.` }
+    ]
+  },
 ];
