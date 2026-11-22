@@ -39122,4 +39122,56 @@ WELLBEING METRICS (not engagement metrics):
       { type: 'callout', emoji: '📌', text: `A classic multimodal interview question. The term to remember is InfoNCE — and the batch is the negative set.` }
     ]
   },
+  {
+    slug: 'gradient-clipping-value-vs-norm',
+    title: `You're Training with SGD and Momentum, and the Loss Spikes Every So Often. Both Stop the Spikes, but the Teammate's Run Reaches a Lower Loss, So Why Does Clipping Each Value Do Worse?`,
+    subtitle: `A plain-English guide to gradient clipping: why clipping by global norm preserves the gradient's direction, and clipping each value separately distorts it.`,
+    date: 'November 21, 2026',
+    readTime: '8 min read',
+    tags: ['Machine Learning', 'LLM Training', 'Optimization', 'Interview Prep'],
+    coverEmoji: '✂️',
+    content: [
+      { type: 'callout', emoji: '🎯', text: `Interview question: "You're training with SGD and momentum, and the loss spikes every so often. Both stop the spikes, but the teammate's run reaches a lower loss, so why does clipping each value do worse?"` },
+      { type: 'paragraph', text: `Both methods stop the spikes. That is what clipping is for: when the gradient is suddenly huge — a bad batch, a sharp region of the loss, a gradient that explodes for one step — clipping keeps the update from throwing the model across the landscape. But they do not stop the spikes in the same way, and the difference is in the direction of the update, not its size.` },
+      { type: 'paragraph', text: `Stripped of jargon, the answer is just this: **clipping by global norm only shrinks the gradient — it keeps its direction exactly. Clipping each value separately changes the direction, by truncating the large coordinates and leaving the small ones alone, so the model steps in a different direction from the one the gradient pointed in.**` },
+      { type: 'h2', text: `The two kinds of clipping` },
+      { type: 'paragraph', text: `The teammate's method is almost certainly clipping by global norm. If the gradient's norm — its total length, over all parameters — is larger than a threshold c, you scale the whole gradient down by the same factor, so its norm becomes c. If the norm is already below c, you leave it alone.` },
+      { type: 'code', language: 'text', code: `Norm clipping:\n  if ||g|| > c:  g <- g · (c / ||g||)\n  Direction of g is unchanged, only its length changes.` },
+      { type: 'paragraph', text: `Your method is clipping each value — element-wise, or value clipping. Each coordinate of the gradient is clipped independently to the range [-c, c]. A coordinate larger than c becomes c, a coordinate smaller than -c becomes -c, and a coordinate inside the range is left alone.` },
+      { type: 'code', language: 'text', code: `Value clipping:\n  g_i <- clamp(g_i, -c, c)  for each i\n  Direction of g changes, because large coordinates are cut and small ones are not.` },
+      { type: 'paragraph', text: `Both stop a spike, because both bound how large any update can be. But only one of them preserves what the gradient was saying about which direction to move in.` },
+      { type: 'h2', text: `Why direction matters more than size` },
+      { type: 'paragraph', text: `A gradient is not just a size. It is a direction in a high-dimensional space, and that direction is the information: it says which parameters should go up, which should go down, and by how much relative to each other. If one parameter's gradient is 10 and another's is 1, the model is saying the first parameter needs to move ten times as much as the second. That relative size is the signal.` },
+      { type: 'paragraph', text: `Norm clipping preserves that signal. It multiplies every coordinate by the same factor, so the ratio between any two coordinates is unchanged. The model still moves ten times as much in the first parameter as in the second — it just moves less overall. The direction is the true gradient direction, and the step is a smaller step in that direction.` },
+      { type: 'paragraph', text: `Value clipping destroys that signal. If c is 2, the coordinate with gradient 10 becomes 2, and the coordinate with gradient 1 stays 1. The ratio was 10 to 1; now it is 2 to 1. The model is no longer moving in the gradient direction — it is moving in a distorted direction, where the large coordinates have been flattened and the small coordinates have been relatively amplified. The more coordinates exceed the threshold, the more distorted the direction becomes, until, in the extreme, every coordinate that was large becomes the same value, and the gradient is a vector of plus and minus c, with no information left about which coordinates mattered most.` },
+      { type: 'list', ordered: false, items: [
+        `**Norm clipping is a scalar multiplication.** It changes the length, not the direction. The update is still a step downhill, just a shorter one.`,
+        `**Value clipping is a non-linear distortion.** It changes each coordinate by a different amount, so the direction rotates. The update is no longer downhill in the direction the gradient pointed.`,
+        `**The distortion is worst when it matters most.** The spikes you are clipping are exactly the steps where a few coordinates are very large — a sharp direction, a heavy-tailed gradient. Those large coordinates are the signal, and value clipping is the method that truncates them most.`
+      ]},
+      { type: 'quote', text: `Norm clipping says: go the same way, just not so far. Value clipping says: go a different way.` },
+      { type: 'h2', text: `Why that reaches a lower loss` },
+      { type: 'paragraph', text: `With momentum, the distortion compounds. Momentum accumulates past gradients into a velocity, and the velocity is a running average of the directions the model has been moving in. If each gradient is distorted in a different way — because different coordinates exceed the threshold on different steps — the velocity accumulates a distorted direction, and the model drifts away from the true descent direction, step after step. Norm clipping, by contrast, keeps the direction intact, so the momentum accumulates the true direction, and the model moves steadily downhill.` },
+      { type: 'paragraph', text: `There is a second effect, too: value clipping is biased. It systematically shrinks large gradients more than small ones, so it biases the update towards the small coordinates and away from the large ones. Over many steps, that bias accumulates, and the model under-updates the parameters that needed the largest updates — often the parameters in the later layers, or the ones with the sharpest loss — and over-updates the ones that needed the least. The result is a model that trains, but trains in the wrong directions, and settles at a higher loss.` },
+      { type: 'paragraph', text: `That is why the teammate's run reaches a lower loss, even though both runs stop the spikes. Stopping the spikes is necessary, but it is not sufficient. You also have to preserve the direction, and only norm clipping does that.` },
+      { type: 'callout', emoji: '💡', text: `Clipping is not just about bounding the step size. It is about bounding it without lying about the direction.` },
+      { type: 'h2', text: `When would value clipping be the right choice?` },
+      { type: 'paragraph', text: `Value clipping is not always wrong. It is the right choice when the problem is not a large gradient in a few coordinates, but a gradient that is large in a specific, known way — for example, in recurrent networks, where the original gradient clipping paper used value clipping, or when you want to bound each parameter's update independently because the parameters have very different scales. But for a large model trained with SGD and momentum, where the gradient is a single high-dimensional vector and its direction is the signal, norm clipping is the standard, and it is the standard for this reason.` },
+      { type: 'h2', text: `How would you check it?` },
+      { type: 'paragraph', text: `Measure the angle between the clipped gradient and the true gradient. For norm clipping, that angle is zero when the norm exceeds the threshold — the clipped gradient is a scaled copy of the true one — and zero when it does not, because it is not clipped at all. For value clipping, the angle is non-zero whenever any coordinate exceeds the threshold, and it grows as more coordinates do. Plot that angle over training, and you will see the distortion directly. Then compare the loss curves: the run with the smaller angle should reach the lower loss, because it is stepping in the true direction.` },
+      { type: 'h2', text: `So what's the actual answer?` },
+      { type: 'paragraph', text: `Both methods stop the loss spikes, but clipping each value separately distorts the gradient's direction, while clipping by global norm preserves it. Value clipping truncates large coordinates and leaves small ones alone, so the ratios between coordinates change and the update points in a different direction from the gradient. Norm clipping multiplies every coordinate by the same factor, so the direction is unchanged and only the step is shorter. With momentum, the distorted direction accumulates, and the model trains in the wrong directions and settles at a higher loss. That is why the teammate's run — almost certainly norm clipping — reaches a lower loss.` },
+      { type: 'quote', text: `A gradient is a direction first and a size second. Clip the size, and you keep the direction. Clip each value, and you lose it.` },
+      { type: 'divider' },
+      { type: 'h2', text: `The whole thing in five sentences` },
+      { type: 'list', ordered: true, items: [
+        `Both norm clipping and value clipping stop loss spikes by bounding the update, but they bound it differently.`,
+        `Norm clipping scales the whole gradient by one factor, so its direction is unchanged and only its length shrinks.`,
+        `Value clipping truncates each coordinate independently, so large coordinates are cut and small ones are not, and the direction rotates.`,
+        `The distorted direction accumulates through momentum, so the model steps away from the true descent direction and settles at a higher loss.`,
+        `That is why norm clipping reaches a lower loss: it stops the spike without lying about which way is downhill.`
+      ]},
+      { type: 'callout', emoji: '📌', text: `A classic optimisation interview question. The term to remember is direction-preserving — norm clipping preserves it, value clipping does not.` }
+    ]
+  },
 ];
