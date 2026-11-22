@@ -38854,4 +38854,61 @@ WELLBEING METRICS (not engagement metrics):
       { type: 'callout', emoji: '📌', text: `A classic inference interview question. The terms to remember are KV cache, causal attention, and prefix caching.` }
     ]
   },
+  {
+    slug: 'flashattention-70b-2048-where-speedup-went',
+    title: `You Switch a 70B Pretraining Run on 2,048-Token Sequences to FlashAttention, and the Attention Kernels Get Three Times Faster, Forward and Backward. The Profiler Shows the GPUs Computing Through the Entire Step with No Idle Gaps, So Where Did the Speedup Go?`,
+    subtitle: `A plain-English guide to Amdahl's law in a 70B Transformer: why a 3x faster attention kernel barely moves the step when attention is a small slice of the work.`,
+    date: 'November 21, 2026',
+    readTime: '8 min read',
+    tags: ['Machine Learning', 'Transformers', 'Systems', 'Interview Prep'],
+    coverEmoji: '📊',
+    content: [
+      { type: 'callout', emoji: '🎯', text: `Interview question: "You switch a 70B pretraining run on 2,048-token sequences to FlashAttention, and the attention kernels get three times faster, forward and backward. The profiler shows the GPUs computing through the entire step with no idle gaps, so where did the speedup go?"` },
+      { type: 'paragraph', text: `The attention kernels are three times faster. The step is not three times faster. It is barely faster at all. Nothing is broken, nothing is idle, and the profiler is not lying — the GPUs really are computing through the entire step, with no gaps. The speedup did not disappear. It was never large enough to matter, because attention was never a large enough share of the step.` },
+      { type: 'paragraph', text: `Stripped of jargon, the answer is just this: **in a 70B model on 2,048-token sequences, attention is only a small fraction of the work — the MLP and the linear projections dominate — so making attention 3x faster saves only a few percent of the step. And the profiler showing no idle gaps tells you the step was compute-bound all along, so an IO saving had nothing to save.**` },
+      { type: 'h2', text: `How much of a 70B step is attention, really?` },
+      { type: 'paragraph', text: `A Transformer layer has two parts: attention, and the MLP. Attention itself has two parts: the linear projections — query, key, value, and output, each a matrix multiplication on the hidden state — and the attention scores themselves, the QK^T and the weighted sum over values, which is the N-by-N part.` },
+      { type: 'paragraph', text: `FlashAttention only speeds up the second part: the scores. It does not speed up the projections, and it does not speed up the MLP at all. And in a 70B model, the scores are a small slice of the total.` },
+      { type: 'paragraph', text: `Take the numbers for a 70B model, roughly Llama-2 70B dimensions: hidden size 8,192, MLP intermediate size 28,672, 80 layers, sequence length 2,048. Per token, per layer, the FLOPs are approximately:` },
+      { type: 'list', ordered: false, items: [
+        `**QKV and output projections:** 4 matrices of 8,192 by 8,192, about 2 × 4 × 8,192² ≈ 0.54 GFLOPs per token.`,
+        `**MLP, SwiGLU with three matrices:** 3 matrices of 8,192 by 28,672, about 2 × 3 × 8,192 × 28,672 ≈ 1.41 GFLOPs per token.`,
+        `**Attention scores, QK^T plus the weighted sum:** 2 × 2 × 2,048 × 8,192 ≈ 0.07 GFLOPs per token.`
+      ]},
+      { type: 'paragraph', text: `Add them up: about 2.02 GFLOPs per token per layer, of which the attention scores — the only part FlashAttention accelerates — are about 0.07, or about 3 to 4%. The MLP alone is about 70%. The projections are about 27%. The scores are a rounding error by comparison.` },
+      { type: 'code', language: 'text', code: `Per token, per layer (approx):\n  MLP:              ~1.41 GFLOPs  (~70%)\n  QKV + output:     ~0.54 GFLOPs  (~27%)\n  Attention scores: ~0.07 GFLOPs  (~3%)\n\nFlashAttention 3x on the scores:\n  saves 2/3 of 3% = ~2% of the step` },
+      { type: 'quote', text: `FlashAttention makes the smallest part of the layer faster. The largest part — the MLP — it does not touch.` },
+      { type: 'h2', text: `Amdahl's law, in one line` },
+      { type: 'paragraph', text: `Amdahl's law says the speedup of the whole is limited by the fraction you did not speed up. If attention scores are 3% of the step, and you make them 3 times faster, the step gets faster by the fraction you saved: two-thirds of 3%, or about 2%. If the attention kernels you measured include the projections as well, and those projections are part of the 30% that is attention in total, a 3x speedup on all of attention would still only save about 20% of the step — and the kernel measurement that says "3x faster" is usually measuring only the score kernel, not the projections, which are ordinary matrix multiplications that FlashAttention does not change.` },
+      { type: 'paragraph', text: `That is why the step barely moves. The kernel is 3x faster, and the kernel was 3% of the step. Three times a small number is still a small number.` },
+      { type: 'h2', text: `What the profiler is telling you` },
+      { type: 'paragraph', text: `The second clue is the profiler: the GPUs are computing through the entire step, with no idle gaps. That means there was no time when the GPUs were waiting — waiting for memory, waiting for communication, waiting for data. They were always doing useful compute, and the step time is set by how much compute there is, not by how long anything stalls.` },
+      { type: 'paragraph', text: `FlashAttention's main benefit is not compute. It is IO: it avoids writing the N-by-N attention matrix to slow memory and reading it back, by keeping the tiles in SRAM. That benefit matters when the GPUs are idle waiting for memory — when the step is memory-bound, or IO-bound, and the attention matrix is the thing being waited on. If the GPUs are never idle, they were never waiting for memory in the first place. The step was compute-bound, and an IO saving cannot make a compute-bound step faster, because the compute is still there to do.` },
+      { type: 'paragraph', text: `At 2,048 tokens, that is exactly what you expect. The attention matrix is 2,048 by 2,048 — about 4 million entries per head — which is large, but it is small compared to the weight matrices, and the time to compute the scores is small compared to the time to compute the MLP. The memory wall that FlashAttention removes is a wall you only hit at long sequences, where N² grows faster than the MLP's fixed cost per token. At 2,048 tokens, with a 70B model, you are not at that wall yet. At 32,768 or 131,072 tokens, the scores would be a much larger share, and FlashAttention would matter far more.` },
+      { type: 'callout', emoji: '💡', text: `No idle gaps means no stall to remove. FlashAttention removes a memory stall. If there was no stall, there is nothing for it to save.` },
+      { type: 'h2', text: `Where would the speedup actually show up?` },
+      { type: 'paragraph', text: `The speedup would show up where attention is a large share of the step, and where the step is memory-bound rather than compute-bound. That is long sequences, small models, or both.` },
+      { type: 'list', ordered: false, items: [
+        `**Longer sequences.** At 32,768 tokens, the attention scores are 16 times larger per token than at 2,048, while the MLP cost per token is unchanged. Attention goes from 3% of the step to a third or more, and a 3x speedup on it moves the total.`,
+        `**Smaller models.** In a 1B or 7B model, the hidden size is smaller, so the MLP and projections are smaller, and the scores are a larger share. FlashAttention's benefit is proportionally larger.`,
+        `**Memory-bound regimes.** If the profiler had shown idle gaps — GPUs waiting for the attention matrix to be written and read back — then removing those gaps would have sped up the step, even if the FLOPs did not change. No gaps, no saving.`
+      ]},
+      { type: 'paragraph', text: `For a 70B model at 2,048 tokens, the way to speed up the step is not a faster attention kernel. It is a faster MLP, or fewer FLOPs overall — a smaller model, a more efficient architecture, better utilisation of the compute you already have — or, if the step is communication-bound in a distributed run, faster communication. The attention kernel was never the bottleneck.` },
+      { type: 'h2', text: `How would you check it?` },
+      { type: 'paragraph', text: `Look at the profiler's breakdown by kernel, not just by the attention kernel in isolation. Measure what fraction of the step time is the attention score kernel, what fraction is the MLP, and what fraction is the projections. If the score kernel is 3% and it got 3x faster, the expected total saving is about 2%, and the observed saving should match that. If the observed saving is even smaller, check whether the backward recomputation in FlashAttention — it recomputes attention in the backward pass, because it did not save the matrix — is eating part of the forward saving. And check the sequence length: run the same comparison at 8,192 and 32,768 tokens, and watch the attention share, and the speedup, grow with N.` },
+      { type: 'h2', text: `So what's the actual answer?` },
+      { type: 'paragraph', text: `The attention kernels got 3x faster, but attention scores are only about 3% of a 70B step on 2,048-token sequences — the MLP is about 70% and the QKV and output projections are about 27% — so a 3x speedup on the scores saves only about 2% of the step, by Amdahl's law. And the profiler showing no idle gaps means the step was compute-bound, not memory-bound, so FlashAttention's IO saving — avoiding writing and reading the N-by-N matrix — had no stall to remove. The speedup did not go anywhere. It was small, because attention was small, and it was an IO saving in a step that was not IO-bound.` },
+      { type: 'quote', text: `A kernel that is 3x faster and 3% of the step makes the step 2% faster. That is not a missing speedup. That is arithmetic.` },
+      { type: 'divider' },
+      { type: 'h2', text: `The whole thing in five sentences` },
+      { type: 'list', ordered: true, items: [
+        `In a 70B model on 2,048-token sequences, the MLP is about 70% of the FLOPs per token, the QKV and output projections are about 27%, and the attention scores are only about 3%.`,
+        `FlashAttention only speeds up the scores, so a 3x speedup there saves about two-thirds of 3%, or about 2% of the step — Amdahl's law.`,
+        `The profiler showing no idle gaps means the GPUs were never waiting for memory, so the step was compute-bound, and FlashAttention's IO saving had no stall to remove.`,
+        `At longer sequences, or in smaller models, attention is a larger share and FlashAttention matters far more.`,
+        `To speed up this step, speed up the MLP or reduce total FLOPs — the attention kernel was never the bottleneck.`
+      ]},
+      { type: 'callout', emoji: '📌', text: `A classic systems interview question. The terms to remember are Amdahl's law, compute-bound versus memory-bound, and the MLP share of a Transformer step.` }
+    ]
+  },
 ];
