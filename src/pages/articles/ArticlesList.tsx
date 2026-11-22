@@ -162,6 +162,17 @@ const ArticlesList: React.FC = () => {
               {tag} ({count})
             </button>
           ))}
+          {/* A tag clicked on a card can be a rare one with no chip above,
+              so show it as the active filter instead of leaving the row blank. */}
+          {selectedTag !== null && !topicTags.some(({ tag }) => tag === selectedTag) && (
+            <button
+              className="articles-filter-chip active"
+              onClick={() => setSelectedTag(null)}
+              aria-pressed
+            >
+              {selectedTag} ×
+            </button>
+          )}
         </div>
 
         <div className="articles-count">
@@ -192,7 +203,20 @@ const ArticlesList: React.FC = () => {
             <div className="article-preview-body">
               <div className="article-preview-tags">
                 {article.tags.map(tag => (
-                  <span key={tag} className="article-tag">{tag}</span>
+                  <button
+                    key={tag}
+                    type="button"
+                    className="article-tag"
+                    title={`Show all articles tagged ${tag}`}
+                    onClick={(e) => {
+                      // Don't open the article — filter the list by this tag.
+                      e.stopPropagation();
+                      setSelectedTag(tag);
+                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }}
+                  >
+                    {tag}
+                  </button>
                 ))}
               </div>
               <h2 className="article-preview-title">{article.title}</h2>
