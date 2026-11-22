@@ -37479,4 +37479,67 @@ WELLBEING METRICS (not engagement metrics):
       { type: 'callout', emoji: '📌', text: `A classic fine-tuning interview question. The checks to remember are: decode one example, count supervised tokens, overfit ten examples.` }
     ]
   },
+  {
+    slug: 'gradient-accumulation-loss-normalization',
+    title: `32 Sequences Won't Fit on Your GPU, So You Run 4 Micro-Batches of 8, Take Each One's Loss as the Mean Over Its Own Non-Padding Tokens, and Average the 4. What Would You Change, and How Would You Check It Worked?`,
+    subtitle: `A plain-English guide to gradient accumulation: why averaging per-micro-batch losses weights short sequences too heavily, and how to weight by tokens instead.`,
+    date: 'November 21, 2026',
+    readTime: '8 min read',
+    tags: ['Machine Learning', 'LLM Training', 'Fine-Tuning', 'Interview Prep'],
+    coverEmoji: '⚖️',
+    content: [
+      { type: 'callout', emoji: '🎯', text: `Interview question: "32 sequences won't fit on your GPU, so you run 4 micro-batches of 8, take each one's loss as the mean over its own non-padding tokens, and average the 4. What would you change, and how would you check it worked?"` },
+      { type: 'paragraph', text: `This is a gradient accumulation question, and it is a trap that looks like correct code. You are doing the right thing by splitting a batch of 32 into 4 micro-batches of 8 and stepping the optimizer only after all 4. The bug is not in the splitting. It is in the averaging.` },
+      { type: 'paragraph', text: `Stripped of jargon, the problem is just this: **an average of averages is only the right average if every group is the same size. Your micro-batches are not.**` },
+      { type: 'h2', text: `What the current code actually does` },
+      { type: 'paragraph', text: `Each micro-batch has 8 sequences, but those sequences are different lengths. After you remove the padding tokens, one micro-batch might have 1,000 real tokens getting loss, and the next might have 4,000.` },
+      { type: 'paragraph', text: `Your code takes the mean loss over the tokens in micro-batch 1, the mean loss over the tokens in micro-batch 2, and so on, and then averages those 4 means. That gives each micro-batch exactly one quarter of the total weight — no matter how many tokens it actually contributed.` },
+      { type: 'list', ordered: false, items: [
+        `**Micro-batch 1:** 1,000 tokens, mean loss 2.0 — gets 25% of the weight.`,
+        `**Micro-batch 2:** 4,000 tokens, mean loss 1.0 — also gets 25% of the weight.`,
+        `**The naive average:** (2.0 + 1.0 + ...) / 4. The short micro-batch is pulling the loss up far more than its 1,000 tokens deserve.`
+      ]},
+      { type: 'paragraph', text: `In other words, a token in a short micro-batch counts four times as much as a token in a long micro-batch, just because of which micro-batch it happened to land in. The model ends up overfitting to short sequences and underweighting long ones — and the effect gets worse the more variable your sequence lengths are, which is exactly the case with chat data, where one reply is a sentence and the next is a paragraph.` },
+      { type: 'quote', text: `Averaging per-micro-batch means is not the same as averaging over tokens. It is averaging over micro-batches, and pretending each one had the same number of tokens.` },
+      { type: 'h2', text: `What you would change: weight by tokens, not by micro-batch` },
+      { type: 'paragraph', text: `The fix is to go back to what a batch of 32 would have done if it had fit on the GPU: one mean over all the non-padding tokens in all 32 sequences.` },
+      { type: 'paragraph', text: `Add up the loss over every non-padding token across all 4 micro-batches, add up the number of non-padding tokens across all 4 micro-batches, and divide the first total by the second. That is the correct loss for the full batch, and it is the loss whose gradient is the gradient of a real batch of 32.` },
+      { type: 'code', language: 'text', code: `total_loss = sum over micro-batches of (sum of token losses)\ntotal_tokens = sum over micro-batches of (non-padding tokens)\ncorrect_loss = total_loss / total_tokens` },
+      { type: 'paragraph', text: `In code, the cleanest way to do this is to use sum reduction inside each micro-batch instead of mean reduction, accumulate the token counts, and divide once at the end. Or, equivalently, scale each micro-batch's mean loss by its token count divided by the total token count, before you call backward on it:` },
+      { type: 'code', language: 'text', code: `weight = tokens_in_this_micro_batch / total_tokens_in_all_4\nscaled_loss = mean_loss_of_this_micro_batch * weight\nscaled_loss.backward()` },
+      { type: 'paragraph', text: `Either form gives the same gradient. The key point is that the weighting happens per token, not per micro-batch. And the optimizer step, the gradient clipping, and the zeroing of gradients still happen only once, after all 4 micro-batches — that part of the accumulation was already right, and you should say so.` },
+      { type: 'h3', text: `When would the old code have been fine?` },
+      { type: 'paragraph', text: `If every micro-batch had exactly the same number of non-padding tokens, the naive average and the token-weighted average would be identical. That happens if all your sequences are the same length, or if you sort and bucket by length so carefully that each micro-batch balances out. In practice, with variable-length chat or code data, that is almost never true — which is why this bug is worth naming, and why the fix is not optional.` },
+      { type: 'callout', emoji: '💡', text: `The interviewer is testing whether you notice that "mean of means" is not "mean of tokens". Say that sentence out loud, then give the token-weighted formula.` },
+      { type: 'h2', text: `How would you check it worked?` },
+      { type: 'paragraph', text: `This is the second half of the question, and it has a clean answer: compare against a real batch of 32, where you do not need accumulation at all.` },
+      { type: 'list', ordered: false, items: [
+        `**The gold-standard check: run the same 32 sequences as one batch.** Use a bigger GPU, a smaller model, or CPU for a tiny test, and compute the loss and the gradients in one go. Then run the same 32 sequences as 4 micro-batches of 8 with your fix. The loss should match, and the gradients should match to within floating-point tolerance. If they do not, your weighting is still wrong.`,
+        `**Log the token counts.** For each micro-batch, log how many non-padding tokens it had. If those counts vary a lot and your naive average and your token-weighted loss differ a lot, that is the bug showing up in your logs. After the fix, the reported loss should be the token-weighted one, and it should move smoothly, not jump around with whichever micro-batch happened to be short.`,
+        `**Check the gradient, not just the loss.** The loss is a number you report; the gradient is what actually trains the model. Compare the gradient norm, or a few gradient values, between the single-batch run and the accumulated run. Two runs can report the same loss and still have different gradients if the scaling is applied to the loss for logging but not to the backward pass — so check both.`
+      ]},
+      { type: 'paragraph', text: `If you cannot fit 32 on any GPU you have, shrink the test: use 8 sequences as one batch versus 2 micro-batches of 4, with deliberately uneven lengths — say one micro-batch of very short sequences and one of very long ones. That makes the difference between the naive average and the token-weighted average as large as possible, so a wrong fix is easy to spot.` },
+      { type: 'h2', text: `What else to watch while you are in there` },
+      { type: 'paragraph', text: `The loss weighting is the main bug, but gradient accumulation has two other classic failure modes, and it is worth showing you know them.` },
+      { type: 'list', ordered: false, items: [
+        `**Stepping too often, or not zeroing gradients.** The optimizer should step once per 4 micro-batches, and gradients should be zeroed after that step, not after each micro-batch. If you step after each micro-batch, you are not doing accumulation at all — you are just training with a batch size of 8 and a learning rate meant for 32.`,
+        `**Gradient clipping per micro-batch.** Clip once, after all 4 micro-batches have been accumulated, on the full gradient. Clipping each micro-batch separately changes the effective gradient in a way that depends on the micro-batch size.`,
+        `**Loss reporting.** Report the token-weighted loss for the full accumulation step, not the last micro-batch's loss, and not the naive average of the 4. Otherwise your loss curve will be noisy and misleading, even if the gradients are right.`
+      ]},
+      { type: 'h2', text: `So what's the actual answer?` },
+      { type: 'paragraph', text: `Do not average the 4 per-micro-batch mean losses. Weight each micro-batch by its number of non-padding tokens, so the total is a mean over all tokens in the 32 sequences — either by summing token losses and dividing by the total token count, or by scaling each micro-batch's mean loss by its share of the total tokens before backward.` },
+      { type: 'paragraph', text: `Then check it by running the same 32 sequences as a single batch and comparing loss and gradients, and by logging token counts per micro-batch to show the naive average and the corrected loss actually differ when lengths vary.` },
+      { type: 'quote', text: `Gradient accumulation should be invisible to the model. If you cannot tell, from the loss and the gradients, whether you ran one batch of 32 or four micro-batches of 8, you have done it right.` },
+      { type: 'divider' },
+      { type: 'h2', text: `The whole thing in five sentences` },
+      { type: 'list', ordered: true, items: [
+        `Averaging the mean loss of each micro-batch gives every micro-batch equal weight, even though micro-batches have different numbers of non-padding tokens.`,
+        `That overweights tokens in short micro-batches and underweights tokens in long ones, so the model learns the wrong weighting of your data.`,
+        `Fix it by weighting by tokens: sum all token losses across the 4 micro-batches and divide by the total number of non-padding tokens, or scale each micro-batch loss by its token share before backward.`,
+        `Keep stepping the optimizer, clipping, and zeroing gradients once per full accumulation step, not per micro-batch.`,
+        `Check it by comparing loss and gradients against a single batch of 32 on the same sequences, and by logging token counts per micro-batch to show the correction matters when lengths vary.`
+      ]},
+      { type: 'callout', emoji: '📌', text: `A classic training-systems interview question. The formula to remember is: total token loss divided by total non-padding tokens.` }
+    ]
+  },
 ];
