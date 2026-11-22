@@ -38791,4 +38791,67 @@ WELLBEING METRICS (not engagement metrics):
       { type: 'callout', emoji: '📌', text: `A classic training-systems interview question. The terms to remember are mantissa, master weights, and update swamping.` }
     ]
   },
+  {
+    slug: 'kv-cache-why-cant-reuse-cached-keys-values',
+    title: `A GPT-Style Model Keeps Every Earlier Token's Keys and Values, and Each New Token Computes Only Its Own. Why Can't It Reuse the Cached Keys and Values?`,
+    subtitle: `A plain-English guide to the KV cache: why a causal model can reuse it — and the exact changes that make it stale.`,
+    date: 'November 21, 2026',
+    readTime: '8 min read',
+    tags: ['Machine Learning', 'LLM Inference', 'Transformers', 'Interview Prep'],
+    coverEmoji: '💾',
+    content: [
+      { type: 'callout', emoji: '🎯', text: `Interview question: "A GPT-style model keeps every earlier token's keys and values, and each new token computes only its own. Why can't it reuse the cached keys and values?"` },
+      { type: 'paragraph', text: `First, the premise to check: in the normal case, it can reuse them — that is the whole point of the KV cache. A GPT-style model is causal, so the keys and values for a token depend only on that token and the tokens before it. When a new token arrives, the earlier tokens have not changed, so their keys and values have not changed, and recomputing them would be wasted work. Each new token computes only its own query, key, and value, and attends to the cached keys and values of everything before it. That is what makes decoding one token at a time affordable.` },
+      { type: 'paragraph', text: `Stripped of jargon, the answer is just this: **it can reuse them, as long as nothing that went into computing them has changed. It cannot reuse them when the earlier tokens change, when their positions change, when the model weights change, or when the model is not causal — because in each of those cases the cached keys and values are no longer the keys and values the model would compute now.**` },
+      { type: 'h2', text: `Why it can reuse them in the normal case` },
+      { type: 'paragraph', text: `In a causal Transformer, the representation of token i is a function of tokens 1 through i, and nothing after i. The key and value for token i are projections of that representation, so they are also a function of tokens 1 through i only. When token i+1 arrives, tokens 1 through i are the same tokens, in the same order, with the same positions, run through the same weights — so their keys and values are the same numbers. Caching them is not an approximation. It is exact.` },
+      { type: 'paragraph', text: `That is why the KV cache is a cache, not a shortcut. The new token's query is computed fresh, it attends to all the cached keys, and the output is identical, to rounding, to what you would get if you recomputed the whole sequence from scratch. The saving is that each step is O(1) new work — one token's projections — instead of O(N) work recomputing all N tokens.` },
+      { type: 'list', ordered: false, items: [
+        `**Causal attention is the enabler.** A token cannot attend to the future, so the future cannot change its representation. That one-way dependence is what makes the cache valid.`,
+        `**The cache is per sequence, per layer, per head.** Every layer and every head has its own keys and values for every token, and all of them are reusable for the same reason.`,
+        `**The cost is memory, not compute.** The cache grows linearly with sequence length, which is why long contexts are memory-bound in decoding — but the compute per token stays constant.`
+      ]},
+      { type: 'quote', text: `The KV cache works because the past does not depend on the future. Break that, and the cache breaks with it.` },
+      { type: 'h2', text: `When it cannot reuse them: the earlier tokens change` },
+      { type: 'paragraph', text: `The first and most common invalidation is also the simplest: if you change an earlier token, its key and value change, and so do the keys and values of every token after it, because those tokens' representations depend on the changed token through attention.` },
+      { type: 'paragraph', text: `That is what happens when a user edits an earlier message, when a system prompt is changed, when a token is inserted or deleted in the middle of a prompt, or when a tool result is inserted into the conversation. The tokens before the edit are still reusable — their context has not changed — but everything from the edit point onward must be recomputed. Prefix caching, as in vLLM and SGLang, does exactly this: it reuses the longest common prefix of the new prompt and the cached prompt, and recomputes from the first difference onward.` },
+      { type: 'h2', text: `When it cannot reuse them: the positions change` },
+      { type: 'paragraph', text: `Keys and values do not depend only on the tokens. They depend on the tokens' positions. With RoPE — rotary position embeddings, which most modern models use — the key for a token is rotated by an angle that depends on its position. Move a token to a different position, and its key changes, even if the token itself is the same.` },
+      { type: 'paragraph', text: `That is why inserting a token in the middle invalidates everything after it, even if those later tokens are unchanged: they have all shifted by one position, their RoPE rotations have all changed, and their cached keys are stale. It is also why prefix caching only works when the prefix is identical token-for-token, in the same order, at the same positions. A prompt that is the same words in a different order, or with an extra token at the start, has a different position for every token after the difference, and none of their cached keys can be reused.` },
+      { type: 'list', ordered: false, items: [
+        `**Insert or delete in the middle:** all later tokens shift position, their RoPE keys change, and they must be recomputed.`,
+        `**Prepend a token:** every token shifts by one, so the whole cache is invalid.`,
+        `**Change the system prompt:** the user tokens after it shift, so their cache is invalid, even though the user tokens themselves did not change.`
+      ]},
+      { type: 'callout', emoji: '💡', text: `A cached key is not just a function of a token. It is a function of a token at a position, through a specific set of weights. Change any of the three, and the cache is stale.` },
+      { type: 'h2', text: `When it cannot reuse them: the weights change` },
+      { type: 'paragraph', text: `Keys and values are projections of the hidden state through the model's weight matrices. Change the weights, and the projections change, even for the same tokens at the same positions. That is why a KV cache cannot be reused after a fine-tune, after swapping a LoRA adapter, after quantising the model, or after loading a different checkpoint. The cache belongs to a specific model, with specific weights, not to the text alone.` },
+      { type: 'paragraph', text: `The same applies to anything that changes how the projections are computed: a different RoPE base or scaling, a different attention implementation that changes the numerics beyond rounding, or a different dtype. A cache computed in fp16 is not the same as a cache computed in bf16, to more than rounding, if the weights were quantised in between.` },
+      { type: 'h2', text: `When it cannot reuse them: the model is not causal` },
+      { type: 'paragraph', text: `The deepest case is when the model is not causal at all. In a bidirectional encoder like BERT, the representation of a token depends on the tokens after it as well as before it. Add a new token, and every earlier token's representation changes, because it can now attend to the new token. Their keys and values change too, so none of them can be reused. That is why BERT has no KV cache, and why KV caching is a property of causal, GPT-style models specifically — not of Transformers in general.` },
+      { type: 'paragraph', text: `The same logic applies to any architecture where a token's representation depends on the future, or on the whole sequence at once: a bidirectional layer, a model with a global pooling step before the keys are computed, or a model that recomputes its prefix from a summary that includes later tokens. If the past depends on the future, the past cannot be cached.` },
+      { type: 'h2', text: `What else breaks reuse, in practice?` },
+      { type: 'paragraph', text: `A few practical cases are worth naming, because they are the ones that surprise people in production.` },
+      { type: 'list', ordered: false, items: [
+        `**Speculative decoding and rollbacks.** If a draft token is rejected, the tokens generated after it were conditioned on it, so their cached keys and values are stale and must be discarded back to the rejection point. The cache is truncated, not reused past the bad token.`,
+        `**Sliding-window attention.** If the model only attends to the last W tokens, the cache for tokens older than the window is evicted. It is not that those keys and values are wrong — they are simply no longer needed, and keeping them would waste memory.`,
+        `**Different requests, different prefixes.** Prefix caching across requests only works when the prefix is identical, including the system prompt, the chat template, and the tokenisation. A single different token at the start invalidates the whole shared prefix, which is why serving systems hash the exact token sequence, not just the text.`
+      ]},
+      { type: 'h2', text: `How would you check it?` },
+      { type: 'paragraph', text: `Compare the cached run to a full recompute. Generate with the KV cache, then generate the same sequence from scratch without it, and check that the outputs match to rounding. If they do not, something that went into the cached keys and values changed — a token, a position, or a weight — and the cache was stale. That test is the definition of cache validity, and it is how you find out which of the cases above you have hit.` },
+      { type: 'h2', text: `So what's the actual answer?` },
+      { type: 'paragraph', text: `In a causal GPT-style model, it can reuse the cached keys and values — that is the KV cache, and it is exact, because an earlier token's key and value depend only on that token and the tokens before it. It cannot reuse them when anything that went into computing them changes: when an earlier token is edited, inserted, or deleted; when the positions shift, so the RoPE rotations change; when the model weights change, through a fine-tune, an adapter swap, or quantisation; or when the model is not causal, so a new token changes the earlier tokens' representations. In each case, the cached keys and values are no longer the ones the model would compute now, and they must be recomputed from the first change onward.` },
+      { type: 'quote', text: `A KV cache is a promise that the past has not changed. Keep that promise, and it is free. Break it, and the cache is a lie.` },
+      { type: 'divider' },
+      { type: 'h2', text: `The whole thing in five sentences` },
+      { type: 'list', ordered: true, items: [
+        `In a causal GPT-style model, a token's key and value depend only on that token and the tokens before it, so they do not change when a new token arrives — and the KV cache reuses them exactly.`,
+        `It cannot reuse them when an earlier token changes, because that token's key and value change, and so do the keys and values of every token after it.`,
+        `It cannot reuse them when positions shift, because RoPE rotates keys by position, so a shifted token has a different key even if the token is the same.`,
+        `It cannot reuse them when the weights change, through a fine-tune, an adapter swap, or quantisation, because the projections change.`,
+        `And it cannot reuse them at all in a bidirectional model, where a new token changes every earlier token's representation — which is why KV caching is a property of causal models specifically.`
+      ]},
+      { type: 'callout', emoji: '📌', text: `A classic inference interview question. The terms to remember are KV cache, causal attention, and prefix caching.` }
+    ]
+  },
 ];
