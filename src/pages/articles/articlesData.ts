@@ -38030,4 +38030,63 @@ WELLBEING METRICS (not engagement metrics):
       { type: 'callout', emoji: '📌', text: `A classic speech-recognition interview question. The terms to remember are CTC, blank token, and summing over alignments.` }
     ]
   },
+  {
+    slug: 'cbow-sum-positional-embeddings',
+    title: `A Language Model Looks Up a Learned Vector for Each Context Word, Adds the Vectors Together and Predicts the Next Word from That Sum. Which Change Would Let It Tell Them Apart?`,
+    subtitle: `A plain-English guide to why a sum of word vectors cannot see word order, and how positional embeddings fix it.`,
+    date: 'November 21, 2026',
+    readTime: '8 min read',
+    tags: ['Machine Learning', 'NLP', 'Transformers', 'Interview Prep'],
+    coverEmoji: '🔢',
+    content: [
+      { type: 'callout', emoji: '🎯', text: `Interview question: "A language model looks up a learned vector for each context word, adds the vectors together and predicts the next word from that sum. Which change would let it tell them apart?"` },
+      { type: 'paragraph', text: `This is a CBOW model — continuous bag of words, from Word2Vec. It looks up a vector for each word in the context, adds them all together, and uses that sum to predict the next word. It works surprisingly well for meaning, and it fails completely on order.` },
+      { type: 'paragraph', text: `Stripped of jargon, the answer is just this: **addition does not care about order, so you have to put the order into the vectors before you add them — with positional embeddings.**` },
+      { type: 'h2', text: `Why a sum cannot tell words apart` },
+      { type: 'paragraph', text: `Addition is commutative. That is a fancy way of saying that a plus b is the same as b plus a, and a plus b plus c is the same in any order you add them. So a model that adds its context vectors together gets exactly the same sum for "dog bites man" and for "man bites dog".` },
+      { type: 'paragraph', text: `Those two sentences mean opposite things, but the model sees them as identical. It cannot tell which word came first, which word was the subject, which word was the object, or even how far apart two words were. All it knows is which words were present, not where they were.` },
+      { type: 'list', ordered: false, items: [
+        `**"Dog bites man" and "man bites dog" give the same sum.** The vectors for "dog", "bites", and "man" are added together, and the order of the addition does not change the result.`,
+        `**"Not good" and "good not" give the same sum.** The model cannot tell that "not" before "good" negates it, because it does not know "not" came first.`,
+        `**A word repeated twice counts twice, but its position still does not matter.** The sum knows a word appeared, and how many times, but not where.`
+      ]},
+      { type: 'paragraph', text: `That is why CBOW is called a bag of words. A bag, like a sum, has no order. You can shake it, tip it out, and put the words back in any order, and the bag is the same bag. For learning what words mean — which words appear together, which words are similar — that is enough. For predicting the next word in a sentence, where order is the meaning, it is not.` },
+      { type: 'quote', text: `A sum is a bag. It knows what is in it, but not the order it came in.` },
+      { type: 'h2', text: `The fix: add a position vector to each word vector` },
+      { type: 'paragraph', text: `The change is to give each position its own learned vector, and add that to the word vector before you sum. The word in position 1 gets the word vector plus the position-1 vector. The word in position 2 gets the word vector plus the position-2 vector, and so on.` },
+      { type: 'paragraph', text: `Now the same word in two different positions is a different vector. "Dog" in position 1 is dog-plus-position-1. "Dog" in position 3 is dog-plus-position-3. When you add those vectors together, the sum is no longer the same for "dog bites man" and "man bites dog", because the position vectors that were added to each word are different in the two sentences.` },
+      { type: 'code', language: 'text', code: `input for word at position i = word_vector[word] + position_vector[i]\ncontext = sum over i of input[i]` },
+      { type: 'paragraph', text: `That is positional embeddings, and it is the same idea that makes Transformers work. A Transformer also adds vectors together in attention, and attention on its own is also order-invariant — it is a weighted sum, and a weighted sum does not care about order either. That is why every Transformer adds positional encodings to its word embeddings before the first attention layer. Without them, a Transformer would be a bag of words too, just a more expensive one.` },
+      { type: 'list', ordered: false, items: [
+        `**Learned positional embeddings:** a table of vectors, one per position, learned during training. Simple, and it works well for fixed-length contexts. This is what the original Transformer and BERT use.`,
+        `**Sinusoidal positional encodings:** fixed vectors made from sine and cosine waves of different frequencies, so the model can extrapolate to positions it has not seen, and so the relative distance between two positions is encoded in the pattern. This is what the original Transformer paper used.`,
+        `**Relative positions:** instead of encoding absolute position, encode the distance between two words. That is what later models do, because what usually matters is not "word 3", but "three words after word 1".`
+      ]},
+      { type: 'callout', emoji: '💡', text: `The fix is not a bigger sum, or a different sum. It is putting the order into the vectors before the sum happens, so the sum can carry it.` },
+      { type: 'h2', text: `What else would work?` },
+      { type: 'paragraph', text: `Positional embeddings are the direct answer to this question, because the question is about a model that sums its context. But it is worth naming the other ways to make a model order-sensitive, because they show you understand the trade-off.` },
+      { type: 'list', ordered: false, items: [
+        `**Concatenate instead of adding.** If you put the word vectors side by side in order, instead of adding them, the order is preserved in the layout. That works, but the input size grows with the context length, and the model has to learn a separate weight for each position. It does not scale to long contexts.`,
+        `**Use a sequential model.** A recurrent network reads words one at a time and carries a hidden state forward, so order is built into the recurrence. A Transformer with attention and positional encodings does the same thing in parallel. Both are order-sensitive by construction, which is why they replaced CBOW for language modelling.`,
+        `**Weight the sum by position.** Give each position a different weight, or a different projection, so words in different positions contribute differently. That is a weaker version of positional embeddings — it lets the model tell positions apart, but not as richly, because the position only scales the word vector instead of adding new information to it.`
+      ]},
+      { type: 'paragraph', text: `Of those, positional embeddings are the cleanest fix for the model as described. They keep the sum, keep the model the same size, and add only a small table of position vectors. The model learns, during training, what each position means — that position 1 is usually the subject, that the last position is the most recent word, and so on — and the sum can then carry that information to the prediction.` },
+      { type: 'h2', text: `How would you check it worked?` },
+      { type: 'paragraph', text: `Give the model two sentences that are the same words in a different order, and check that its predictions are different. "Dog bites man" and "man bites dog" should lead to different next-word predictions. Without positional embeddings, they will be identical. With them, they should not be.` },
+      { type: 'paragraph', text: `A second check is to shuffle the context words at random and see if the model's loss changes. For a bag-of-words model, shuffling should change nothing, because the sum is the same. For a model with positional embeddings, shuffling should make the loss worse, because the positions no longer match the words. If shuffling does not hurt, the model is not actually using the positions.` },
+      { type: 'h2', text: `So what's the actual answer?` },
+      { type: 'paragraph', text: `Add positional embeddings. Give each position a learned vector, add it to the word vector for the word in that position, and then sum. The same word in different positions is now a different vector, so the sum is different for different word orders, and the model can tell "dog bites man" from "man bites dog".` },
+      { type: 'quote', text: `Addition forgets order. Positional embeddings remember it, by writing the position into the vector before the addition happens.` },
+      { type: 'divider' },
+      { type: 'h2', text: `The whole thing in five sentences` },
+      { type: 'list', ordered: true, items: [
+        `A CBOW model adds the vectors of its context words together, and addition is commutative, so the sum is the same for any order of the same words.`,
+        `That means "dog bites man" and "man bites dog" look identical to the model, even though they mean opposite things.`,
+        `Add a positional embedding to each word vector before summing, so the same word in a different position becomes a different vector.`,
+        `The sum is then different for different word orders, and the model can learn what each position means.`,
+        `This is the same reason Transformers add positional encodings: attention is also a weighted sum, and without positions it is also order-invariant.`
+      ]},
+      { type: 'callout', emoji: '📌', text: `A classic NLP interview question. The terms to remember are CBOW, bag of words, and positional embeddings.` }
+    ]
+  },
 ];
