@@ -37916,4 +37916,60 @@ WELLBEING METRICS (not engagement metrics):
       { type: 'callout', emoji: '📌', text: `A classic NLP interview question. The terms to remember are BPE, subwords, byte-level BPE, and copy mechanism.` }
     ]
   },
+  {
+    slug: 'hmm-viterbi-most-likely-sequence',
+    title: `Your HMM Tagger Picks the Most Likely Tag for Each Word, Left to Right, and the Full Tag Sequences It Ends Up With Often Score Badly. How Would You Find the Most Likely Sequence?`,
+    subtitle: `A plain-English guide to Viterbi decoding: why picking the best tag per word gives you a bad sequence, and how dynamic programming finds the best sequence.`,
+    date: 'November 21, 2026',
+    readTime: '8 min read',
+    tags: ['Machine Learning', 'NLP', 'Sequence Models', 'Interview Prep'],
+    coverEmoji: '🔍',
+    content: [
+      { type: 'callout', emoji: '🎯', text: `Interview question: "Your HMM tagger picks the most likely tag for each word, left to right, and the full tag sequences it ends up with often score badly. How would you find the most likely sequence?"` },
+      { type: 'paragraph', text: `Picking the best tag for each word, one at a time, feels like the obvious thing to do. For each word you look at its emission probabilities, pick the tag that makes that word most likely, and move on. The trouble is that a tag sequence is not a collection of independent choices. The tags have to make sense together, and a greedy choice early on can paint you into a corner later.` },
+      { type: 'paragraph', text: `Stripped of jargon, the answer is just this: **do not pick tags word by word. Search over whole sequences, with dynamic programming — the Viterbi algorithm.**` },
+      { type: 'h2', text: `Why greedy per-word picking scores badly` },
+      { type: 'paragraph', text: `An HMM has two kinds of probabilities. Emission probabilities say how likely a word is given a tag: how likely is "bank" given the tag NOUN, versus given the tag VERB. Transition probabilities say how likely a tag is given the previous tag: how likely is VERB after DETERMINER, versus NOUN after DETERMINER.` },
+      { type: 'paragraph', text: `Greedy decoding only uses the first kind. It picks, for each word, the tag with the highest emission probability, ignoring the transition entirely. So it can produce a sequence that is locally good at every step and globally terrible.` },
+      { type: 'list', ordered: false, items: [
+        `**Impossible transitions.** Greedy can pick DETERMINER followed by VERB, or ADJECTIVE followed by ADJECTIVE followed by VERB, in a combination the transition probabilities say almost never happens. The sequence as a whole has a near-zero probability, even though each word's tag looked good on its own.`,
+        `**A local win that costs you later.** The best tag for word 2 might be NOUN, but choosing NOUN makes word 3 almost impossible to tag well, because NOUN is rarely followed by the tag word 3 needs. A slightly worse tag for word 2 — say VERB — would have let word 3 be tagged perfectly. Greedy never looks ahead, so it never sees that trade-off.`,
+        `**Ties and ambiguity.** Many words are ambiguous: "bank" can be a noun or a verb, "light" can be a noun, a verb, or an adjective. The emission alone cannot decide. Only the surrounding tags can, and greedy has already committed to a tag before it sees the rest of the sentence.`
+      ]},
+      { type: 'paragraph', text: `In other words, greedy decoding is solving the wrong problem. It finds the tag that is most likely for each word in isolation. What you actually want is the tag sequence that is most likely for the whole sentence, jointly — and those are different things.` },
+      { type: 'quote', text: `The best tag for a word is not the same as the best tag in the best sequence. Greedy finds the first. You want the second.` },
+      { type: 'h2', text: `The fix: Viterbi decoding` },
+      { type: 'paragraph', text: `The Viterbi algorithm finds the single most likely tag sequence for the whole sentence, exactly, with dynamic programming. It does not try every possible sequence — there are far too many of those — and it does not pick greedily. It builds the answer step by step, keeping only the best partial sequence for each possible ending tag.` },
+      { type: 'paragraph', text: `Imagine a trellis: one column per word, one row per tag. Each cell is a possible tag for that word. Viterbi walks across the columns, left to right, and for each cell it asks: what is the best sequence that ends here, in this tag, for this word?` },
+      { type: 'list', ordered: false, items: [
+        `**For the first word,** the score for each tag is the initial probability of that tag, times the emission probability of the first word given that tag.`,
+        `**For each later word,** the score for a tag is the emission probability of that word given the tag, times the best score over all possible previous tags — where "best" means the previous tag's score times the transition probability from that previous tag to this one.`,
+        `**Keep a backpointer.** For each cell, remember which previous tag gave the best score. That is how you will reconstruct the sequence at the end.`
+      ]},
+      { type: 'paragraph', text: `That is the whole algorithm. At each step you only need to keep one number per tag: the score of the best partial sequence ending in that tag. You do not need to keep every sequence you have ever considered, because any sequence that is not the best for its ending tag can never become the best overall sequence later — a better partial sequence ending in the same tag will always beat it, no matter what comes next. That is the optimal substructure that makes dynamic programming work.` },
+      { type: 'code', language: 'text', code: `score[t][tag] = emission[word_t | tag] \n              x max over prev_tag of (\n                  score[t-1][prev_tag] \n                  x transition[tag | prev_tag]\n                )` },
+      { type: 'paragraph', text: `At the end of the sentence, you pick the tag with the highest score in the last column, and then you follow the backpointers backwards to reconstruct the whole sequence. That sequence is, by construction, the most likely tag sequence for the sentence under the HMM — the MAP sequence, the maximum a posteriori sequence.` },
+      { type: 'callout', emoji: '💡', text: `Viterbi is not a heuristic. For an HMM, it finds the exact best sequence, in time proportional to the sentence length times the square of the number of tags — far faster than enumerating all sequences.` },
+      { type: 'h2', text: `A concrete example of where greedy fails` },
+      { type: 'paragraph', text: `Take the sentence "Time flies like an arrow." The word "flies" is most likely a verb on its own, and "like" is most likely a preposition. Greedy picks those, and the sequence looks reasonable word by word.` },
+      { type: 'paragraph', text: `But the HMM's transition probabilities might say that a noun followed by a verb followed by a preposition is a common pattern, while the alternative reading — "time" as a verb, "flies" as a noun, "like" as a verb — is a different, also plausible sequence. Greedy cannot compare the two whole sequences. It just picks the best tag for "flies" and moves on, and if that early pick was wrong, the rest of the tags are forced to fit around it.` },
+      { type: 'paragraph', text: `Viterbi compares the whole sequences. It keeps both readings alive as partial sequences, scores them with transitions and emissions together, and only at the end picks the one with the higher total probability. That is why its sequences score better: it is optimising the thing you actually care about, the joint probability of the tag sequence and the words, not a collection of local maxima.` },
+      { type: 'h2', text: `Viterbi versus posterior decoding` },
+      { type: 'paragraph', text: `There is a related method worth naming, because an interviewer may ask about it. Posterior decoding, also called per-word decoding with the forward-backward algorithm, picks for each word the tag with the highest posterior probability given the whole sentence — not just the words before it, but the words after it too. That is better than greedy, because it uses the full context.` },
+      { type: 'paragraph', text: `But posterior decoding still picks tags one word at a time, and the resulting sequence may not be a valid sequence under the HMM at all — it can still contain a transition with zero probability, because it never enforced that the tags form a coherent sequence. If your goal is the most likely *sequence*, Viterbi is the right algorithm. If your goal is to maximise the number of individual tags that are correct, posterior decoding can be better. The question asks for the most likely sequence, so the answer is Viterbi.` },
+      { type: 'h2', text: `So what's the actual answer?` },
+      { type: 'paragraph', text: `Stop picking the most likely tag per word. Use Viterbi decoding: dynamic programming over a trellis of words and tags, keeping for each tag the best partial sequence ending in that tag, with backpointers to reconstruct the winner. That finds the single most likely tag sequence for the whole sentence, exactly, instead of a collection of locally good tags that form a globally bad sequence.` },
+      { type: 'quote', text: `Greedy asks "what is the best tag for this word?" Viterbi asks "what is the best sequence for this sentence?" — and it answers it exactly.` },
+      { type: 'divider' },
+      { type: 'h2', text: `The whole thing in five sentences` },
+      { type: 'list', ordered: true, items: [
+        `Greedy per-word tagging only uses emission probabilities, ignoring transitions, so it can produce sequences with impossible or very unlikely tag transitions.`,
+        `A locally best tag early on can make later words almost impossible to tag well, and greedy never looks ahead to see that trade-off.`,
+        `Viterbi decoding finds the most likely whole sequence with dynamic programming, keeping only the best partial sequence for each possible ending tag at each word.`,
+        `At the end, follow the backpointers from the best final tag to reconstruct the exact MAP sequence, in time proportional to sentence length times the square of the number of tags.`,
+        `Posterior decoding is the related alternative that maximises per-word accuracy, but it can produce an invalid sequence — for the most likely sequence, use Viterbi.`
+      ]},
+      { type: 'callout', emoji: '📌', text: `A classic sequence-models interview question. The terms to remember are Viterbi, trellis, backpointers, and MAP sequence.` }
+    ]
+  },
 ];
