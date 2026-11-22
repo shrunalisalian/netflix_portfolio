@@ -38554,4 +38554,65 @@ WELLBEING METRICS (not engagement metrics):
       { type: 'callout', emoji: '📌', text: `A classic data-pipeline interview question. The terms to remember are exact dedup first, incremental MinHash, and LSH banding.` }
     ]
   },
+  {
+    slug: 'awq-3bit-salient-weights-scaling-all-3bit',
+    title: `Rounding a Model's Weights to 3 Bits, One Group at a Time, Costs Noticeable Accuracy, and Keeping Just 1% of the Weight Channels in 16-Bit Wins Most of It Back If You Pick the Ones with the Largest Activations. How Would You Get That Benefit with Every Weight in 3 Bits?`,
+    subtitle: `A plain-English guide to AWQ: why a few weight channels matter far more than the rest, and how scaling them up before quantisation protects them without keeping any of them in 16-bit.`,
+    date: 'November 21, 2026',
+    readTime: '8 min read',
+    tags: ['Machine Learning', 'LLM Inference', 'Quantization', 'Interview Prep'],
+    coverEmoji: '⚖️',
+    content: [
+      { type: 'callout', emoji: '🎯', text: `Interview question: "Rounding a model's weights to 3 bits, one group at a time, costs noticeable accuracy, and keeping just 1% of the weight channels in 16-bit wins most of it back if you pick the ones with the largest activations. How would you get that benefit with every weight in 3 bits?"` },
+      { type: 'paragraph', text: `Three bits gives you eight levels. That is not many levels to represent a weight with, and if you round every weight to the nearest of those eight levels, group by group, you lose accuracy. But if you keep just 1% of the weight channels in 16-bit — the ones whose activations are largest — most of the accuracy comes back. That tells you something important: the loss is not spread evenly across the weights. It is concentrated in a few channels.` },
+      { type: 'paragraph', text: `Stripped of jargon, the answer is just this: **scale those salient channels up before you quantise them, and scale the activations down by the same factor. The maths is unchanged in full precision, but the quantisation error on the channels that matter most becomes relatively smaller — so you get the benefit of protecting them, with every weight still in 3 bits.**` },
+      { type: 'h2', text: `Why 1% of the channels matter so much` },
+      { type: 'paragraph', text: `In a language model, the activations are not uniform. A small fraction of channels have activations that are much larger than the rest — sometimes a hundred times larger. Those are the salient channels, and they are salient because the output of a layer is the weight times the activation, summed over channels. A channel with a large activation contributes a large amount to the output, so an error in its weight is multiplied by a large activation and becomes a large error in the output.` },
+      { type: 'paragraph', text: `A channel with a small activation, by contrast, contributes little to the output, so an error in its weight barely matters. Quantising all channels equally — the same 3-bit grid for every weight — wastes precision on channels that do not matter, and starves the channels that do. Keeping the salient 1% in 16-bit works because it gives full precision exactly where the error would hurt most, and 3 bits everywhere else, where the error is multiplied by a small activation and stays small.` },
+      { type: 'list', ordered: false, items: [
+        `**Salient weight:** large activation, so a small weight error becomes a large output error. Protect it.`,
+        `**Ordinary weight:** small activation, so the same weight error becomes a small output error. Three bits is enough.`,
+        `**The 1% is not random.** It is the channels with the largest activations, measured on calibration data. Pick them by activation magnitude, not by weight magnitude — a large weight with a small activation matters less than a small weight with a large activation.`
+      ]},
+      { type: 'quote', text: `Not all weights are equal. A weight's importance is its size times the size of the activation it multiplies.` },
+      { type: 'h2', text: `The trick: scale up, quantise, scale down` },
+      { type: 'paragraph', text: `Here is the trick, and it is the core of AWQ — activation-aware weight quantisation. Before you quantise, multiply the salient weight channels by a factor s greater than 1, and divide the corresponding activation channels by the same factor s. In full precision, nothing has changed: the product of the weight and the activation is the same, because s times 1/s is 1.` },
+      { type: 'code', language: 'text', code: `Original:  output = W · x\nScaled:    output = (W · s) · (x / s)   <- same in full precision\nQuantised: output ≈ Q(W · s) · (x / s)` },
+      { type: 'paragraph', text: `But after quantisation, everything has changed. The quantisation grid is fixed — the step between the eight levels is set by the range of the weights in the group. By scaling a weight up, you make it larger relative to that step, so the rounding error, which is at most half a step, becomes a smaller fraction of the weight. The relative error on the salient channel falls, even though the absolute step is the same.` },
+      { type: 'paragraph', text: `And the activation scaling is free: you divide the activation by s before the matrix multiplication, which is a cheap per-channel scaling you can fold into the previous layer, and you multiply the weight by s once, offline, before quantisation. At inference time, the model is still all 3-bit weights, with a small per-channel scale for the activations. No weight is kept in 16-bit, and no mixed-precision kernel is needed.` },
+      { type: 'list', ordered: false, items: [
+        `**Scale up the salient weights.** Multiply the weight channels with the largest activations by s, so they are larger relative to the quantisation step, and their relative rounding error shrinks.`,
+        `**Scale down the activations by the same factor.** Divide the corresponding activation channels by s, so the product — and therefore the output — is unchanged in full precision.`,
+        `**Choose s per channel group by search.** AWQ searches over s on calibration data, picking the scale that minimises the output error after quantisation. A scale that is too large pushes the scaled weights outside the group's range and increases the error on the other channels in the group; a scale that is too small does not protect the salient channel enough. The optimum is in between, and it is found by a small grid search, not by a formula.`
+      ]},
+      { type: 'callout', emoji: '💡', text: `Scaling does not add precision. It moves precision to where it matters, by making the important weights bigger relative to the rounding step.` },
+      { type: 'h2', text: `Why this is better than keeping 1% in 16-bit` },
+      { type: 'paragraph', text: `Keeping 1% of the channels in 16-bit works, but it costs you a mixed-precision model: most weights are 3-bit, a few are 16-bit, and the kernel has to handle both, with a sparse outlier matrix alongside the dense quantised one. That is slower, more complicated to serve, and it does not compress as well — the 1% in 16-bit is a disproportionate share of the memory, because 16 bits is more than five times 3 bits.` },
+      { type: 'paragraph', text: `Scaling gives you the same protection with a uniform 3-bit model. Every weight is 3 bits, every group uses the same kernel, and the only extra cost is a per-channel activation scale, which is a handful of numbers. In practice, AWQ with scaling recovers most of the accuracy that mixed-precision recovers, and it does so with a model that is simpler to deploy.` },
+      { type: 'h2', text: `What else would you do?` },
+      { type: 'paragraph', text: `Scaling is the direct answer to this question, because the question is about getting the mixed-precision benefit with all weights in 3 bits. But it is worth naming the other ways to protect salient weights, because they show you understand the trade-off.` },
+      { type: 'list', ordered: false, items: [
+        `**Group-wise quantisation with a small group size.** Quantising one group at a time, with a group size of 128 instead of a whole row, already helps, because each group gets its own scale and zero-point, so a large weight in one group does not force a coarse grid on the rest of the row. Smaller groups protect outliers better, at the cost of more scale parameters to store.`,
+        `**GPTQ error compensation.** Instead of scaling, compensate for the rounding error: when you round a weight, adjust the weights you have not rounded yet to cancel the error, using the Hessian from calibration activations. That is GPTQ, and it also protects salient weights, because the Hessian weights the compensation by activation magnitude. AWQ and GPTQ are complementary — AWQ scales before quantisation, GPTQ compensates during it — and they can be combined.`,
+        `**Rotate the weights to spread the outliers.** Methods like QuaRot and QuIP apply a Hadamard rotation to the weights and activations, which spreads a large outlier across many channels, so no single channel dominates and a uniform 3-bit grid works well everywhere. That is a different way to get the same benefit: instead of protecting the outlier, remove it.`,
+        `**Clip the quantisation range.** Search for the clipping range that minimises the output error, rather than using the full min-to-max range. Clipping a few extreme weights to a narrower range gives a finer grid for the rest, which is another way of moving precision to where it matters.`
+      ]},
+      { type: 'paragraph', text: `Notice the pattern: every one of these is about the same thing — a uniform grid wastes precision on unimportant weights and starves important ones, so you have to move precision to the salient channels, either by scaling them, by compensating for their error, by rotating the outliers away, or by clipping the range.` },
+      { type: 'h2', text: `How would you check it worked?` },
+      { type: 'paragraph', text: `Measure perplexity and downstream accuracy after quantisation, with and without the scaling, on the same calibration set and the same group size. The scaling should close most of the gap to the mixed-precision model — the one with 1% in 16-bit — and the gap should close most on the tasks where the salient channels matter most. Also check the scale factors themselves: they should be larger for the channels with the largest activations, and close to 1 for the rest. If every scale is 1, the search did not find anything, and the salient channels are not being protected.` },
+      { type: 'h2', text: `So what's the actual answer?` },
+      { type: 'paragraph', text: `The 1% of channels with the largest activations matter most, because their weight error is multiplied by a large activation. Instead of keeping them in 16-bit, scale them up before quantisation and scale the activations down by the same factor. The product is unchanged in full precision, but the salient weights are larger relative to the 3-bit quantisation step, so their relative rounding error shrinks. That is AWQ, and it recovers most of the mixed-precision accuracy with every weight still in 3 bits.` },
+      { type: 'quote', text: `You do not need to keep the important weights in 16-bit. You need to make them bigger before you round them, and smaller on the other side of the multiplication.` },
+      { type: 'divider' },
+      { type: 'h2', text: `The whole thing in five sentences` },
+      { type: 'list', ordered: true, items: [
+        `A few weight channels have activations much larger than the rest, so an error in their weights becomes a large error in the output — those are the salient channels.`,
+        `Keeping the salient 1% in 16-bit works, but it needs a mixed-precision model and a sparse outlier matrix.`,
+        `Instead, scale the salient weight channels up by a factor s before quantisation, and scale the corresponding activations down by s, so the product is unchanged in full precision.`,
+        `After quantisation, the salient weights are larger relative to the 3-bit step, so their relative rounding error is smaller — the protection, without any weight in 16-bit.`,
+        `Choose s per group by searching on calibration data, and combine with small group sizes and GPTQ error compensation for the best 3-bit accuracy.`
+      ]},
+      { type: 'callout', emoji: '📌', text: `A classic quantisation interview question. The term to remember is AWQ — activation-aware weight quantisation, by scaling salient channels.` }
+    ]
+  },
 ];
