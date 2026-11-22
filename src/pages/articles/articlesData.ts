@@ -38209,4 +38209,65 @@ WELLBEING METRICS (not engagement metrics):
       { type: 'callout', emoji: '📌', text: `A classic BERT interview question. The terms to remember are conditional independence, marginal versus joint, and Mask-Predict.` }
     ]
   },
+  {
+    slug: 'h100-single-user-memory-bandwidth-bound',
+    title: `You're Serving a 7-Billion-Parameter Model on One H100 to a Single User, One Token at a Time. nvidia-smi Says the GPU Is 100% Busy, but It's Doing a Few Trillion Operations a Second out of the Roughly Thousand Trillion It Can Do. What's Holding It Back?`,
+    subtitle: `A plain-English guide to memory-bandwidth-bound decoding: why a single user, one token at a time, can keep an H100 busy and still use almost none of its compute.`,
+    date: 'November 21, 2026',
+    readTime: '8 min read',
+    tags: ['Machine Learning', 'Inference', 'Systems', 'Interview Prep'],
+    coverEmoji: '⚡',
+    content: [
+      { type: 'callout', emoji: '🎯', text: `Interview question: "You're serving a 7-billion-parameter model on one H100 to a single user, one token at a time. nvidia-smi says the GPU is 100% busy, but it's doing a few trillion operations a second out of the roughly thousand trillion it can do. What's holding it back?"` },
+      { type: 'paragraph', text: `An H100 can do roughly 1,000 trillion operations a second — about 989 TFLOPS in FP16, more with sparsity and FP8. You are seeing a few TFLOPS. That is less than one percent of the peak. And yet nvidia-smi says the GPU is 100% busy. Both numbers are true, and the contradiction is the clue.` },
+      { type: 'paragraph', text: `Stripped of jargon, the answer is just this: **the GPU is not waiting for work to do. It is waiting for weights to arrive. Decoding one token at a time for one user is memory-bandwidth bound, not compute bound.**` },
+      { type: 'h2', text: `What one token actually costs` },
+      { type: 'paragraph', text: `To generate one token, the model has to run one forward pass. That forward pass touches every weight in the model, once, to multiply it by the current hidden state. For a 7-billion-parameter model in FP16, that is 7 billion weights times 2 bytes each — about 14 gigabytes of weights — that have to be read from the GPU's memory into its compute cores.` },
+      { type: 'paragraph', text: `How much compute does that buy you? Each weight is used in roughly one multiply and one add, so about 2 operations per weight, or about 14 billion operations — 14 GFLOPs — per token. That is the whole forward pass, for one token, for one user.` },
+      { type: 'list', ordered: false, items: [
+        `**Weights to read, per token:** about 14 GB.`,
+        `**Compute to do, per token:** about 14 GFLOPs.`,
+        `**Ratio:** about 1 operation per byte read. That is the arithmetic intensity of single-user decoding, and it is extremely low.`
+      ]},
+      { type: 'paragraph', text: `Now compare that to what the H100 can do. Its memory bandwidth is about 3 terabytes per second — it can read about 3,000 gigabytes of weights per second. Its compute is about 1,000 TFLOPS. To use all of that compute, you would need about 300 operations per byte read. You have 1. So the compute cores finish their 14 GFLOPs almost instantly, and then they wait for the next 14 gigabytes of weights to arrive.` },
+      { type: 'quote', text: `The GPU is 100% busy in the sense that it never idles — it is always either computing or waiting for memory. But it is waiting for memory most of the time.` },
+      { type: 'h2', text: `Do the arithmetic: the speed limit is the memory` },
+      { type: 'paragraph', text: `If the memory can deliver 3 terabytes per second, and each token needs 14 gigabytes of weights, the fastest you can possibly go is 3,000 divided by 14 — about 214 tokens per second. That is the memory-bandwidth speed limit, and no amount of extra compute can beat it, because the compute is not the bottleneck.` },
+      { type: 'paragraph', text: `At 214 tokens per second, each token doing 14 GFLOPs, the total compute is 214 times 14 GFLOPs — about 3 TFLOPs. That is exactly what you are seeing: a few trillion operations a second, out of a thousand trillion available. The GPU is doing all the compute it is asked to do. It is just not being asked to do very much, because each token only needs a tiny amount of compute and a huge amount of weight reading.` },
+      { type: 'code', language: 'text', code: `Max tokens/sec = memory bandwidth / weights per token\n               = 3,000 GB/s / 14 GB\n               = ~214 tokens/s\n\nCompute at that rate = 214 x 14 GFLOPs\n                     = ~3 TFLOPs  (0.3% of peak)` },
+      { type: 'paragraph', text: `That is the roofline model, in one calculation. The roofline says performance is limited by whichever is lower: the compute peak, or the memory bandwidth times the arithmetic intensity. Here the arithmetic intensity is about 1 FLOP per byte, so the memory roof is far below the compute roof, and the memory roof is the one you hit.` },
+      { type: 'h2', text: `Why batch size 1 makes it worst` },
+      { type: 'paragraph', text: `The weights are the same for every user, so if you serve many users at once, you can read the weights once and use them for all of them. That is batching, and it is what raises the arithmetic intensity. With a batch of 32 users, each weight read is used 32 times — once per user — so the operations per byte go from 1 to 32, and the compute utilisation goes up by roughly the same factor.` },
+      { type: 'paragraph', text: `With a batch of 1, there is no reuse. Each weight is read once, used once, and discarded. The matrix multiplications in the model become matrix-vector multiplications — a single vector, not a matrix — and a matrix-vector multiplication has almost no parallelism to exploit. The GPU's thousands of cores have almost nothing to do in parallel, because there is only one token's worth of work.` },
+      { type: 'list', ordered: false, items: [
+        `**Batch size 1:** one vector, one weight read per use, arithmetic intensity about 1. Memory bound.`,
+        `**Batch size 32:** 32 vectors, one weight read per 32 uses, arithmetic intensity about 32. Much closer to compute bound.`,
+        `**Prefill, the first pass over the prompt:** the prompt is many tokens at once, so it is a matrix-matrix multiplication, with high arithmetic intensity. That is why prefill is fast and decode is slow — the same model, the same GPU, but a completely different bottleneck.`
+      ]},
+      { type: 'paragraph', text: `The KV cache makes this worse in a second way. At each step, the model also has to read the cached keys and values for all previous tokens, and that cache grows with the context length. For a long conversation, the KV cache read can become a significant part of the memory traffic, on top of the weights. But for a 7B model on one user, the weights are still the dominant cost.` },
+      { type: 'callout', emoji: '💡', text: `nvidia-smi's "100% busy" means the GPU is never idle, not that its compute cores are fully used. A GPU waiting on memory still counts as busy.` },
+      { type: 'h2', text: `What would you change?` },
+      { type: 'paragraph', text: `If the bottleneck is memory bandwidth, you have to either read fewer bytes per token, or reuse each byte more times. Those are the two directions, and the standard fixes fall into one or the other.` },
+      { type: 'list', ordered: false, items: [
+        `**Batch users together.** Continuous batching, as in vLLM, groups many users' tokens into one forward pass, so the weights are read once and used many times. This is the biggest win, and it is why production serving is batched even for interactive use.`,
+        `**Quantise the weights.** If the weights are 4-bit instead of 16-bit, each token needs 3.5 GB instead of 14 GB, and the memory-bandwidth speed limit quadruples. The compute per token stays the same, but the bytes per token fall, so the tokens per second rise. This is why 4-bit and 8-bit quantisation are so effective for single-user serving.`,
+        `**Use speculative decoding.** Have a small, fast draft model propose several tokens, then have the large model verify them all in one forward pass. The large model still reads its weights once, but it now produces several tokens per read instead of one, so the effective tokens per second goes up.`,
+        `**Reduce the KV cache traffic.** Use grouped-query attention, or a smaller KV cache, or keep the cache in faster memory, so the per-token memory read is not weights plus a growing cache.`
+      ]},
+      { type: 'paragraph', text: `What you would *not* do is buy a faster GPU with more FLOPS, or try to optimise the kernels to use more of the compute. The compute is not the bottleneck. A GPU with twice the FLOPS and the same memory bandwidth would give you the same tokens per second, because you are still waiting on the same 14 gigabytes per token.` },
+      { type: 'h2', text: `So what's the actual answer?` },
+      { type: 'paragraph', text: `Decoding one token at a time for one user is memory-bandwidth bound. Each token requires reading all 7 billion weights, about 14 GB in FP16, but only about 14 GFLOPs of compute, so the arithmetic intensity is about 1 operation per byte. The H100's memory can deliver about 3 TB/s, which caps you at about 214 tokens per second and about 3 TFLOPs — a few trillion operations out of a thousand trillion — even though the GPU is never idle, because it is always waiting for the next weights to arrive.` },
+      { type: 'quote', text: `The GPU is not slow. It is starved. It can compute a thousand trillion operations a second, but it can only be fed three terabytes of weights a second, and one token only needs fourteen gigabytes of them.` },
+      { type: 'divider' },
+      { type: 'h2', text: `The whole thing in five sentences` },
+      { type: 'list', ordered: true, items: [
+        `Generating one token requires reading all 7 billion weights, about 14 GB in FP16, but only about 14 GFLOPs of compute.`,
+        `That is an arithmetic intensity of about 1 operation per byte, far below what the H100 needs to use its compute.`,
+        `The H100's memory bandwidth of about 3 TB/s therefore caps decoding at about 214 tokens per second, which is about 3 TFLOPs — less than 1% of peak compute.`,
+        `nvidia-smi reports 100% busy because the GPU is always either computing or waiting for memory, and it is waiting most of the time.`,
+        `Fix it by batching users, quantising the weights, or using speculative decoding — all of which reduce bytes per token or reuse each byte more times.`
+      ]},
+      { type: 'callout', emoji: '📌', text: `A classic inference-systems interview question. The terms to remember are memory-bandwidth bound, arithmetic intensity, and the roofline model.` }
+    ]
+  },
 ];
