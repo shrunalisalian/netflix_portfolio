@@ -28,39 +28,50 @@ export const staticContactMe: ContactMe = {
 export const staticTimeline: TimelineItem[] = [
   {
     timelineType: 'work',
-    name: 'Tatum Robotics',
-    title: 'Software Engineer – Machine Learning',
-    techStack: 'PyTorch, TensorFlow, SQL, Tableau, Python',
+    name: 'Ernst & Young',
+    title: 'Machine Learning Engineer',
+    techStack: 'PyTorch, Hugging Face, vLLM, Triton, FSDP, GRPO',
     summaryPoints: [
-      'Developed ASL recognition models with 40% accuracy improvement. ',
-      'Built QA/monitoring loops for production ML deployments.  ',
-      'Partnered cross-functionally to design KPIs, alerting, and data pipelines'
+      'Built a forkable, enterprise-wide LLM post-training platform (synthetic data, SFT, GRPO, deployment), scaled with single-node multi-GPU FSDP and vLLM rollouts, adopted by client teams for tool-filtering and regulatory models.',
+      'Led RLHF alignment via GRPO reinforcement learning atop SFT, optimizing a parameter-free logsumexp BCE objective against preference signals on edge cases, with a causal LM regularizer preserving interpretability and auditability.',
+      'Implemented automated failure analysis and eval gating between SFT and GRPO stages, tuning precision/recall tradeoffs per business requirement and blocking misaligned checkpoints before costly multi-GPU RL training runs.'
+    ],
+    dateRange: 'Jan 2026 – Present'
+  },
+  {
+    timelineType: 'work',
+    name: 'Tatum Robotics',
+    title: 'Machine Learning Engineer',
+    techStack: 'PyTorch, Squeezeformer, Transformers, CNNs',
+    summaryPoints: [
+      'Engineered a real-time ASL fingerspelling system using a Squeezeformer encoder with dual Transformer decoders over 3D pose-landmark sequences, achieving 40% accuracy gains over baseline models on continuous motion.',
+      'Represented spatiotemporal landmark trajectories as structured, image-like tensors and applied CNN layers across frames to capture fine-grained hand geometry, enabling sequence-to-sequence transcription of continuous physical gestures.',
+      'Applied targeted data augmentation strategies to regularize training on sparse landmark sequences, improving model robustness to variation in signer style, signing speed, and camera distance.'
     ],
     dateRange: 'May 2024 – Aug 2025'
   },
   {
     timelineType: 'work',
-    name: 'Auxi.ai',
-    title: 'Software Engineer – AI/ML',
-    techStack: 'PyTorch Lightning, TensorFlow Serving, Hugging Face, Stable Diffusion ',
+    name: 'Augmented Cognition Lab (NEU)',
+    title: 'Research Project Assistant',
+    techStack: 'YOLO, MediaPipe, PyTorch',
     summaryPoints: [
-      'Optimized real-time inference latency-throughput trade-offs. ',
-      'Built image segmentation classifiers with Hugging Face and experiment tracking. ',
-      'Developed safe image manipulation workflows with Stable Diffusion. '
+      'Built a multi-stage, perception pipeline fusing hierarchical YOLO-based person detection, MediaPipe hand-tracking, and raw video streams to analyze stimulus-response motor behavior in infants from multi-sensor clinical data.',
+      'Fine-tuned models for kinematic analysis of infant motor development; translated multi-modal pose and video signals into structured diagnostic features for expert clinical review with Boston hospital partners.',
+      'Addressed extreme class imbalance in sparse, sensitive clinical motion data using targeted augmentation strategies and custom loss design; optimized GPU throughput and pipeline efficiency across a multi-node cluster.'
     ],
-    dateRange: 'May 2023 – Sep 2023'
+    dateRange: 'Aug 2023 – Dec 2023'
   },
   {
     timelineType: 'work',
-    name: 'Augmented Cognition Lab (NEU)',
-    title: 'Research Project Assistant',
-    techStack: 'Random Forest, XGBoost, CUDA, PyTorch',
+    name: 'Auxi.ai',
+    title: 'Machine Learning Engineer',
+    techStack: 'PyTorch, Hugging Face, Stable Diffusion, LoRA',
     summaryPoints: [
-      'Engineered motion analysis models improving accuracy from 30% → 72%. ',
-      'Reduced runtime by 65% using CUDA optimization and PyTorch data loaders. ',
-      'Led A/B validation with SciPy and Statsmodels for experimental results. '
+      'Conducted R&D on image segmentation and object detection architectures for visual scene understanding; reproduced SOTA baselines, benchmarked model variants, and documented failure modes to guide future architecture decisions.',
+      'Prototyped image synthesis pipelines with Stable Diffusion for design workflows, tuning guidance scale, iterative prompt engineering, and LoRA fine-tuning to produce layout-aware, spatially-grounded visual generation outputs reliably.'
     ],
-    dateRange: 'Aug 2023 – Dec 2023'
+    dateRange: 'May 2023 – Sep 2023'
   },
   {
     timelineType: 'work',
@@ -68,33 +79,32 @@ export const staticTimeline: TimelineItem[] = [
     title: 'Data Analyst',
     techStack: 'SQL, Python, Tableau',
     summaryPoints: [
-      'Automated dashboards and pipelines to improve ad revenue tracking by 25%.  ',
-      'Designed A/B tests and delivered engineering-ready insights.  ',
-      'Partnered with engineering to optimize targeting strategies.  '
+      'Developed predictive models to optimize ad-unit placement and sizing for tier-1 American publishers; analyzed high-dimensional traffic data to forecast revenue potential and maximize ad yield by 11%.',
+      'Led rigorous A/B testing and statistical analysis to validate placement strategies; built automated SQL/Python pipelines to monitor KPIs and improve revenue tracking accuracy by 25% with engineering-ready reporting.'
     ],
     dateRange: 'Jun 2019 – Jun 2020'
   },
   {
     timelineType: 'education',
     name: 'Northeastern University, Boston',
-    title: 'M.S. in Data Analytics Engineering',
-    techStack: 'NLP, Computer Vision, Data Mining, Databases',
+    title: 'M.S. in Data Analytics',
+    techStack: 'NLP, Computer Vision, Deep Learning, Data Mining, DBMS',
     summaryPoints: [
-      'Specialized in AI/ML systems, computer vision, and data science. ',
-      'Coursework in NLP, CV, ML, Database Management. '
+      'Master of Science in Data Analytics, May 2024.',
+      'Coursework in Natural Language Processing, Computer Vision, Deep Learning, Data Mining, and DBMS.'
     ],
-    dateRange: '2022 – 2024'
+    dateRange: 'May 2024'
   },
   {
     timelineType: 'education',
     name: 'University of Mumbai',
     title: 'B.E. in Computer Engineering',
-    techStack: 'C++, Data Structures, Algorithms, Software Engineering',
+    techStack: 'C++, Data Structures, Algorithms, Operating Systems, AI, ML',
     summaryPoints: [
-      'Graduated with strong foundation in algorithms and systems. ',
-      'Active in coding competitions and academic projects. '
+      'Bachelor of Engineering in Computer Engineering, May 2019.',
+      'Coursework in Analysis of Algorithms, Data Structures, Operating Systems, Artificial Intelligence, and ML.'
     ],
-    dateRange: '2015 – 2019'
+    dateRange: 'May 2019'
   }
 ];
 
