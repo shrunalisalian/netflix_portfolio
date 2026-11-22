@@ -39338,4 +39338,62 @@ WELLBEING METRICS (not engagement metrics):
       { type: 'callout', emoji: '📌', text: `A classic RL interview question. The term to remember is zero-advantage groups — and the fix is DAPO dynamic sampling.` }
     ]
   },
+  {
+    slug: 'residual-stream-grows-ten-times-96-layers-init',
+    title: `At Initialization, a 96-Layer Model's Residual Stream Is About Ten Times Bigger at the Top Than at the Bottom. Nothing Is Trained Yet and Every Weight Is Drawn at a Standard Scale, So Why Does the Stream Keep Growing on the Way Up?`,
+    subtitle: `A plain-English guide to residual-stream growth at initialization: why variances add, layer by layer, until the norm grows like the square root of depth.`,
+    date: 'November 21, 2026',
+    readTime: '8 min read',
+    tags: ['Machine Learning', 'Transformers', 'LLM Training', 'Interview Prep'],
+    coverEmoji: '📈',
+    content: [
+      { type: 'callout', emoji: '🎯', text: `Interview question: "At initialization, a 96-layer model's residual stream is about ten times bigger at the top than at the bottom. Nothing is trained yet and every weight is drawn at a standard scale, so why does the stream keep growing on the way up?"` },
+      { type: 'paragraph', text: `Nothing is trained. Every weight is drawn at a standard scale — the scale that is supposed to keep activations stable. And yet, by the time the signal reaches the top of a 96-layer model, the residual stream is about ten times bigger than it was at the bottom. That is not a bug in the initialisation. It is the residual connection doing exactly what it is built to do, 96 times in a row.` },
+      { type: 'paragraph', text: `Stripped of jargon, the answer is just this: **each layer adds its block's output to the residual stream, and at initialization those additions are random and roughly independent, so their variances add. After 96 layers, the variance is about 96 times larger, and the norm — the square root of the variance — is about √96, or roughly ten times larger.**` },
+      { type: 'h2', text: `What a residual layer does` },
+      { type: 'paragraph', text: `A transformer layer, in the pre-norm form most modern models use, is:` },
+      { type: 'code', language: 'text', code: `x_{l+1} = x_l + Block_l(LayerNorm(x_l))\n\nBlock = attention sub-block, then MLP sub-block,\neach with its own residual addition.` },
+      { type: 'paragraph', text: `The residual stream, x, is a running total. Each layer reads it, computes something from a normalised copy of it, and adds the result back into it. Nothing in that equation shrinks the stream, or renormalises it, or resets it. LayerNorm normalises the copy that goes into the block, not the stream itself. So the stream is a sum — the embedding, plus the first layer's contribution, plus the second layer's, and so on, all the way up.` },
+      { type: 'paragraph', text: `At initialization, each block's contribution is random. Its weights are random, its input is a normalised version of the stream, and its output is a random vector, with mean close to zero, and a variance set by the weight scale. Crucially, it is roughly independent of the stream it is being added to, and roughly independent of the other layers' contributions — because the weights are drawn independently, layer by layer.` },
+      { type: 'h2', text: `Why independent additions make the variance grow` },
+      { type: 'paragraph', text: `When you add two independent random variables, their variances add. That is the key fact, and it is all you need.` },
+      { type: 'code', language: 'text', code: `Var(x + y) = Var(x) + Var(y)   if x and y are independent\n            (the cross-term 2·Cov(x, y) is zero)\n\nVar(x_{l+1}) = Var(x_l) + Var(Block_l)\n\nAfter L layers:  Var(x_L) ≈ Var(x_0) + L · Var(Block)\nIf Var(Block) ≈ Var(x_0):  Var(x_L) ≈ (L + 1) · Var(x_0)\nNorm(x_L) ≈ √(L + 1) · Norm(x_0)` },
+      { type: 'paragraph', text: `For 96 layers, that is √97, which is about 9.8 — the "about ten times bigger" in the question. It is not a coincidence that the number is ten, and it is not a coincidence that it is the square root of the depth. It is a random walk: each layer takes a step of roughly the same size, in a random direction, and after 96 steps you are about √96 steps from where you started.` },
+      { type: 'list', ordered: false, items: [
+        `**The growth is in variance, not in mean.** The mean of the stream stays close to zero, because each addition has mean close to zero. What grows is the spread — the typical size of a coordinate, and the norm of the whole vector.`,
+        `**The growth is additive, not multiplicative.** Each layer adds a fixed amount of variance, so the variance grows linearly with depth, and the norm grows like the square root of depth. It does not explode exponentially, which is why the model is still trainable — but it does grow, steadily, all the way up.`,
+        `**The cross-term is what would have saved it, and it is zero.** If the block's output were negatively correlated with the stream — if each layer subtracted some of the stream, or cancelled part of it — the variance would not add. At initialization, with independent random weights, there is no such correlation, so the cross-term is zero, and the variances add in full.`
+      ]},
+      { type: 'quote', text: `A residual stream is a running total of 96 random contributions. A running total of random steps grows like the square root of the number of steps — and √96 is about ten.` },
+      { type: 'h2', text: `Why "standard scale" does not stop it` },
+      { type: 'paragraph', text: `A standard initialisation — say, weights drawn from a normal distribution with variance 1/fan-in — is designed to keep a single layer's output at about the same scale as its input. And it does: one block's output is about the same size as the stream it is added to. That is exactly the problem. If each layer adds something about as big as the stream, and there are 96 layers, the stream will grow.` },
+      { type: 'paragraph', text: `A standard scale keeps one layer stable. It does not keep 96 layers stable, because stability over 96 layers needs each layer to add something much smaller than the stream — about 1/√96 as big, so that 96 of them add up to about one stream's worth. That is the difference between a per-layer scale and a per-model scale, and it is why the standard scale is not enough on its own.` },
+      { type: 'paragraph', text: `Note what LayerNorm does and does not do here. In a pre-norm transformer, LayerNorm normalises the input to each block, so the block always sees a vector of the same scale, no matter how big the stream has grown. That keeps the block's output at a fixed scale, layer after layer — which means each layer adds the same amount of variance, all the way up, and the stream grows steadily. LayerNorm does not normalise the stream itself, so it does not stop the growth. In a post-norm transformer, by contrast, LayerNorm is applied to the stream after each addition, which renormalises it to a fixed scale at every layer — and the stream does not grow. That is one reason post-norm models are more stable at initialization, and one reason pre-norm models need the fixes below.` },
+      { type: 'callout', emoji: '💡', text: `Standard init keeps one layer's output at the input's scale. Ninety-six such outputs, added one after another, are ninety-six times the variance — and ten times the norm.` },
+      { type: 'h2', text: `How would you fix it?` },
+      { type: 'paragraph', text: `Scale the residual branch down by the depth, so that the total added variance stays O(1) instead of O(L). There are several ways to do that, and they all amount to the same thing: make each layer's contribution smaller, by a factor that depends on the number of layers.` },
+      { type: 'list', ordered: false, items: [
+        `**Scale the initial weights by 1/√L.** GPT-2's initialisation scales the weights of the residual branches by 1/√N, where N is the number of layers, so that each block's output variance is 1/N of the stream's variance, and 96 of them add up to about one stream's worth. That is the simplest fix, and it is why GPT-2's init looks different from a standard init.`,
+        `**DeepNorm.** Scale the residual branch by a factor that grows with depth, and scale the weights down accordingly, so that the update to the stream is small at initialization and the model is stable even at very large depth.`,
+        `**LayerScale.** Multiply each block's output by a learnable per-channel scale, initialised to a small value (or zero), so that at initialization each layer adds almost nothing to the stream, and the model learns how much to add as it trains.`,
+        `**Post-norm, or a norm on the residual stream.** Apply LayerNorm to the stream itself after each addition, so it is renormalised to a fixed scale at every layer. That stops the growth directly, at the cost of the training dynamics that make post-norm harder to optimise at large depth.`
+      ]},
+      { type: 'paragraph', text: `All of these are doing the same thing: they stop 96 independent additions from accumulating into a stream ten times bigger than it started. Without one of them, the stream grows, the top layers see inputs ten times bigger than the bottom layers saw, and the model starts training from a badly scaled state — which is why deep models need one of these fixes, and shallow models can get away without it.` },
+      { type: 'h2', text: `How would you check it?` },
+      { type: 'paragraph', text: `Measure the norm of the residual stream after each layer, at initialization, before any training. Plot it against layer number. If the variance is adding, the squared norm should grow roughly linearly with depth, and the norm itself should grow roughly like the square root of depth — so a 96-layer model should be about ten times bigger at the top than at the bottom, a 24-layer model about five times, and a 4-layer model about twice. That square-root scaling is the signature of independent additions, and it is the check that the growth is a random walk, not an explosion or a single bad layer.` },
+      { type: 'h2', text: `So what's the actual answer?` },
+      { type: 'paragraph', text: `The stream keeps growing because each layer adds its block's output to it, and at initialization those outputs are random and roughly independent of the stream and of each other, so their variances add. After 96 layers, the variance is about 96 times larger, and the norm — the square root of the variance — is about √96, or roughly ten times larger. A standard weight scale keeps one layer's output at the input's scale, which is exactly the wrong size when there are 96 layers: it needs to be 1/√96 as big, so that 96 of them add up to one stream's worth. LayerNorm does not stop it, because in a pre-norm model it normalises the input to each block, not the stream itself. Fix it by scaling the residual branch by 1/√L, as GPT-2 does, or with DeepNorm, LayerScale, or a norm on the stream.` },
+      { type: 'quote', text: `The residual stream is a random walk with 96 steps. A random walk grows like the square root of the number of steps — and the square root of 96 is ten.` },
+      { type: 'divider' },
+      { type: 'h2', text: `The whole thing in five sentences` },
+      { type: 'list', ordered: true, items: [
+        `Each layer adds its block's output to the residual stream, and nothing renormalises the stream itself in a pre-norm model.`,
+        `At initialization, those outputs are random and roughly independent, so their variances add, layer by layer.`,
+        `After 96 layers, the variance is about 96 times larger, so the norm is about √96, or roughly ten times larger.`,
+        `A standard weight scale keeps one layer's output at the input's scale, which is too big when there are 96 layers — it needs to be 1/√96 as big.`,
+        `Fix it by scaling the residual branch by 1/√L, as GPT-2 does, or with DeepNorm, LayerScale, or a norm on the stream.`
+      ]},
+      { type: 'callout', emoji: '📌', text: `A classic transformer interview question. The term to remember is variance adds — and the fix is 1/√L residual scaling.` }
+    ]
+  },
 ];
