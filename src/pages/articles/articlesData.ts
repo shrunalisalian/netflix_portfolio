@@ -39174,4 +39174,59 @@ WELLBEING METRICS (not engagement metrics):
       { type: 'callout', emoji: '📌', text: `A classic optimisation interview question. The term to remember is direction-preserving — norm clipping preserves it, value clipping does not.` }
     ]
   },
+  {
+    slug: 'weight-averaging-last-five-checkpoints-lower-loss',
+    title: `You Average the Weights of Your Last Five Checkpoints, and the Average Gets a Lower Loss Than Every One of Them. Why Does the Average Do Better?`,
+    subtitle: `A plain-English guide to checkpoint averaging: why five noisy points around a minimum average to a point closer to its centre.`,
+    date: 'November 21, 2026',
+    readTime: '8 min read',
+    tags: ['Machine Learning', 'LLM Training', 'Optimization', 'Interview Prep'],
+    coverEmoji: '⚖️',
+    content: [
+      { type: 'callout', emoji: '🎯', text: `Interview question: "You average the weights of your last five checkpoints, and the average gets a lower loss than every one of them. Why does the average do better?"` },
+      { type: 'paragraph', text: `Five checkpoints, each one a model that was trained, evaluated, and saved. None of them is the best model. Their average — a model that was never trained, never saw a gradient, and is just the mean of their weights — is better than all of them. That feels like getting something for nothing, and in a sense it is. But it is not magic. It is geometry.` },
+      { type: 'paragraph', text: `Stripped of jargon, the answer is just this: **the five checkpoints are noisy points around the same minimum, on different sides of it. Averaging them cancels the noise and lands closer to the centre of the minimum, where the loss is lower and flatter.**` },
+      { type: 'h2', text: `What the last five checkpoints actually are` },
+      { type: 'paragraph', text: `Late in training, the model is near a minimum, but it is not sitting still at the bottom of it. SGD, with momentum, keeps moving — it bounces around the minimum, pushed by the noise in each batch's gradient, and by the learning rate, which is still non-zero. Each checkpoint is a snapshot of that bouncing: a point near the minimum, but offset from it in a random direction, by an amount set by the noise and the learning rate.` },
+      { type: 'paragraph', text: `If you save five checkpoints in a row, you have five such points. They are all near the same minimum, because they are from the same run, late in training, and they have not had time to wander to a different minimum. But they are on different sides of it: one is a little too far in one direction, another is a little too far in the opposite direction, and so on. Each one, on its own, is a noisy estimate of the minimum.` },
+      { type: 'list', ordered: false, items: [
+        `**Checkpoint 1:** near the minimum, offset in direction A.`,
+        `**Checkpoint 2:** near the minimum, offset in direction B.`,
+        `**Checkpoint 3, 4, 5:** near the minimum, offset in different directions.`,
+        `**Their average:** the offsets partly cancel, because they point in different directions, and the average lands closer to the centre than any one of them.`
+      ]},
+      { type: 'quote', text: `Each checkpoint is the minimum plus noise. The average is the minimum plus the average of the noise — and the average of noise pointing in different directions is smaller than the noise itself.` },
+      { type: 'h2', text: `Why the centre has lower loss` },
+      { type: 'paragraph', text: `Near a minimum, the loss is approximately quadratic: it grows with the square of the distance from the minimum. A point that is a distance d from the minimum has a loss that is higher than the minimum by an amount proportional to d squared. A point that is half as far has a loss that is a quarter as high above the minimum.` },
+      { type: 'paragraph', text: `Averaging reduces the distance. If the five checkpoints are scattered around the minimum with an average distance d, their average is typically much closer than d — because the offsets cancel. In the simplest case, if the offsets are random and independent, the average's offset is smaller by a factor of about the square root of five. Its distance from the minimum is smaller, its loss above the minimum is smaller by the square of that factor, and it beats every individual checkpoint, each of which is a full distance d away.` },
+      { type: 'paragraph', text: `There is a second, related reason: the centre is flatter. A minimum that is flat — where the loss changes slowly as you move away from it — generalises better than a sharp minimum, because a small change in the data, or a small change in the weights, does not change the loss much. Averaging lands in the flatter part of the basin, because it lands in the middle of it, where the curvature is lowest, rather than on the sides, where the checkpoints were. That is the idea behind stochastic weight averaging, SWA, and behind model soups: averaging finds flatter minima, and flatter minima generalise better.` },
+      { type: 'code', language: 'text', code: `Loss near a minimum ≈ L_min + k · (distance from minimum)²\n\nEach checkpoint:  distance ≈ d,  loss ≈ L_min + k·d²\nAverage:          distance ≈ d/√5, loss ≈ L_min + k·d²/5` },
+      { type: 'callout', emoji: '💡', text: `Averaging does not create a better model out of nothing. It removes the noise that was making each checkpoint worse than the minimum it was orbiting.` },
+      { type: 'h2', text: `When does averaging work — and when does it fail?` },
+      { type: 'paragraph', text: `Averaging works when the checkpoints are in the same basin — when they are close enough, and connected by a low-loss path, that their average is also in the basin. That is true for the last five checkpoints of a single run, because they are consecutive, and they have not moved far from each other. It is also true for models fine-tuned from the same pretrained model with different hyperparameters, which is why model soups work: they share a basin, because they share a starting point.` },
+      { type: 'paragraph', text: `Averaging fails when the checkpoints are in different basins. If you train two models from scratch with different random initialisations, they will find different minima, in different parts of the loss landscape, and their average will be somewhere in between — on a high-loss barrier between the two basins, not in either one. That average will be worse than both, not better. That is why you cannot average arbitrary models, and why the "same run, last five checkpoints" detail in the question matters: it is what guarantees they are in the same basin.` },
+      { type: 'list', ordered: false, items: [
+        `**Same run, consecutive checkpoints:** same basin, averaging works, and the average beats each one.`,
+        `**Same pretrained model, different fine-tunes:** often the same basin, averaging works — that is a model soup.`,
+        `**Different random initialisations:** different basins, averaging fails, and the average is worse than both.`,
+        `**Checkpoints from far apart in training:** if they are too far apart, they may have moved to a different basin, and averaging may fail. That is why you average the last few, not the first and the last.`
+      ]},
+      { type: 'paragraph', text: `That is also why exponential moving averaging, EMA, works: it is a running average of the weights, with more weight on recent checkpoints, and it smooths out the SGD noise in exactly the same way. SWA, EMA, and checkpoint averaging are all the same idea, with different weighting schemes.` },
+      { type: 'h2', text: `How would you check it?` },
+      { type: 'paragraph', text: `Measure the loss along the line between two checkpoints. If the loss stays low all the way between them — if they are linearly connected, with no high-loss barrier in the middle — they are in the same basin, and their average should be good. If the loss rises sharply in the middle, they are in different basins, and averaging will fail. That is the mode-connectivity test, and it is the direct check for whether averaging should work. Also measure the distance between the checkpoints and their average: if the average is closer to each checkpoint than the checkpoints are to each other, and its loss is lower, the noise-cancellation explanation is confirmed.` },
+      { type: 'h2', text: `So what's the actual answer?` },
+      { type: 'paragraph', text: `The last five checkpoints are noisy points around the same minimum, offset from it in different directions by SGD noise. Averaging them cancels those offsets, so the average lands closer to the centre of the minimum than any individual checkpoint, and its loss — which grows with the square of the distance from the minimum — is lower. The centre is also flatter, which generalises better. That only works because the checkpoints are from the same run and are in the same basin; averaging models from different basins would land on a high-loss barrier between them and do worse, not better.` },
+      { type: 'quote', text: `The average is not a new model. It is the centre of the five models you already had — and the centre is where the loss is lowest.` },
+      { type: 'divider' },
+      { type: 'h2', text: `The whole thing in five sentences` },
+      { type: 'list', ordered: true, items: [
+        `Late in training, SGD bounces around a minimum, so each checkpoint is the minimum plus noise, offset in a random direction.`,
+        `The last five checkpoints are all near the same minimum, but on different sides of it, because they are from the same run.`,
+        `Averaging them cancels the offsets, so the average lands closer to the centre than any one checkpoint.`,
+        `Near a minimum, loss grows with the square of the distance, so a closer point has a lower loss — and the centre is flatter, which generalises better.`,
+        `That only works when the checkpoints are in the same basin; averaging models from different basins lands on a high-loss barrier and does worse.`
+      ]},
+      { type: 'callout', emoji: '📌', text: `A classic optimisation interview question. The terms to remember are stochastic weight averaging, flat minima, and mode connectivity.` }
+    ]
+  },
 ];
