@@ -38493,4 +38493,65 @@ WELLBEING METRICS (not engagement metrics):
       { type: 'callout', emoji: '📌', text: `A classic reasoning-model interview question. The terms to remember are test-time compute, self-correction, and the "wait" trick.` }
     ]
   },
+  {
+    slug: 'deduplicate-96-common-crawl-minhash-incremental',
+    title: `You're Deduplicating 96 Common Crawl Snapshots with MinHash, All of Them Together. How Would You Deduplicate Instead?`,
+    subtitle: `A plain-English guide to deduplicating Common Crawl at scale: why one global MinHash pass over 96 snapshots does not work, and how to do it incrementally, with exact dedup first.`,
+    date: 'November 21, 2026',
+    readTime: '8 min read',
+    tags: ['Machine Learning', 'Data', 'Systems', 'Interview Prep'],
+    coverEmoji: '🧹',
+    content: [
+      { type: 'callout', emoji: '🎯', text: `Interview question: "You're deduplicating 96 Common Crawl snapshots with MinHash, all of them together. How would you deduplicate instead?"` },
+      { type: 'paragraph', text: `Ninety-six Common Crawl snapshots is not a dataset. It is a decade of the web, crawled over and over again, with the same pages appearing in snapshot after snapshot, the same boilerplate on millions of sites, and the same text copied, syndicated, and scraped again and again. Deduplicating it is not optional — without it, a language model will memorise the most repeated text and think it is the most important text. But how you deduplicate it matters as much as whether you do.` },
+      { type: 'paragraph', text: `Stripped of jargon, the answer is just this: **do not run one global MinHash pass over all 96 snapshots together. Deduplicate exactly first, by URL and by content hash, then deduplicate near-duplicates incrementally, snapshot by snapshot, keeping only the first copy you have seen.**` },
+      { type: 'h2', text: `Why all-together MinHash does not work` },
+      { type: 'paragraph', text: `MinHash works by turning each document into a set of shingles — overlapping 5-grams of words, say — hashing them, and keeping the smallest few hashes as a signature. Two documents with similar signatures are probably near-duplicates. To find them, you normally use locality-sensitive hashing, LSH: you split the signature into bands, and only compare documents that share a band.` },
+      { type: 'paragraph', text: `That works for one snapshot. For 96 snapshots together, it breaks, for three reasons, and they are all about scale.` },
+      { type: 'list', ordered: false, items: [
+        `**The scale is absurd.** A single Common Crawl snapshot has billions of pages. Ninety-six of them have tens of billions, with trillions of tokens. Computing MinHash signatures for all of them, holding them in memory, and shuffling them by LSH band in one job is a shuffle of a size that no cluster wants to do, and a failure anywhere in it restarts the whole thing.`,
+        `**Most duplicates are exact, and MinHash is the expensive way to find them.** The same URL is crawled in many snapshots, with byte-identical content, or with only a date or an ad changed. A SHA-256 hash of the content, or a URL lookup, finds those in one hash comparison, with no shingling, no signatures, and no LSH. Running MinHash on them first is doing the expensive fuzzy work to find the easy exact duplicates.`,
+        `**All-together has no order, and order is what you want.** The snapshots are chronological. When the same page appears in 2019 and in 2024, you usually want the newest version, or the first version, and you want to discard the rest. A global pass that treats all 96 snapshots as one unordered set has no notion of which copy to keep, and it has to compare every document against every other document, instead of just comparing each new document against the ones you have already kept.`
+      ]},
+      { type: 'quote', text: `MinHash is a fuzzy tool. Do not use it to find exact duplicates, and do not use it on ten years of the web in one pass.` },
+      { type: 'h2', text: `The change: exact first, then incremental, then fuzzy` },
+      { type: 'paragraph', text: `Do it in stages, cheapest first, and stream the snapshots in chronological order, keeping a growing set of what you have already kept. Each stage removes a large fraction of the data, so the expensive stage only ever sees what is left.` },
+      { type: 'h2', text: `Stage 1: exact deduplication by URL and by content hash` },
+      { type: 'paragraph', text: `First, deduplicate by URL: keep one crawl per URL, usually the most recent, and discard the rest. That alone removes a huge fraction of the 96 snapshots, because the same popular URLs are crawled in almost every snapshot. Then deduplicate by content hash: compute a SHA-256 of the normalised text, and keep only the first document with each hash. That removes byte-identical copies under different URLs, and copies where only the URL changed.` },
+      { type: 'paragraph', text: `Both of these are exact, and both are cheap. A hash set lookup is O(1), and you can do it in a streaming pass: read a document, hash it, check if the hash is in the seen set, and either discard it or add it to the seen set and keep it. No pairwise comparisons, no signatures, no shuffle. In practice, exact dedup removes the majority of the duplicates in Common Crawl, before MinHash ever runs.` },
+      { type: 'code', language: 'text', code: `for snapshot in snapshots_in_order:\n  for doc in snapshot:\n    if doc.url in seen_urls: continue\n    if sha256(normalised_text(doc)) in seen_hashes: continue\n    keep(doc); add url and hash to seen sets` },
+      { type: 'h2', text: `Stage 2: incremental near-duplicate detection, snapshot by snapshot` },
+      { type: 'paragraph', text: `Now, and only now, run MinHash — but incrementally. Process the snapshots one at a time, in order, and maintain a global index of the MinHash signatures of the documents you have kept so far. For each new document, compute its signature, query the index for near-duplicates among the kept documents, and discard it if it is a near-duplicate of something already kept. If it is new, add its signature to the index and keep it.` },
+      { type: 'paragraph', text: `The difference is that you never compare two new documents against each other, and you never compare a new document against a document you have already discarded. You only compare each new document against the kept set, which is much smaller than the full set, and which grows slowly. That turns an all-pairs problem into a streaming lookup problem.` },
+      { type: 'list', ordered: false, items: [
+        `**Use LSH banding for the index.** Split each signature into bands, and index by band hash, so a lookup only checks the documents that share a band with the new document — a handful of candidates, not billions.`,
+        `**Shard the index.** Partition the LSH index by band hash across machines, so each lookup goes to one shard. The index is the only state you have to keep, and it is the signatures of the kept documents, not of every document ever seen.`,
+        `**Keep the newest, or the first, deliberately.** Because you process snapshots in order, you can choose: keep the first copy you see, and discard later copies, or keep the newest by processing in reverse. Make that choice explicit, instead of letting a global pass pick arbitrarily.`
+      ]},
+      { type: 'callout', emoji: '💡', text: `The trick is not a better MinHash. It is doing the cheap exact work first, and then turning the fuzzy work from an all-pairs comparison into a streaming lookup against what you have already kept.` },
+      { type: 'h2', text: `What else would you change?` },
+      { type: 'paragraph', text: `Exact-first and incremental is the core change. A few more choices make the pipeline practical at this scale, and they are worth naming.` },
+      { type: 'list', ordered: false, items: [
+        `**Deduplicate within each snapshot first, then across snapshots.** Intra-snapshot duplicates — the same text syndicated across many sites in the same crawl — are the densest duplicates, and they are cheapest to find when the snapshot is in memory. Do that first, then do the cross-snapshot pass against the kept set.`,
+        `**Use a Bloom filter for the exact stage.** The seen set of hashes for tens of billions of documents does not fit in memory on one machine. A Bloom filter, or a distributed hash set, lets you check membership with a small false-positive rate, which is fine — a false positive just discards a document you might have kept, and at this scale that is an acceptable cost for not holding the full set.`,
+        `**Tune the MinHash threshold, and do not over-deduplicate.** A threshold that is too aggressive removes legitimate near-duplicates that are actually different documents — the same news article with a different headline, or a template with different content. The FineWeb and RefinedWeb pipelines use a Jaccard threshold around 0.8 for near-duplicates, with 5-gram shingles and 128 permutations, and they measure the effect on downstream performance, because over-deduplication can hurt as much as under-deduplication.`,
+        `**Consider a cheaper fuzzy method for the first pass.** SimHash, or a simple n-gram overlap check on a sample of the document, can catch the most obvious near-duplicates with far less compute than full MinHash, and you can reserve MinHash for the remainder. At 96 snapshots, the cheapest method that catches most duplicates wins.`
+      ]},
+      { type: 'h2', text: `How would you check it worked?` },
+      { type: 'paragraph', text: `Measure the duplicate rate at each stage, and the downstream effect. Log how many documents each stage removes, and what fraction of the kept set is still duplicated according to a held-out check — sample kept documents, query them against the kept set, and see if any near-duplicates slipped through. Then check the training effect: a well-deduplicated corpus should have lower memorisation of repeated text, and better performance on held-out data, because the model is not spending capacity on text it has seen a hundred times.` },
+      { type: 'h2', text: `So what's the actual answer?` },
+      { type: 'paragraph', text: `Do not run one global MinHash pass over all 96 Common Crawl snapshots together. It is too large to shuffle, it wastes the expensive fuzzy method on exact duplicates, and it has no order to choose which copy to keep. Instead, deduplicate exactly first — by URL and by SHA-256 of the normalised text — which removes most duplicates cheaply. Then run MinHash incrementally, snapshot by snapshot in chronological order, maintaining an LSH index of the signatures of documents you have kept, and discarding each new document if it is a near-duplicate of something already kept.` },
+      { type: 'quote', text: `Deduplicate in order, cheapest first, and never compare a document against a document you have already thrown away.` },
+      { type: 'divider' },
+      { type: 'h2', text: `The whole thing in five sentences` },
+      { type: 'list', ordered: true, items: [
+        `Ninety-six Common Crawl snapshots have tens of billions of pages, most of which are exact duplicates of pages in other snapshots.`,
+        `A single global MinHash pass is an all-pairs shuffle at a scale no cluster wants, and it wastes the fuzzy method on exact duplicates.`,
+        `Deduplicate exactly first, by URL and by SHA-256 of the normalised text, in a streaming pass with a seen set — that removes most duplicates cheaply.`,
+        `Then run MinHash incrementally, snapshot by snapshot, querying each new document against an LSH index of the signatures of documents already kept, and discarding it if it is a near-duplicate.`,
+        `That turns an all-pairs comparison into a streaming lookup, lets you choose which copy to keep, and leaves the expensive fuzzy work for only the documents that survive exact dedup.`
+      ]},
+      { type: 'callout', emoji: '📌', text: `A classic data-pipeline interview question. The terms to remember are exact dedup first, incremental MinHash, and LSH banding.` }
+    ]
+  },
 ];
