@@ -37857,4 +37857,63 @@ WELLBEING METRICS (not engagement metrics):
       { type: 'callout', emoji: '📌', text: `A classic distributed-training interview question. The terms to remember are micro-batches, 1F1B, and synchronous updates with no stale gradients.` }
     ]
   },
+  {
+    slug: 'oov-unknown-words-subword-tokenization',
+    title: `Your Translation Model Only Knows Its 50,000 Most Common Words, So Names, German Compounds and Anything Rare All Come Out as the Same Unknown Token. How Would You Handle Words That Aren't in the Vocabulary?`,
+    subtitle: `A plain-English guide to out-of-vocabulary words: why a word-level vocabulary collapses on names and compounds, and how subwords fix it.`,
+    date: 'November 21, 2026',
+    readTime: '8 min read',
+    tags: ['Machine Learning', 'NLP', 'Transformers', 'Interview Prep'],
+    coverEmoji: '🧩',
+    content: [
+      { type: 'callout', emoji: '🎯', text: `Interview question: "Your translation model only knows its 50,000 most common words, so names, German compounds and anything rare all come out as the same unknown token. How would you handle words that aren't in the vocabulary?"` },
+      { type: 'paragraph', text: `A word-level vocabulary has a hard edge. The 50,001st word, no matter how important it is in this sentence, is not in the model at all. It gets replaced with the same unknown token as every other rare word, and the model has to translate a sentence with a hole in it — a hole where a person's name, or a place, or the key noun in a German compound used to be.` },
+      { type: 'paragraph', text: `Stripped of jargon, the answer is just this: **stop tokenising by whole words. Tokenise by pieces, so an unknown word can be built from pieces the model already knows.**` },
+      { type: 'h2', text: `Why the unknown token is so damaging` },
+      { type: 'paragraph', text: `The unknown token is not just a missing word. It is the same token for every missing word, so the model cannot tell them apart. "Shrunali" and "Müller" and "Donaudampfschifffahrtsgesellschaft" — a person's name, a surname, and a German compound for a Danube steamship company — all become the same symbol. The model loses the information that would have told it which word this was, and it also loses the information inside the word itself.` },
+      { type: 'list', ordered: false, items: [
+        `**Names are almost always rare.** A name that appears once in a test sentence will not be in the top 50,000 words, no matter how large you make the vocabulary. Making the vocabulary bigger does not fix this — it just moves the edge a little further out, and the names are still beyond it.`,
+        `**German compounds are productive.** German can glue words together into new words that have never appeared before: "Bundesliga" plus "Spiel" plus "Tag" makes a new compound, and there is no vocabulary large enough to list every compound that could ever be formed. A word-level model is guaranteed to fail on the next new compound.`,
+        `**Rare words carry the meaning.** The common words in a sentence — "the", "is", "and" — are the ones the model already knows. The rare word is often the one that matters: the name of the drug, the place, the technical term. Losing it to an unknown token loses the sentence.`
+      ]},
+      { type: 'paragraph', text: `And the damage is worse on the output side than on the input side. If the model cannot represent a name in its input, it cannot translate it. If it cannot represent a name in its output vocabulary, it cannot even generate it — it can only output the unknown token, or a wrong common word in its place.` },
+      { type: 'quote', text: `An unknown token is not a word the model does not know. It is every word the model does not know, collapsed into one.` },
+      { type: 'h2', text: `The fix: subword tokenisation` },
+      { type: 'paragraph', text: `The standard answer is subword tokenisation, usually byte-pair encoding, or BPE, from Sennrich et al. (2016), or its cousins WordPiece and SentencePiece. Instead of splitting text into whole words, you split it into pieces — subwords — that are learned from the data.` },
+      { type: 'paragraph', text: `BPE starts with characters, and repeatedly merges the most frequent adjacent pair into a new piece. Frequent words end up as a single piece, because they are merged all the way up. Rare words end up as several pieces, because they were never frequent enough to be merged into one. And a word the model has never seen before is still split into pieces it has seen — characters and common chunks — so it never has to become an unknown token.` },
+      { type: 'list', ordered: false, items: [
+        `**A name like "Shrunali"** becomes "Shru" plus "nali", or similar pieces. The model has seen those pieces in other words, so it can represent the name, and it can learn that this particular combination is a name.`,
+        `**A German compound** splits at its seams. "Donaudampfschifffahrtsgesellschaft" becomes "Donau" plus "dampf" plus "schiff" plus "fahrt" plus "gesellschaft" — Danube, steam, ship, journey, company. Each piece is common, and the model can translate the compound piece by piece, instead of losing it entirely.`,
+        `**A rare technical word** becomes its stem plus its suffix. "Unbelievable" becomes "un" plus "believ" plus "able", and the model already knows all three pieces from other words.`
+      ]},
+      { type: 'paragraph', text: `The vocabulary is now a fixed size — say 32,000 subwords — but it is an open vocabulary in practice. Any string of text can be represented as a sequence of subwords from that list, because in the worst case you can always fall back to single characters. There is no word that is out of vocabulary, because words are no longer the unit.` },
+      { type: 'callout', emoji: '💡', text: `Subwords turn an open-ended problem into a closed one. The vocabulary stays fixed, but any word can be built from it — so there is no unknown token to fall back on.` },
+      { type: 'h2', text: `Byte-level BPE: the version with no unknowns at all` },
+      { type: 'paragraph', text: `Ordinary BPE still has a small edge case: a character that never appeared in training cannot be represented. Byte-level BPE, used by GPT-2 and later models, fixes even that. It starts from bytes, not characters, so there are only 256 possible starting pieces, and every piece of text in any language can be represented. A name in a new script, an emoji, a rare symbol — all of them are just bytes, and bytes are always in the vocabulary.` },
+      { type: 'paragraph', text: `That is why modern translation and language models use byte-level BPE or SentencePiece, rather than word-level tokenisation. The vocabulary is a little larger in sequence length — a rare word becomes several tokens instead of one — but the model never has to guess what an unknown token was supposed to be.` },
+      { type: 'h2', text: `What about the output side? Copying names` },
+      { type: 'paragraph', text: `Subwords fix the representation problem, but translation has a second problem with names: the model still has to generate the name correctly in the target language. A name usually should not be translated at all — it should be copied, or transliterated, from the source.` },
+      { type: 'paragraph', text: `Subwords help here too, because the model can generate the name piece by piece, copying the pieces from the source. But the classic extra mechanism is a copy mechanism, or pointer network: the model learns to attend to a source token and copy it directly to the output, instead of generating it from its vocabulary. That is especially useful for names, numbers, and dates, where the correct output is literally the input, and generating it from a distribution over the vocabulary is the hard way to do it.` },
+      { type: 'paragraph', text: `In an interview, name the copy mechanism as the complement to subwords: subwords let the model represent a rare word, copying lets it reproduce a name exactly. You do not need to choose between them — modern systems use subwords as the default, and copying, or just the attention mechanism learning to copy subwords, handles the names.` },
+      { type: 'h2', text: `What would you not do?` },
+      { type: 'list', ordered: false, items: [
+        `**Do not just make the vocabulary bigger.** Going from 50,000 to 200,000 words moves the edge, but it does not remove it. The next name, the next compound, is still beyond it, and every new word you add is a row in the embedding matrix that is trained on almost no data.`,
+        `**Do not just add more unknown tokens.** Splitting the unknown token into a few categories does not give the model the information inside the word. It still cannot tell two unknown names apart.`,
+        `**Do not use character-level tokenisation for everything.** Characters solve the unknown problem completely, but they make sequences very long, and the model has to learn to assemble words from letters on every step. Subwords are the middle ground: short sequences for common words, and a fallback to pieces for rare ones.`
+      ]},
+      { type: 'h2', text: `So what's the actual answer?` },
+      { type: 'paragraph', text: `Replace the word-level vocabulary with subword tokenisation — BPE, WordPiece, or SentencePiece, ideally byte-level — so any word, including a name or a new German compound, is represented as a sequence of pieces the model already knows. That removes the unknown token entirely, and the model can translate the pieces instead of guessing at a hole. Add a copy mechanism for names that should be reproduced exactly, rather than generated.` },
+      { type: 'quote', text: `Do not teach the model more words. Teach it to build words from pieces, so there is no word it cannot build.` },
+      { type: 'divider' },
+      { type: 'h2', text: `The whole thing in five sentences` },
+      { type: 'list', ordered: true, items: [
+        `A word-level vocabulary of 50,000 words collapses every rarer word — names, German compounds, technical terms — into the same unknown token, losing the information inside the word.`,
+        `Making the vocabulary bigger does not fix this, because names and compounds are productive: there will always be a new one beyond the edge.`,
+        `Subword tokenisation, BPE or SentencePiece, splits text into pieces learned from frequency, so a rare word becomes several common pieces instead of an unknown token.`,
+        `Byte-level BPE goes further, starting from bytes, so every string in any language can be represented with no unknowns at all.`,
+        `For names on the output side, add a copy mechanism, so the model can reproduce a name exactly instead of generating it from its vocabulary.`
+      ]},
+      { type: 'callout', emoji: '📌', text: `A classic NLP interview question. The terms to remember are BPE, subwords, byte-level BPE, and copy mechanism.` }
+    ]
+  },
 ];
