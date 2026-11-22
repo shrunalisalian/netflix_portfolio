@@ -38615,4 +38615,63 @@ WELLBEING METRICS (not engagement metrics):
       { type: 'callout', emoji: '📌', text: `A classic quantisation interview question. The term to remember is AWQ — activation-aware weight quantisation, by scaling salient channels.` }
     ]
   },
+  {
+    slug: 'flashattention-what-you-give-up',
+    title: `FlashAttention Gives the Same Attention Output as the Standard Kernel, to Rounding, and Its Memory Grows Linearly with Sequence Length Instead of Quadratically. So What Do You Give Up by Switching?`,
+    subtitle: `A plain-English guide to FlashAttention's trade-off: what you lose when you stop materialising the attention matrix — the matrix itself, the time, and the flexibility.`,
+    date: 'November 21, 2026',
+    readTime: '8 min read',
+    tags: ['Machine Learning', 'Transformers', 'Systems', 'Interview Prep'],
+    coverEmoji: '⚡',
+    content: [
+      { type: 'callout', emoji: '🎯', text: `Interview question: "FlashAttention gives the same attention output as the standard kernel, to rounding, and its memory grows linearly with sequence length instead of quadratically. So what do you give up by switching?"` },
+      { type: 'paragraph', text: `FlashAttention sounds like a free lunch. Same output, to rounding, but the memory goes from quadratic in sequence length to linear, and it is faster too, because it avoids writing the attention matrix to slow memory and reading it back. If that were the whole story, there would be no reason to ever use the standard kernel again. But there is a trade-off, and it is worth naming precisely, because it is not in the output — it is in what you no longer have.` },
+      { type: 'paragraph', text: `Stripped of jargon, the answer is just this: **you give up the attention matrix itself. You can no longer read it, inspect it, reuse it, or do anything that needs the full N-by-N matrix — and you still pay quadratic time, plus recomputation in the backward pass.**` },
+      { type: 'h2', text: `What FlashAttention actually does` },
+      { type: 'paragraph', text: `Standard attention computes the full N-by-N matrix of scores — query times key, scaled, softmaxed — and then multiplies it by the values. That matrix is N squared numbers, and for a long sequence it does not fit in memory, and even when it does, writing it to high-bandwidth memory and reading it back is the bottleneck.` },
+      { type: 'paragraph', text: `FlashAttention never materialises that matrix. It tiles the queries, keys, and values into blocks that fit in the GPU's fast SRAM, computes attention block by block, and keeps a running maximum and a running sum so it can do the softmax online, rescaling as it goes. The output is the same, to rounding, but the only things ever written to slow memory are the queries, keys, values, and the output — all linear in N.` },
+      { type: 'list', ordered: false, items: [
+        `**Memory:** standard attention is O(N²), for the attention matrix. FlashAttention is O(N), for the inputs and the output.`,
+        `**Time:** both are O(N²) in compute. FlashAttention does the same number of multiply-adds — it just does them in SRAM, in tiles, instead of in slow memory.`,
+        `**Output:** the same, to floating-point rounding, because the online softmax with rescaling is mathematically equivalent to the full softmax.`
+      ]},
+      { type: 'quote', text: `FlashAttention does not make attention cheaper. It makes it use less memory, by never writing down the thing it is computing.` },
+      { type: 'h2', text: `What you give up first: the attention matrix` },
+      { type: 'paragraph', text: `The most direct thing you give up is the matrix itself. In standard attention, after the forward pass, you have the N-by-N matrix of attention weights sitting in memory, and you can do whatever you want with it. In FlashAttention, that matrix never exists as a whole — it exists only as tiles, in SRAM, for a moment, and then it is gone.` },
+      { type: 'list', ordered: false, items: [
+        `**Interpretability and visualisation.** You cannot look at the attention weights to see which tokens the model attended to, which heads are doing what, or whether a head has learned a syntactic pattern. Attention maps, attention rollout, and head probing all need the matrix, and FlashAttention does not give it to you.`,
+        `**Reusing the weights.** You cannot use the attention weights as features for a downstream task, or as a signal for something else — for example, using attention to align tokens, to extract spans, or to guide a retrieval step. If a later part of your model needs the weights, you have to compute them separately, which defeats the purpose.`,
+        `**Operations that need the full matrix.** Anything that operates on the attention matrix as a whole — applying a complex mask after the softmax, normalising it in a way that needs all the entries, or doing a second pass over it — cannot be done inside FlashAttention, because the matrix is never whole.`
+      ]},
+      { type: 'paragraph', text: `That is the core trade-off, and it is the one interviewers are usually looking for. FlashAttention is a fused kernel that computes the output and throws away the intermediate. If you needed the intermediate, you have lost it.` },
+      { type: 'h2', text: `What you give up second: time is still quadratic` },
+      { type: 'paragraph', text: `FlashAttention's memory is linear, but its time is still quadratic. It still has to compute every query-key pair, because attention is, by definition, every token attending to every other token. For a sequence of 100,000 tokens, that is 10 billion pairs, and no tiling changes that. FlashAttention makes each pair cheaper, by keeping it in SRAM, but it does not make there be fewer pairs.` },
+      { type: 'paragraph', text: `That matters because it is easy to misread "linear memory" as "linear attention". It is not. If you need truly linear time, you need a different attention mechanism — a sparse pattern, a sliding window, a linear attention approximation, or a state-space model — not FlashAttention. FlashAttention lets you run long sequences without running out of memory, but it does not let you run them fast in the way a linear-time method would.` },
+      { type: 'callout', emoji: '💡', text: `Memory is O(N). Time is still O(N²). FlashAttention fixes the memory wall, not the compute wall.` },
+      { type: 'h2', text: `What you give up third: recomputation in the backward pass` },
+      { type: 'paragraph', text: `In the backward pass, standard attention can reuse the attention matrix it saved in the forward pass to compute the gradients. FlashAttention did not save it — that was the point — so it has to recompute it. It recomputes the attention, block by block, in the backward pass, which costs extra FLOPs and extra time.` },
+      { type: 'paragraph', text: `In practice, that recomputation is cheap compared to the memory saving, because recomputing in SRAM is faster than reading a huge matrix from slow memory. But it is a real cost, and it is a trade-off: FlashAttention trades compute for memory in the backward pass, by doing the forward computation twice. If your bottleneck is compute, not memory, that trade can hurt.` },
+      { type: 'h2', text: `What you give up fourth: flexibility and portability` },
+      { type: 'paragraph', text: `Standard attention is a few lines of PyTorch: a matrix multiplication, a softmax, another matrix multiplication. You can change it in a minute — add a bias, change the mask, use a custom score function, or try a new variant. FlashAttention is a fused CUDA kernel, written for specific hardware, with specific constraints on head dimension, data type, and layout.` },
+      { type: 'list', ordered: false, items: [
+        `**Custom masks and biases are harder.** Early FlashAttention supported only causal and simple masks; arbitrary attention biases, relative position biases, and complex masking patterns needed separate handling, or a different kernel. Later versions added more support, but a fused kernel will always be less flexible than a few lines of PyTorch.`,
+        `**Hardware-specific.** FlashAttention is written for GPUs with a large SRAM, and its performance depends on that hardware. On a different accelerator, or on a CPU, the same code may not run, or may not be fast. Standard attention runs everywhere, slowly but correctly.`,
+        `**Constraints on shapes.** Head dimensions are typically limited — 64, 128, or 256 — and data types are limited to FP16 and BF16. If your model uses a head dimension outside that, or a different dtype, FlashAttention may not support it, and you fall back to the standard kernel.`
+      ]},
+      { type: 'paragraph', text: `That is why FlashAttention is a library you import, not a formula you write. The flexibility you give up is the ability to change attention in a line of code, and the portability you give up is the ability to run the same code on any hardware.` },
+      { type: 'h2', text: `So what's the actual answer?` },
+      { type: 'paragraph', text: `You give up the attention matrix itself — you can no longer read it, visualise it, reuse it, or operate on it as a whole, because FlashAttention never materialises it. You also give up nothing in time: the compute is still quadratic in sequence length, only the memory is linear. And you give up flexibility and portability: the backward pass has to recompute attention, custom masks and biases are harder, and the fused kernel is tied to specific hardware and shapes. What you gain is the ability to run long sequences without the N-by-N matrix ever touching slow memory.` },
+      { type: 'quote', text: `FlashAttention is not a different attention. It is the same attention, computed without ever writing down the matrix — and that is both its power and its price.` },
+      { type: 'divider' },
+      { type: 'h2', text: `The whole thing in five sentences` },
+      { type: 'list', ordered: true, items: [
+        `FlashAttention computes the same attention output, to rounding, by tiling the computation in SRAM and doing the softmax online, so it never materialises the N-by-N matrix.`,
+        `Its memory is O(N) instead of O(N²), but its time is still O(N²) — it does the same number of query-key pairs, just in fast memory.`,
+        `What you give up is the matrix itself: you cannot inspect it, visualise it, reuse it as features, or operate on it as a whole.`,
+        `The backward pass has to recompute attention, trading extra compute for the memory saving.`,
+        `And you give up flexibility and portability: custom masks, biases, and shapes are harder in a fused CUDA kernel than in a few lines of PyTorch, and the kernel is tied to specific hardware.`
+      ]},
+      { type: 'callout', emoji: '📌', text: `A classic systems interview question. The terms to remember are online softmax, tiling in SRAM, and the materialised attention matrix.` }
+    ]
+  },
 ];
