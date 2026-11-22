@@ -38911,4 +38911,58 @@ WELLBEING METRICS (not engagement metrics):
       { type: 'callout', emoji: '📌', text: `A classic systems interview question. The terms to remember are Amdahl's law, compute-bound versus memory-bound, and the MLP share of a Transformer step.` }
     ]
   },
+  {
+    slug: 'attention-score-decoder-state-cancels-softmax',
+    title: `A Translation Model Scores Each Source Word as a Times the Decoder's Current State Plus b Times That Word's Encoding, Then Runs a Softmax over the Scores. What's Wrong with the Scoring Function?`,
+    subtitle: `A plain-English guide to a classic attention bug: why a score that adds the decoder state and the source word separately lets the decoder state cancel out in the softmax.`,
+    date: 'November 21, 2026',
+    readTime: '8 min read',
+    tags: ['Machine Learning', 'NLP', 'Transformers', 'Interview Prep'],
+    coverEmoji: '🎯',
+    content: [
+      { type: 'callout', emoji: '🎯', text: `Interview question: "A translation model scores each source word as a times the decoder's current state plus b times that word's encoding, then runs a softmax over the scores. What's wrong with the scoring function?"` },
+      { type: 'paragraph', text: `The model is supposed to attend to different source words at different times. At the start of the translation, it should attend to the first source word. Halfway through, it should attend to the middle. At the end, it should attend to the last. That is what attention is for: a dynamic alignment, driven by what the decoder is doing right now.` },
+      { type: 'paragraph', text: `With this scoring function, it cannot do that. Stripped of jargon, the answer is just this: **the decoder-state term is the same for every source word, so it cancels out in the softmax, and the attention weights do not depend on the decoder state at all.**` },
+      { type: 'h2', text: `The score, written out` },
+      { type: 'paragraph', text: `For each source word i, with encoding h_i, and the decoder's current state s, the score is:` },
+      { type: 'code', language: 'text', code: `score_i = a · s + b · h_i` },
+      { type: 'paragraph', text: `Here a and b are learned vectors, and the dot is a dot product, so each term is a scalar. The first term, a · s, depends on the decoder state s, but it does not depend on i — it is the same number for every source word. The second term, b · h_i, depends on the source word i, but it does not depend on s — it is the same number for a given source word, no matter what the decoder is doing.` },
+      { type: 'paragraph', text: `The attention weights are the softmax of those scores over i:` },
+      { type: 'code', language: 'text', code: `α_i = exp(score_i) / Σ_j exp(score_j)\n    = exp(a·s + b·h_i) / Σ_j exp(a·s + b·h_j)` },
+      { type: 'paragraph', text: `Now factor out the term that does not depend on i. exp(a·s + b·h_i) is exp(a·s) times exp(b·h_i), and exp(a·s) is the same for every i, so it factors out of both the numerator and the denominator, and cancels.` },
+      { type: 'code', language: 'text', code: `α_i = exp(a·s) · exp(b·h_i) / [ exp(a·s) · Σ_j exp(b·h_j) ]\n    = exp(b·h_i) / Σ_j exp(b·h_j)` },
+      { type: 'paragraph', text: `The decoder state s is gone. The attention weights depend only on the source words, through b · h_i, and not at all on what the decoder is doing. Softmax is invariant to adding the same constant to every score, and a · s is exactly that constant — the same for every i.` },
+      { type: 'quote', text: `Softmax does not care about a constant added to every score. If your decoder term is the same for every source word, the softmax will delete it for you.` },
+      { type: 'h2', text: `What that means for the translation` },
+      { type: 'paragraph', text: `The attention weights are fixed for a given source sentence. They do not change as the decoder generates word after word, because they do not depend on the decoder state. The model attends to the same source words, with the same weights, at every step of the decoding — whether it is translating the first word, the middle word, or the last word.` },
+      { type: 'list', ordered: false, items: [
+        `**No dynamic alignment.** The model cannot attend to the first source word at the start and the last source word at the end, because its attention does not move. It is a static weighting of the source sentence, computed once, and reused at every step.`,
+        `**The decoder state is wasted.** The model learns a vector a, and computes a · s at every step, and that computation has no effect on the output. The gradient through a is zero — or, more precisely, the gradient of the loss with respect to a is zero, because a only enters the scores through a term that cancels — so a never learns anything useful.`,
+        `**It is a bag of source words, again.** With the decoder state cancelled, the context vector the decoder receives is a fixed weighted average of the source encodings, with weights that depend only on the source words themselves. That is a static summary of the sentence, not an attention mechanism.`
+      ]},
+      { type: 'paragraph', text: `That is why the model will still train, and will still produce something — a static weighting can still carry some information about the source sentence, and the decoder can still use that, plus its own state, to generate a translation. But it will be a much worse translation than a model whose attention actually moves, because it cannot align the source and target word by word, which is the whole point of attention in translation.` },
+      { type: 'callout', emoji: '💡', text: `If a term in your score does not depend on i, it will not survive the softmax. That is a one-line check you can do on any attention scoring function, before you train it.` },
+      { type: 'h2', text: `How would you fix it?` },
+      { type: 'paragraph', text: `The score has to depend on the interaction between the decoder state and the source word — on how well this source word matches what the decoder needs right now. That interaction has to be inside the score, in a way that does not separate into a term in s alone plus a term in h_i alone. There are two standard ways to do that.` },
+      { type: 'list', ordered: false, items: [
+        `**Bahdanau, additive attention with a non-linearity.** Score_i = v^T tanh(W·s + U·h_i). The tanh is the key: tanh of a sum is not the sum of tanhes, so the score does not separate into a term in s plus a term in h_i. The decoder state and the source word interact inside the tanh, and the resulting score depends on both, jointly. That is the original Bahdanau attention, and it is the direct fix for this bug.`,
+        `**Luong, multiplicative attention.** Score_i = s^T · W · h_i, or simply s^T · h_i for dot-product attention. The score is a bilinear form — it multiplies the decoder state and the source encoding together — so it is zero if either is zero, and it is large when they align. It cannot separate, because it is a product, not a sum. That is the attention used in the Transformer, where the query and the key are multiplied.`
+      ]},
+      { type: 'paragraph', text: `Notice what both fixes have in common: the score is a function of s and h_i together, not a sum of a function of s and a function of h_i. Any scoring function that separates like that will have the same bug, no matter how complicated the two separate functions are. The interaction is the attention.` },
+      { type: 'paragraph', text: `A useful test, before you train: hold the source sentence fixed, change the decoder state, and see if the attention weights change. If they do not, your scoring function has this bug. Hold the decoder state fixed, change a source word, and see if the weights change — they should, and they will, even with the buggy score, because b · h_i does depend on i. The first test is the one that catches it.` },
+      { type: 'h2', text: `So what's the actual answer?` },
+      { type: 'paragraph', text: `The score is a · s plus b · h_i, and the first term is the same for every source word i, so it cancels out in the softmax over i. The attention weights end up depending only on the source words, through b · h_i, and not at all on the decoder state. The model cannot attend to different source words at different steps, because its attention does not move with the decoder. Fix it with a score that interacts the decoder state and the source word — Bahdanau's v^T tanh(W·s + U·h_i), or Luong's s^T·W·h_i — so the score depends on both jointly and the decoder state survives the softmax.` },
+      { type: 'quote', text: `Attention is an interaction. If your score adds the query and the key separately, the softmax will subtract the query away.` },
+      { type: 'divider' },
+      { type: 'h2', text: `The whole thing in five sentences` },
+      { type: 'list', ordered: true, items: [
+        `The score for source word i is a·s + b·h_i, where the first term depends on the decoder state but not on i, and the second depends on i but not on the decoder state.`,
+        `Softmax is invariant to adding the same constant to every score, so a·s — the same for every i — factors out of the numerator and denominator and cancels.`,
+        `The attention weights therefore depend only on the source words, not on the decoder state, so they are fixed for a given source sentence and do not move as decoding proceeds.`,
+        `The model cannot align source and target word by word, which is the point of attention in translation.`,
+        `Fix it with a score that interacts the two — Bahdanau's v^T tanh(W·s + U·h_i) or Luong's s^T·W·h_i — so the decoder state survives the softmax.`
+      ]},
+      { type: 'callout', emoji: '📌', text: `A classic attention interview question. The term to remember is softmax invariance to a constant — and the fix is an interaction, not a sum.` }
+    ]
+  },
 ];
