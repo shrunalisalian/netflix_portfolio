@@ -38154,4 +38154,59 @@ WELLBEING METRICS (not engagement metrics):
       { type: 'callout', emoji: '📌', text: `A classic RLHF interview question. The number to remember is human-human agreement — measure it before you debug the model.` }
     ]
   },
+  {
+    slug: 'bert-two-masks-disagree-independent-predictions',
+    title: `We Gave BERT "She Flew from [MASK] [MASK] to London." and Kept the Most Likely Word at Each Mask from a Single Run. Why Can the Two Picks Disagree Like That?`,
+    subtitle: `A plain-English guide to BERT's independent mask predictions: why the best word at each mask, on its own, can make a pair that makes no sense together.`,
+    date: 'November 21, 2026',
+    readTime: '8 min read',
+    tags: ['Machine Learning', 'NLP', 'Transformers', 'Interview Prep'],
+    coverEmoji: '🎭',
+    content: [
+      { type: 'callout', emoji: '🎯', text: `Interview question: "We gave BERT 'She flew from [MASK] [MASK] to London.' and kept the most likely word at each mask from a single run. Why can the two picks disagree like that?"` },
+      { type: 'paragraph', text: `"She flew from New York to London." That is a sensible answer. "She flew from San Francisco to London." That is also sensible. But BERT, in a single run, can give you "She flew from New York to London" at one mask and "San Francisco" at the other — or, more precisely, "New" at the first mask and "Francisco" at the second. The two picks disagree, and the sentence they make together is nonsense.` },
+      { type: 'paragraph', text: `Stripped of jargon, the answer is just this: **BERT predicts each mask independently. It never sees the other mask's answer, so the two answers never have to agree with each other.**` },
+      { type: 'h2', text: `What BERT actually predicts, in one run` },
+      { type: 'paragraph', text: `When you give BERT a sentence with two masks, it does one forward pass. For each mask position, it outputs a probability distribution over the vocabulary, conditioned on all the unmasked words — "She flew from", "to London", and the period — and on the fact that the other position is masked.` },
+      { type: 'paragraph', text: `Crucially, the distribution at the first mask does not depend on what the second mask turns out to be. And the distribution at the second mask does not depend on what the first mask turns out to be. Each mask is predicted from the same context, in parallel, with no communication between them.` },
+      { type: 'list', ordered: false, items: [
+        `**At mask 1,** the model asks: given "She flew from ___ ___ to London", what word is most likely here? "New" is a good answer. So is "San". So is "Los".`,
+        `**At mask 2,** the model asks: given the same context, what word is most likely here? "York" is a good answer. So is "Francisco". So is "Angeles".`,
+        `**Taking the argmax at each position** — the single most likely word at mask 1, and the single most likely word at mask 2 — gives you one word from each list. But there is nothing in the model that checks whether those two words go together.`
+      ]},
+      { type: 'paragraph', text: `The model was trained to do exactly this. In masked language modelling, each masked token is predicted independently, given the unmasked context. The training loss is the sum of the log probabilities of each masked token on its own. It never trains the model to predict the two masked tokens *jointly*, as a pair.` },
+      { type: 'quote', text: `BERT does not predict a pair of words. It predicts two words, in parallel, and hopes they happen to match.` },
+      { type: 'h2', text: `The independence assumption, in one sentence` },
+      { type: 'paragraph', text: `Formally, BERT factorises the probability of the masked tokens as a product of their individual probabilities, conditioned on the unmasked context. It assumes the masked tokens are conditionally independent given the context. That assumption is false for a city name — "New" and "York" are not independent, they almost always come together — but it is the assumption BERT is trained with, and it is what makes masked language modelling tractable.` },
+      { type: 'code', language: 'text', code: `p(New, York | context) is modelled as\n  p(New | context) x p(York | context)\nnot as\n  p(New | context) x p(York | New, context)` },
+      { type: 'paragraph', text: `The second form is the correct one for a pair that has to agree. It says: first pick "New", then pick the second word *given* that the first was "New". That is what an autoregressive model does — it predicts one token, feeds it back in, and then predicts the next. BERT does not do that in a single run. It predicts both at once, from the same masked context, so the second word never gets to see the first word's choice.` },
+      { type: 'paragraph', text: `That is why the picks can disagree. "New" is the most likely first word, marginally, because New York is the most common city in this context. "Francisco" is the most likely second word, marginally, because San Francisco is also common — and because, averaged over all the possible first words, "Francisco" happens to win at the second position. The marginal winners do not have to form a joint winner. In fact, the pair "New Francisco" can have a very low joint probability, even though each word on its own was the most likely at its position.` },
+      { type: 'callout', emoji: '💡', text: `The most likely word at each position, on its own, is not the same as the most likely pair of words together. That is the whole bug, in one line.` },
+      { type: 'h2', text: `How would you fix it?` },
+      { type: 'paragraph', text: `If you need the two masks to agree, you have to break the independence — you have to let the second prediction see the first one. There are a few standard ways to do that, and they are worth naming in order.` },
+      { type: 'list', ordered: false, items: [
+        `**Mask one at a time.** Fill in the first mask, then re-run BERT with that word in place and only the second mask still masked. Now the second prediction is conditioned on the first word, so it will pick "York" after "New", not "Francisco". This is sequential, iterative decoding, and it is the simplest fix.`,
+        `**Mask-Predict, iteratively.** Start with both masks, pick the most confident prediction, fill it in, and re-run with the other mask still masked. Repeat until both are filled. This is the Mask-Predict algorithm from non-autoregressive translation, and it lets the confident mask anchor the uncertain one.`,
+        `**Gibbs sampling.** Sample one mask at a time, conditioned on the other mask's current value, and iterate. Over many steps the samples come from the joint distribution, not the product of the marginals, so the pair will be coherent.`,
+        `**Use an autoregressive model instead.** A left-to-right model predicts the second word given the first by construction, so it cannot produce "New Francisco". If joint coherence matters more than bidirectionality, that is the right tool.`
+      ]},
+      { type: 'paragraph', text: `Notice what all of these have in common: they all take more than one run. A single BERT forward pass cannot, by itself, produce a coherent pair, because a single pass predicts the masks independently. Coherence needs either multiple passes, or a different model.` },
+      { type: 'h2', text: `Why does this matter beyond this example?` },
+      { type: 'paragraph', text: `This is not just a quirk of city names. Any time two masked tokens depend on each other — a verb and its object, a name and its surname, a number and its unit — the same thing can happen. BERT will pick the best word at each position on its own, and the combination can be incoherent, even though each individual pick looked confident.` },
+      { type: 'paragraph', text: `That is also why BERT is a good encoder and a poor generator. For understanding a sentence, predicting each masked word independently is fine — you just need a good representation of each word in context. For generating a sentence, where the words have to agree with each other, you need joint decoding, and BERT's single-pass predictions are the wrong tool for that job on their own.` },
+      { type: 'h2', text: `So what's the actual answer?` },
+      { type: 'paragraph', text: `BERT predicts each mask independently, conditioned only on the unmasked context, not on the other mask's prediction. Taking the argmax at each position gives you the most likely word at that position marginally, but those marginal winners do not have to form a coherent pair — "New" can win at the first mask and "Francisco" can win at the second, even though "New Francisco" is not a city. To make them agree, you have to decode sequentially: fill in one mask, re-run with it in place, and then predict the other.` },
+      { type: 'quote', text: `BERT's masks do not talk to each other. If you want them to agree, you have to let one of them answer first.` },
+      { type: 'divider' },
+      { type: 'h2', text: `The whole thing in five sentences` },
+      { type: 'list', ordered: true, items: [
+        `In a single BERT run, each mask is predicted independently, conditioned only on the unmasked words, not on the other mask's prediction.`,
+        `Taking the most likely word at each mask gives the marginal winners, which do not have to form a coherent pair — "New" and "Francisco" can each win on their own.`,
+        `That is because BERT's training loss factorises the masked tokens as independent given the context, which is false for a city name, a person's name, or any pair that has to agree.`,
+        `Fix it by decoding sequentially: fill in one mask, re-run BERT with it in place, and then predict the other mask conditioned on the first.`,
+        `Mask-Predict and Gibbs sampling are the iterative versions of the same idea, and an autoregressive model avoids the problem entirely by predicting the second word given the first.`
+      ]},
+      { type: 'callout', emoji: '📌', text: `A classic BERT interview question. The terms to remember are conditional independence, marginal versus joint, and Mask-Predict.` }
+    ]
+  },
 ];
