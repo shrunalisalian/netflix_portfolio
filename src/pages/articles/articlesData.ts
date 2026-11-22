@@ -37611,4 +37611,70 @@ WELLBEING METRICS (not engagement metrics):
       { type: 'callout', emoji: '📌', text: `A classic model-compression interview question. The terms to remember are GPTQ, Hessian, error compensation, and group size 128.` }
     ]
   },
+  {
+    slug: 'grpo-math-wrong-answers-longer',
+    title: `You're Training a Model on Math with GRPO, with a Reward of 1 for a Correct Final Answer and 0 Otherwise. What's Making the Wrong Answers Longer?`,
+    subtitle: `A plain-English guide to GRPO's length bias: why a 1-or-0 reward, with no cost for extra tokens, lets wrong answers ramble — and why GRPO penalises them less the longer they get.`,
+    date: 'November 21, 2026',
+    readTime: '8 min read',
+    tags: ['Machine Learning', 'LLM Training', 'Reinforcement Learning', 'Interview Prep'],
+    coverEmoji: '📏',
+    content: [
+      { type: 'callout', emoji: '🎯', text: `Interview question: "You're training a model on math with GRPO, with a reward of 1 for a correct final answer and 0 otherwise. What's making the wrong answers longer?"` },
+      { type: 'paragraph', text: `The first thing to notice is that the reward says nothing about length. A correct answer gets 1 whether it is 50 tokens or 5,000 tokens. A wrong answer gets 0 whether it is 50 tokens or 5,000 tokens. Length is free, in the reward, and the model is going to notice that.` },
+      { type: 'paragraph', text: `Stripped of jargon, the answer is just this: **wrong answers are longer because they are the ones that did not stop, and GRPO punishes long wrong answers less, per token, than short wrong ones.**` },
+      { type: 'h2', text: `Part one: correct answers stop, wrong answers keep going` },
+      { type: 'paragraph', text: `Think about what a math rollout actually looks like. The model starts working, tries an approach, and either reaches a final answer it is confident in, or it does not.` },
+      { type: 'list', ordered: false, items: [
+        `**If it reaches an answer,** it writes it down and stops. The rollout ends, and if the answer is right, it gets a 1. Short, clean, done.`,
+        `**If it does not reach an answer,** it does not stop. It tries another approach, backtracks, says "wait, let me try again", checks its arithmetic, and starts over. Every one of those attempts adds tokens, and every extra step is another chance to make a mistake.`
+      ]},
+      { type: 'paragraph', text: `So length and correctness are correlated before any training happens: the rollouts that found the answer early are short and correct, and the rollouts that never found it are long and wrong. That is a selection effect, and it is real — but on its own it does not explain why the wrong answers get *longer over training*. For that, you need the second part.` },
+      { type: 'quote', text: `A correct answer is a stopping point. A wrong answer is a search that never found one — so it keeps searching, in tokens.` },
+      { type: 'h2', text: `Part two: GRPO's length bias — long wrong answers are penalised less` },
+      { type: 'paragraph', text: `GRPO, group relative policy optimisation, works by sampling a group of rollouts for the same prompt, giving each one a reward, and then computing an advantage for each rollout relative to the group mean. A correct rollout gets a positive advantage, a wrong one gets a negative advantage, and the model is updated to make the positive ones more likely and the negative ones less likely.` },
+      { type: 'paragraph', text: `The catch is how that update is averaged over tokens. In standard GRPO, the loss for a rollout is divided by the length of that rollout. That means the per-token gradient for a long rollout is smaller than the per-token gradient for a short rollout with the same advantage.` },
+      { type: 'list', ordered: false, items: [
+        `**A short wrong answer,** say 100 tokens, with a negative advantage, gets a strong per-token push down. The model learns, quickly, not to do that again.`,
+        `**A long wrong answer,** say 2,000 tokens, with the same negative advantage, gets that same total push spread over 2,000 tokens. Per token, the penalty is twenty times smaller. The model barely learns not to do it.`
+      ]},
+      { type: 'paragraph', text: `This is the length bias identified in the Dr. GRPO paper. It works in both directions, and both directions push length up: short correct answers get a *larger* per-token reward than long correct ones, which is fine, but long wrong answers get a *smaller* per-token penalty than short wrong ones, which is not. The training signal that should be telling the model "stop rambling, this is not working" is diluted exactly when the rambling is worst.` },
+      { type: 'paragraph', text: `The standard-deviation normalisation in GRPO makes this worse on hard prompts. If almost every rollout for a prompt is wrong, the group mean is near 0 and the standard deviation is small, so the advantages are noisy and the length effect dominates. Those are exactly the prompts where the model rambles longest.` },
+      { type: 'callout', emoji: '💡', text: `The bias is in the denominator. Divide a rollout's loss by its length, and you have told the model that a long mistake costs less, per token, than a short one.` },
+      { type: 'h2', text: `Part three: there is no cost for trying again` },
+      { type: 'paragraph', text: `Put the two parts together with the reward, and the dynamics become clear. The only way to get a 1 is to eventually land on the correct final answer, and the only way to do that on a hard problem is to keep thinking. So the model learns that longer reasoning sometimes pays off — a long rollout that eventually gets it right is rewarded just as much as a short one that gets it right immediately.` },
+      { type: 'paragraph', text: `But a long rollout that gets it wrong costs nothing extra. There is no length penalty, no penalty for extra attempts, no penalty for hitting the context limit. So the model has no reason to learn when to give up, or when a line of reasoning is not working. It just keeps generating, because generating is free and stopping is what ends the chance of a reward.` },
+      { type: 'paragraph', text: `Over training, that asymmetry compounds: the correct answers that survive are the ones that found the answer, and the wrong answers that survive are the ones that kept going longest without finding it. The average length of the wrong group drifts up, step after step, even as accuracy improves.` },
+      { type: 'h2', text: `How would you check it?` },
+      { type: 'paragraph', text: `Do not just plot average length over training. Split it by reward, and the picture will be obvious.` },
+      { type: 'list', ordered: false, items: [
+        `**Plot length separately for correct and wrong rollouts, over training steps.** If the wrong group's length is climbing while the correct group's length is flat or falling, you are looking at the bias, not at "the model is thinking more".`,
+        `**Check how many wrong rollouts hit the maximum length.** If a large share of wrong answers are truncated at the context limit, they did not stop — they were cut off. That is the "did not find a stopping point" signature.`,
+        `**Count self-correction phrases in wrong versus correct rollouts.** "Wait", "let me try again", "actually", "alternatively" — if those appear far more often in wrong answers, and their frequency is rising over training, the model is learning to restart instead of to stop.`,
+        `**Compare the per-token advantage for long versus short wrong answers.** If the long ones are getting a much smaller per-token penalty, that is the GRPO length normalisation doing it, in your own logs.`
+      ]},
+      { type: 'h2', text: `What would you change?` },
+      { type: 'paragraph', text: `The fix depends on which part of the mechanism you want to remove, and a good answer names the standard ones in order.` },
+      { type: 'list', ordered: false, items: [
+        `**Use Dr. GRPO.** Remove the length normalisation and the standard-deviation normalisation from the advantage and the loss, so a rollout's update is not divided by its length. That is the direct fix for the bias, and it is the one the Dr. GRPO paper proposes: an unbiased advantage, with the loss averaged over tokens in the batch, not per rollout.`,
+        `**Use a token-level loss, as in DAPO.** Average the loss over all tokens in the batch, rather than averaging per rollout and then averaging rollouts. That way a long rollout contributes more tokens to the batch total, instead of having its penalty diluted by its own length.`,
+        `**Add a length cost, carefully.** A small penalty for length, or a reward that decays with length, gives the model a reason to stop. But do it carefully: too strong a penalty and the model stops thinking early on hard problems, and accuracy falls. The cleanest version is to only penalise length when it does not help — for example, by rewarding correct answers more when they are shorter, rather than penalising all long answers.`,
+        `**Cap the damage from truncation.** If wrong answers are hitting the context limit, lower the maximum length during training, or treat a truncated rollout as a distinct outcome, so the model does not learn that running out of tokens is a free way to end a rollout.`
+      ]},
+      { type: 'paragraph', text: `Notice what you do *not* do: you do not just add "be concise" to the prompt, and you do not just filter out long rollouts from the data. Both of those hide the symptom. The length is coming from the reward and the loss normalisation, so the fix has to be in the reward or the loss.` },
+      { type: 'h2', text: `So what's the actual answer?` },
+      { type: 'paragraph', text: `Wrong answers are longer for two reinforcing reasons. First, they are the rollouts that never found a confident final answer, so they kept trying new approaches instead of stopping. Second, GRPO divides each rollout's loss by its length, so a long wrong answer is penalised much less per token than a short wrong one — and with a 1-or-0 reward and no length cost, there is nothing pushing back against that.` },
+      { type: 'quote', text: `Length is free in the reward, and cheap in the loss. So the model spends it — and the rollouts that spend the most are the ones that never got it right.` },
+      { type: 'divider' },
+      { type: 'h2', text: `The whole thing in five sentences` },
+      { type: 'list', ordered: true, items: [
+        `With a reward of 1 for a correct final answer and 0 otherwise, length costs nothing, so the model has no reason to stop thinking on a hard problem.`,
+        `Correct rollouts stop when they find the answer, while wrong rollouts keep backtracking and restarting, so wrong answers are longer by selection alone.`,
+        `GRPO then makes it worse: its loss is divided by rollout length, so a long wrong answer gets a much smaller per-token penalty than a short wrong one.`,
+        `Check it by plotting length separately for correct and wrong rollouts over training, and by counting how many wrong rollouts hit the maximum length.`,
+        `Fix it with Dr. GRPO, removing the length and standard-deviation normalisations, or with a token-level loss as in DAPO, plus a careful length cost if needed.`
+      ]},
+      { type: 'callout', emoji: '📌', text: `A classic RL-for-reasoning interview question. The terms to remember are GRPO length bias, Dr. GRPO, and token-level loss.` }
+    ]
+  },
 ];
